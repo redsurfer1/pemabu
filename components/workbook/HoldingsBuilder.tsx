@@ -92,7 +92,32 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
     target_pct: "",
   });
 
-  const quotesMap = useMemo(() => quotesMapFromHoldings(holdings), [holdings]);
+  const quotesMap = useMemo(() => {
+    const m = quotesMapFromHoldings(holdings);
+    for (const h of holdings) {
+      if (h.asset_class === "cash" || h.ticker === "CASH") {
+        m.set(h.ticker, {
+          ticker: h.ticker,
+          price: 1.00,
+          currency: "USD",
+          asOf: new Date(),
+          source: "fixed",
+        });
+      }
+    }
+    return m;
+  }, [holdings]);
+
+  const totalPortfolioValue = useMemo(() => {
+    return holdings.reduce((sum, h) => {
+      const q = quotesMap.get(h.ticker);
+      const price = (h.asset_class === "cash" || h.ticker === "CASH")
+        ? 1.00
+        : (q?.price ?? Number(h.current_price ?? 0));
+      return sum + Number(h.quantity) * price;
+    }, 0);
+  }, [holdings, quotesMap]);
+
   const holdingWeights = useMemo(
     () => calculateHoldingWeights(holdings, quotesMap),
     [holdings, quotesMap],
@@ -104,10 +129,6 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
   const driftById = useMemo(
     () => new Map(holdingDrifts.map((d) => [d.holding_id, d])),
     [holdingDrifts],
-  );
-  const weightById = useMemo(
-    () => new Map(holdingWeights.map((w) => [w.holding_id, w.weight_pct])),
-    [holdingWeights],
   );
 
   function beginEdit(h: Holding) {
@@ -224,6 +245,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
                 <th className="pb-2 pr-2 text-left">Name</th>
                 <th className="pb-2 pr-2 text-left">Class</th>
                 <th className="pb-2 pr-2 text-right">Qty</th>
+                <th className="pb-2 pr-2 text-right">Value</th>
                 <th className="pb-2 pr-2 text-right">Cost</th>
                 <th className="pb-2 pr-2 text-right">Weight %</th>
                 <th className="pb-2 pr-2 text-right">1d %</th>
@@ -235,7 +257,6 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
             </thead>
             <tbody>
               {holdings.map((h: Holding) => {
-                const w = weightById.get(h.id) ?? 0;
                 const d = driftById.get(h.id);
                 const drift = d?.drift_pct ?? null;
                 const hasTarget = d?.has_target ?? false;
@@ -288,6 +309,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
                           className="w-20 rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
                         />
                       </td>
+                      <td className="py-2 pr-3 text-right text-xs text-gray-500">—</td>
                       <td className="py-2 pr-3 align-top">
                         <input
                           type="number"
@@ -364,12 +386,34 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
                     <td className="py-2 pr-3 text-right text-xs text-white">
                       {Number(h.quantity).toLocaleString()}
                     </td>
+                    <td className="py-2 pr-3 text-right text-xs text-white">
+                      {(() => {
+                        const q = quotesMap.get(h.ticker);
+                        const price = (h.asset_class === "cash" || h.ticker === "CASH")
+                          ? 1.00
+                          : (q?.price ?? Number(h.current_price ?? 0));
+                        const val = Number(h.quantity) * price;
+                        if (val === 0) return "\u2014";
+                        return `$${val.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}`;
+                      })()}
+                    </td>
                     <td className="py-2 pr-3 text-right text-xs text-gray-400">
-                      {h.cost_basis != null ? `$${Number(h.cost_basis).toLocaleString()}` : "—"}
+                      {h.cost_basis != null ? `$${Number(h.cost_basis).toLocaleString()}` : "\u2014"}
                     </td>
                     <td className="py-2 pr-3 text-right text-xs text-gray-300">
-                      {w.toFixed(2)}
-                      <span className="text-gray-500">%</span>
+                      {(() => {
+                        if (totalPortfolioValue === 0) return "\u2014";
+                        const q = quotesMap.get(h.ticker);
+                        const price = (h.asset_class === "cash" || h.ticker === "CASH")
+                          ? 1.00
+                          : (q?.price ?? Number(h.current_price ?? 0));
+                        const val = Number(h.quantity) * price;
+                        const weight = (val / totalPortfolioValue) * 100;
+                        return `${weight.toFixed(2)}%`;
+                      })()}
                     </td>
                     <td className={`py-2 pr-3 text-right text-xs font-medium ${changePctClass(h.last_change_pct)}`}>
                       {h.last_change_pct != null && Number.isFinite(Number(h.last_change_pct))
