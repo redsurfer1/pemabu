@@ -169,11 +169,19 @@ function PortfolioEnginePageContent() {
       `}</style>
       <div className="border-b border-[#1a1a24] px-6 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="font-['Space_Grotesk'] text-lg text-white">PEMABU /// Portfolio Engine</h1>
-            <p className="font-['DM_Mono'] text-xs text-[#888]">
-              Last refreshed: {lastRefreshed ?? "never"}
-            </p>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/dashboard"
+              className="rounded border border-[#333340] px-3 py-1 text-xs text-[#888] hover:border-[#00c896] hover:text-[#00c896] transition-colors"
+            >
+              &larr; Dashboard
+            </Link>
+            <div>
+              <h1 className="font-['Space_Grotesk'] text-lg text-white">PEMABU /// Portfolio Engine</h1>
+              <p className="font-['DM_Mono'] text-xs text-[#888]">
+                Last refreshed: {lastRefreshed ?? "never"}
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
