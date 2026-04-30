@@ -56,6 +56,7 @@ export const DEFAULT_TARGETS: AllocationTarget[] = [
   { asset_class: "fixed_income", target_pct: 28 },
   { asset_class: "alternatives", target_pct: 22 },
   { asset_class: "cash", target_pct: 12 },
+  { asset_class: "crypto", target_pct: 0 },
 ];
 
 // DRIFT_THRESHOLD_PCT: default % deviation that

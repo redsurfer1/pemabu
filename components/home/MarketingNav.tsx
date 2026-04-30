@@ -28,6 +28,12 @@ export default function MarketingNav({ onSignIn }: MarketingNavProps) {
             About
           </Link>
           <Link
+            href="/crypto"
+            className="cursor-pointer text-[13px] font-normal tracking-wide text-slate-500 no-underline hover:text-slate-300"
+          >
+            Crypto
+          </Link>
+          <Link
             href="/pricing"
             className="cursor-pointer text-[13px] font-normal tracking-wide text-slate-500 no-underline hover:text-slate-300"
           >

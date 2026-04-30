@@ -43,6 +43,10 @@ export default function AboutPage() {
                 label: "Snapshot history",
                 desc: "Point-in-time allocation records for review and compliance",
               },
+              {
+                label: "Crypto allocation",
+                desc: "Bitcoin, Ethereum, altcoins, and DeFi positions tracked against your digital asset sleeve target",
+              },
             ].map((item) => (
               <div key={item.label} className="rounded-lg border border-white/10 p-4">
                 <p className="mb-2 text-sm font-medium text-white">{item.label}</p>

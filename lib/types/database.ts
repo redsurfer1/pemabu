@@ -10,6 +10,7 @@ export type AssetClass =
   | "fixed_income"
   | "alternatives"
   | "cash"
+  | "crypto"
   | "other";
 
 export type HoldingSource = "manual" | "upload" | "csv_import";

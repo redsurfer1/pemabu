@@ -31,6 +31,14 @@ export const ALLOCATION_RING = [
     border: "rgba(107,114,128,0.2)",
     desc: "Liquidity reserves, hedges",
   },
+  {
+    label: "Crypto",
+    pct: "0%",
+    color: "#F7931A",
+    bg: "rgba(247,147,26,0.08)",
+    border: "rgba(247,147,26,0.2)",
+    desc: "Bitcoin, Ethereum, DeFi & altcoins",
+  },
 ] as const;
 
 export const DASHBOARD_NAV_TABS = [

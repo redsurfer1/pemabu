@@ -18,5 +18,21 @@ const publicSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
 });
 
-export const env = serverSchema.parse(process.env);
+type ServerEnv = z.infer<typeof serverSchema>;
+
+let _env: ServerEnv | null = null;
+
+export function getEnv(): ServerEnv {
+  if (!_env) {
+    _env = serverSchema.parse(process.env);
+  }
+  return _env;
+}
+
+export const env: ServerEnv = new Proxy({} as ServerEnv, {
+  get(_, prop: string) {
+    return getEnv()[prop as keyof ServerEnv];
+  },
+});
+
 export const publicEnv = publicSchema.parse(process.env);

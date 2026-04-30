@@ -14,7 +14,7 @@ import {
   type Quote,
 } from "@/lib/allocation/engine";
 
-const ASSET_CLASSES: AssetClass[] = ["equity", "fixed_income", "alternatives", "cash", "other"];
+const ASSET_CLASSES: AssetClass[] = ["equity", "fixed_income", "alternatives", "cash", "crypto", "other"];
 
 function quotesMapFromHoldings(holdings: Holding[]): Map<string, Quote> {
   const m = new Map<string, Quote>();

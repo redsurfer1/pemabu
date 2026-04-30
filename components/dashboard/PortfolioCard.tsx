@@ -13,6 +13,7 @@ const ASSET_CLASS_COLORS: Record<string, string> = {
   fixed_income: "#C9A84C",
   alternatives: "#3B82F6",
   cash: "#475569",
+  crypto: "#F7931A",
   other: "#6B7280",
 };
 
