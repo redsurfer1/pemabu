@@ -309,15 +309,17 @@ export function usePortfolioEngine(portfolioId: string) {
 
   const addHolding = useCallback(
     async (payload: HoldingInsert) => {
+      const assetClass = payload.asset_class ?? "equity";
+      const ticker = assetClass === "cash" ? "CASH" : payload.symbol.toUpperCase();
       const res = await fetch("/api/workbook/holdings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
           portfolio_id: portfolioId,
-          ticker: payload.symbol.toUpperCase(),
+          ticker,
           name: payload.name,
-          asset_class: payload.asset_class ?? "equity",
+          asset_class: assetClass,
           quantity: payload.quantity,
           source: "manual",
           ...(payload.expense_ratio != null ? { expense_ratio: payload.expense_ratio } : {}),

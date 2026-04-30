@@ -45,8 +45,28 @@ export async function GET(req: Request) {
     if (hErr) throw hErr;
 
     const allHoldings = (holdings ?? []) as Holding[];
-    const tickers = [...new Set(allHoldings.map((h) => h.ticker))];
-    log.push(`Refreshing ${tickers.length} unique tickers`);
+
+    const nonCashHoldings = allHoldings.filter(
+      (h) => h.asset_class !== "cash" && h.ticker !== "CASH",
+    );
+    const cashHoldings = allHoldings.filter(
+      (h) => h.asset_class === "cash" || h.ticker === "CASH",
+    );
+
+    const tickers = [...new Set(nonCashHoldings.map((h) => h.ticker))];
+    log.push(`Refreshing ${tickers.length} unique tickers (${cashHoldings.length} cash skipped)`);
+
+    for (const cashHolding of cashHoldings) {
+      await supabaseAdmin
+        .from("portfolio_holdings")
+        .update({
+          current_price: 1.00,
+          last_change_pct: 0,
+          last_price_refreshed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", cashHolding.id);
+    }
 
     const provider = getActiveProvider();
     const health = await provider.healthCheck();
@@ -72,6 +92,16 @@ export async function GET(req: Request) {
     }
 
     const quotesMap = toEngineQuotesMap(result.quotes);
+
+    if (cashHoldings.length > 0) {
+      quotesMap.set("CASH", {
+        ticker: "CASH",
+        price: 1.00,
+        currency: "USD",
+        asOf: new Date(),
+        source: "fixed",
+      });
+    }
 
     for (const holding of allHoldings) {
       const quote = quotesMap.get(holding.ticker);

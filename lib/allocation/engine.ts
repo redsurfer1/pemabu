@@ -347,8 +347,29 @@ export async function refreshPortfolioSignals(
       }
     : DEFAULT_ASSUMPTIONS;
 
-  const market = await Promise.all(holdings.map((h) => fetchMarketDataWithFallback(h.ticker)));
+  const nonCashHoldings = holdings.filter((h) => h.ticker !== "CASH");
+  const market = await Promise.all(nonCashHoldings.map((h) => fetchMarketDataWithFallback(h.ticker)));
   const marketByTicker = new Map(market.map((m) => [m.ticker, m]));
+
+  if (holdings.some((h) => h.ticker === "CASH")) {
+    marketByTicker.set("CASH", {
+      ticker: "CASH",
+      name: "Cash",
+      price1: 1.00,
+      price2: 1.00,
+      price3: 1.00,
+      basisPrice3mo: 1.00,
+      basisPrice6mo: 1.00,
+      basisPrice1yr: 1.00,
+      basisPrice3yr: 1.00,
+      basisPrice5yr: 1.00,
+      recentCloses: Array(40).fill(1.00) as number[],
+      volatility3mo: 0,
+      currency: "USD",
+      fetchedAt: new Date().toISOString(),
+      provider: "yahoo",
+    });
+  }
 
   const withBase = holdings.map((h) => {
     const md = marketByTicker.get(h.ticker) ?? null;

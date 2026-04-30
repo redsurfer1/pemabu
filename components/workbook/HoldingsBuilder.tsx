@@ -154,7 +154,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
   }
 
   async function handleAdd() {
-    if (!form.ticker || !form.quantity) return;
+    if ((!form.ticker && form.asset_class !== "cash") || !form.quantity) return;
     const expensePctRaw = form.expense_pct.trim();
     const expense_ratio =
       expensePctRaw !== "" && Number.isFinite(Number(expensePctRaw))
@@ -164,9 +164,11 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
     const target_weight_pct =
       targetRaw !== "" && Number.isFinite(Number(targetRaw)) ? Number(targetRaw) : undefined;
 
+    const ticker = form.asset_class === "cash" ? "CASH" : form.ticker.toUpperCase();
+
     await upsert({
       portfolio_id: portfolioId,
-      ticker: form.ticker.toUpperCase(),
+      ticker,
       name: form.name || undefined,
       asset_class: form.asset_class,
       quantity: Number(form.quantity),
@@ -242,10 +244,13 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
                       <td className="py-2 pr-3 align-top">
                         <span
                           className="font-mono text-xs text-white/80"
-                          title="To change ticker, delete and re-add this holding."
+                          title={editForm.asset_class === "cash" ? "Cash ticker is always CASH" : "To change ticker, delete and re-add this holding."}
                         >
-                          {h.ticker}
+                          {editForm.asset_class === "cash" ? "CASH" : h.ticker}
                         </span>
+                        {editForm.asset_class === "cash" && (
+                          <p className="text-[10px] text-emerald-400 mt-0.5">$1.00 fixed</p>
+                        )}
                       </td>
                       <td className="py-2 pr-3 align-top">
                         <input
@@ -258,9 +263,10 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
                       <td className="py-2 pr-3 align-top">
                         <select
                           value={editForm.asset_class}
-                          onChange={(e) =>
-                            setEditForm((f) => ({ ...f, asset_class: e.target.value as AssetClass }))
-                          }
+                          onChange={(e) => {
+                            const ac = e.target.value as AssetClass;
+                            setEditForm((f) => ({ ...f, asset_class: ac }));
+                          }}
                           className="w-full min-w-[5.5rem] rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
                         >
                           {ASSET_CLASSES.map((ac) => (
@@ -441,9 +447,19 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
               <input
                 value={form.ticker}
                 onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
-                placeholder="e.g. VTI"
-                className="w-full rounded border border-white/20 bg-white/10 px-2 py-1.5 text-sm uppercase text-white placeholder-gray-500 outline-none"
+                disabled={form.asset_class === "cash"}
+                placeholder={form.asset_class === "cash" ? "CASH (auto)" : "e.g. VTI"}
+                className={`w-full rounded border bg-white/10 px-2 py-1.5 text-sm uppercase text-white placeholder-gray-500 outline-none ${
+                  form.asset_class === "cash"
+                    ? "border-white/10 opacity-60 cursor-not-allowed"
+                    : "border-white/20"
+                }`}
               />
+              {form.asset_class === "cash" && (
+                <p className="text-xs text-emerald-400 mt-1">
+                  Cash is priced at $1.00 USD &times; quantity
+                </p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs text-gray-400">Name</label>
@@ -458,7 +474,14 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
               <label className="mb-1 block text-xs text-gray-400">Asset class *</label>
               <select
                 value={form.asset_class}
-                onChange={(e) => setForm((f) => ({ ...f, asset_class: e.target.value as AssetClass }))}
+                onChange={(e) => {
+                  const ac = e.target.value as AssetClass;
+                  setForm((f) => ({
+                    ...f,
+                    asset_class: ac,
+                    ticker: ac === "cash" ? "CASH" : f.ticker === "CASH" ? "" : f.ticker,
+                  }));
+                }}
                 className="w-full rounded border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none"
               >
                 {ASSET_CLASSES.map((ac) => (
@@ -533,7 +556,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
             <button
               type="button"
               onClick={() => void handleAdd()}
-              disabled={isPending || !form.ticker || !form.quantity}
+              disabled={isPending || (!form.ticker && form.asset_class !== "cash") || !form.quantity}
               className="rounded bg-emerald-500 px-4 py-1.5 text-xs text-white transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "Saving..." : "Add holding"}

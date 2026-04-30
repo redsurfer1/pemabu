@@ -36,11 +36,16 @@ export const POST = withAuth(async (req, user, _ctx) => {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const portfolio = await getPortfolio(parsed.data.portfolio_id);
+  const holdingData = { ...parsed.data };
+  if (holdingData.asset_class === "cash") {
+    holdingData.ticker = "CASH";
+  }
+
+  const portfolio = await getPortfolio(holdingData.portfolio_id);
   if (!portfolio || portfolio.user_id !== user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const { portfolio_id, name, cost_basis, expense_ratio, target_weight_pct, ...rest } = parsed.data;
+  const { portfolio_id, name, cost_basis, expense_ratio, target_weight_pct, ...rest } = holdingData;
   try {
     const holding = await upsertHolding(portfolio_id, {
       ...rest,

@@ -100,13 +100,30 @@ export type UpsertHoldingInput = Pick<
 
 export async function upsertHolding(portfolioId: string, input: UpsertHoldingInput): Promise<Holding> {
   const supabase = await createClient();
+  const enrichedInput = { ...input };
+  if (input.asset_class === "cash") {
+    enrichedInput.ticker = "CASH";
+  }
+
   const { data, error } = await supabase
     .from("portfolio_holdings")
-    .upsert({ ...input, portfolio_id: portfolioId }, { onConflict: "portfolio_id,ticker" })
+    .upsert({ ...enrichedInput, portfolio_id: portfolioId }, { onConflict: "portfolio_id,ticker" })
     .select()
     .single();
 
   if (error) throw error;
+
+  if (input.asset_class === "cash") {
+    await supabase
+      .from("portfolio_holdings")
+      .update({
+        current_price: 1.00,
+        last_price_refreshed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", (data as Holding).id);
+  }
+
   return data as Holding;
 }
 
