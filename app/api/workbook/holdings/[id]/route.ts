@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const PatchHoldingSchema = z.object({
   name: z.string().max(200).nullable().optional(),
-  asset_class: z.enum(["equity", "fixed_income", "alternatives", "cash", "other"]).optional(),
+  asset_class: z.enum(["equity", "fixed_income", "alternatives", "cash", "crypto", "other"]).optional(),
   quantity: z.number().positive().optional(),
   cost_basis: z.number().nonnegative().nullable().optional(),
   currency: z.enum(["USD", "GBP", "EUR", "CAD", "AUD"]).optional(),

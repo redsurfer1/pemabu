@@ -16,6 +16,29 @@ type TiingoPriceRow = {
   adjClose?: number | null;
 };
 
+type TiingoCryptoPriceData = {
+  date: string;
+  close?: number | null;
+};
+
+type TiingoCryptoResponse = Array<{
+  ticker?: string;
+  baseCurrency?: string;
+  priceData?: TiingoCryptoPriceData[];
+}>;
+
+const CRYPTO_BASE_TICKERS = [
+  'btc', 'eth', 'sol', 'bnb', 'xrp', 'ada', 'avax', 'dot',
+  'matic', 'link', 'uni', 'ltc', 'doge', 'shib', 'arb', 'op', 'apt', 'sui',
+  'atom', 'near', 'ftm', 'inj', 'tia', 'aave', 'crv', 'mkr', 'gmx', 'ldo', 'rpl',
+  'snx', 'comp', 'yfi', 'sushi', 'bal', 'fxs', 'pendle', 'jto', 'wif',
+  'bonk', 'pepe', 'floki', 'sei', 'stx', 'imx', 'sand', 'mana', 'axs', 'grt',
+];
+
+function isCryptoTicker(ticker: string): boolean {
+  return CRYPTO_BASE_TICKERS.includes(ticker.toLowerCase().replace('-usd', ''));
+}
+
 function pickClosestClose(history: Array<{ tsMs: number; close: number }>, targetMs: number): number {
   let best = history[0]!;
   let bestDiff = Math.abs(best.tsMs - targetMs);
@@ -86,6 +109,70 @@ export async function fetchMarketDataTiingo(ticker: string): Promise<MarketDataR
   };
 
   let name = upper;
+
+  if (isCryptoTicker(upper)) {
+    try {
+      const baseTicker = upper.toLowerCase().replace('-usd', '');
+      const startDate = startDateFiveYearsAgo();
+      const cryptoUrl =
+        `https://api.tiingo.com/tiingo/crypto/prices?tickers=${encodeURIComponent(baseTicker)}usd` +
+        `&resampleFreq=1day&startDate=${encodeURIComponent(startDate)}`;
+      const cryptoRes = await fetch(cryptoUrl, { headers });
+      if (cryptoRes.ok) {
+        const cryptoData = (await cryptoRes.json()) as TiingoCryptoResponse;
+        const priceRows = cryptoData?.[0]?.priceData;
+        if (Array.isArray(priceRows) && priceRows.length >= 2) {
+          const history = priceRows
+            .map((row) => {
+              const close = row.close;
+              if (close == null || !Number.isFinite(close)) return null;
+              return { tsMs: dateStrToUtcMs(row.date), close };
+            })
+            .filter((x): x is { tsMs: number; close: number } => x != null)
+            .sort((a, b) => a.tsMs - b.tsMs);
+
+          if (history.length >= 2) {
+            const closes = history.map((h) => h.close);
+            const current = history[history.length - 1]!;
+            const nowMs = current.tsMs;
+
+            const price1 = current.close;
+            const price2 = pickClosestClose(history, nowMs - 1 * 24 * 3600 * 1000);
+            const price3 = pickClosestClose(history, nowMs - 7 * 24 * 3600 * 1000);
+            const basisPrice3mo = pickClosestClose(history, nowMs - 91 * 24 * 3600 * 1000);
+            const basisPrice6mo = pickClosestClose(history, nowMs - 183 * 24 * 3600 * 1000);
+            const basisPrice1yr = pickClosestClose(history, nowMs - 365 * 24 * 3600 * 1000);
+            const basisPrice3yr = pickClosestClose(history, nowMs - 1095 * 24 * 3600 * 1000);
+            const basisPrice5yr = pickClosestClose(history, nowMs - 1825 * 24 * 3600 * 1000);
+
+            const recentCloses = closes.slice(-40);
+            const volatility3mo = computeVolatilityAnnualized(closes);
+            void computeRSI(recentCloses);
+
+            return {
+              ticker: upper,
+              name: cryptoData[0]?.baseCurrency?.toUpperCase() ?? upper,
+              price1,
+              price2,
+              price3,
+              basisPrice3mo,
+              basisPrice6mo,
+              basisPrice1yr,
+              basisPrice3yr,
+              basisPrice5yr,
+              recentCloses,
+              volatility3mo,
+              currency: "USD",
+              fetchedAt: nowIso,
+            };
+          }
+        }
+      }
+    } catch {
+      /* fall through to standard daily endpoint */
+    }
+  }
+
   try {
     const metaRes = await fetch(`https://api.tiingo.com/tiingo/daily/${encodeURIComponent(upper)}`, {
       headers,

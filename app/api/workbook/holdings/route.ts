@@ -7,7 +7,7 @@ const UpsertHoldingSchema = z.object({
   portfolio_id: z.string().uuid(),
   ticker: z.string().min(1).max(20).toUpperCase(),
   name: z.string().max(200).optional(),
-  asset_class: z.enum(["equity", "fixed_income", "alternatives", "cash", "other"]),
+  asset_class: z.enum(["equity", "fixed_income", "alternatives", "cash", "crypto", "other"]),
   quantity: z.number().positive(),
   cost_basis: z.number().positive().optional(),
   currency: z.enum(["USD", "GBP", "EUR", "CAD", "AUD"]).default("USD"),

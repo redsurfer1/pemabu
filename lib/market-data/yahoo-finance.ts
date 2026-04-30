@@ -70,6 +70,22 @@ function computeVolatilityAnnualized(closes: number[]): number | null {
   return Math.round(stddev * Math.sqrt(252) * 1_000_000) / 1_000_000;
 }
 
+const CRYPTO_SUFFIXES = [
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'AVAX', 'DOT', 'MATIC',
+  'LINK', 'UNI', 'LTC', 'DOGE', 'SHIB', 'ARB', 'OP', 'APT', 'SUI',
+  'ATOM', 'NEAR', 'FTM', 'INJ', 'TIA', 'SEI', 'STX', 'IMX', 'SAND',
+  'MANA', 'AXS', 'GRT', 'AAVE', 'CRV', 'MKR', 'SNX', 'COMP', 'YFI',
+  'SUSHI', 'BAL', 'FXS', 'LDO', 'RPL', 'GMX', 'PENDLE', 'JTO', 'WIF',
+  'BONK', 'PEPE', 'FLOKI',
+];
+
+function normalizeTicker(ticker: string): string {
+  const t = ticker.trim().toUpperCase();
+  if (t.endsWith('-USD') || t.endsWith('-USDT') || t.endsWith('-BTC')) return t;
+  if (CRYPTO_SUFFIXES.includes(t)) return `${t}-USD`;
+  return t;
+}
+
 export async function fetchMarketData(ticker: string): Promise<MarketDataResult> {
   const upper = ticker.trim().toUpperCase();
   const nowIso = new Date().toISOString();
@@ -91,8 +107,9 @@ export async function fetchMarketData(ticker: string): Promise<MarketDataResult>
   };
 
   try {
+    const yahooTicker = normalizeTicker(upper);
     const url =
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(upper)}` +
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}` +
       `?interval=1d&range=5y`;
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
