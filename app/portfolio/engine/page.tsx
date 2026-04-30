@@ -95,11 +95,19 @@ function PortfolioEnginePageContent() {
     error,
     lastRefreshed,
     realtimeStatus,
+    assumptions: engineAssumptions,
     refreshSignals,
     addHolding,
     removeHolding,
     updateAssumptions,
   } = usePortfolioEngine(selected);
+
+  const [savedAssumptions, setSavedAssumptions] = useState<Assumptions>(DEFAULT_ASSUMPTIONS);
+
+  useEffect(() => {
+    setLocalAssumptions(engineAssumptions);
+    setSavedAssumptions(engineAssumptions);
+  }, [engineAssumptions]);
 
   const activeRows = useMemo(() => computed.filter((r) => r.rowStatus === "Active"), [computed]);
   const avgRsi = useMemo(() => {
@@ -406,7 +414,13 @@ function PortfolioEnginePageContent() {
           <AssumptionEditor
             assumptions={localAssumptions}
             onChange={setLocalAssumptions}
-            onSave={() => void updateAssumptions(localAssumptions)}
+            onSave={() => {
+              void (async () => {
+                await updateAssumptions(localAssumptions);
+                setSavedAssumptions(localAssumptions);
+              })();
+            }}
+            onCancel={() => setLocalAssumptions(savedAssumptions)}
           />
         </div>
       )}
@@ -532,10 +546,12 @@ function AssumptionEditor({
   assumptions,
   onChange,
   onSave,
+  onCancel,
 }: {
   assumptions: Assumptions;
   onChange: (a: Assumptions) => void;
   onSave: () => void;
+  onCancel: () => void;
 }) {
   const returnSum =
     assumptions.return_weights.r3mo +
@@ -586,7 +602,7 @@ function AssumptionEditor({
 
   return (
     <div className="space-y-4 rounded border border-[#1a1a24] bg-[#111118] p-4 text-xs">
-      <p className="font-['Space_Grotesk'] text-sm text-white">Assumptions</p>
+      <p className="font-['Space_Grotesk'] text-sm text-white">Assumption Weight for Ranking Calculation</p>
 
       <div>
         <p className="font-['DM_Mono'] text-[10px] uppercase tracking-widest text-[#888] mb-1">
@@ -649,14 +665,23 @@ function AssumptionEditor({
         </div>
       ))}
 
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={saveDisabled}
-        className="rounded border border-[#00c89655] px-3 py-1 text-[#00c896] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#00c89611]"
-      >
-        Save assumptions
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saveDisabled}
+          className="rounded border border-[#00c89655] px-3 py-1 text-xs text-[#00c896] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#00c89611]"
+        >
+          Save assumptions
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded border border-[#333340] px-3 py-1 text-xs text-[#888] hover:border-[#555] hover:text-white transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
