@@ -537,21 +537,38 @@ function AssumptionEditor({
   onChange: (a: Assumptions) => void;
   onSave: () => void;
 }) {
-  const liveSum =
+  const returnSum =
     assumptions.return_weights.r3mo +
     assumptions.return_weights.r6mo +
     assumptions.return_weights.r1yr +
     assumptions.return_weights.r3yr +
     assumptions.return_weights.r5yr;
-  const nearOne = Math.abs(liveSum - 1) <= 0.001;
-  const inRange = liveSum > 0.9 && liveSum < 1.1;
-  const isRed = !nearOne && !inRange;
-  const sumColor = nearOne ? "#00c896" : isRed ? "#ff6b6b" : "#f59e0b";
-  const sumLabel = nearOne
-    ? "Sum: 100% ✓"
-    : isRed
-      ? `Sum: ${(liveSum * 100).toFixed(1)}% — invalid, must be between 90% and 110%`
-      : `Sum: ${(liveSum * 100).toFixed(1)}% — will be normalised on save`;
+  const returnNearOne = Math.abs(returnSum - 1) <= 0.001;
+  const returnInRange = returnSum > 0.9 && returnSum < 1.1;
+  const returnIsRed = !returnNearOne && !returnInRange;
+  const returnSumColor = returnNearOne ? "#00c896" : returnIsRed ? "#ff6b6b" : "#f59e0b";
+  const returnSumLabel = returnNearOne
+    ? "Sum: 100% \u2713"
+    : returnIsRed
+      ? `Sum: ${(returnSum * 100).toFixed(1)}% \u2014 invalid`
+      : `Sum: ${(returnSum * 100).toFixed(1)}% \u2014 will be normalised on save`;
+
+  const factorSum =
+    assumptions.factor_weights.expense +
+    assumptions.factor_weights.pctWeight +
+    assumptions.factor_weights.divApy +
+    assumptions.factor_weights.volatility;
+  const factorNearOne = Math.abs(factorSum - 1) <= 0.001;
+  const factorInRange = factorSum > 0.9 && factorSum < 1.1;
+  const factorIsRed = !factorNearOne && !factorInRange;
+  const factorSumColor = factorNearOne ? "#00c896" : factorIsRed ? "#ff6b6b" : "#f59e0b";
+  const factorSumLabel = factorNearOne
+    ? "Sum: 100% \u2713"
+    : factorIsRed
+      ? `Sum: ${(factorSum * 100).toFixed(1)}% \u2014 invalid`
+      : `Sum: ${(factorSum * 100).toFixed(1)}% \u2014 will be normalised on save`;
+
+  const saveDisabled = returnIsRed || factorIsRed;
 
   function setWeight(key: keyof Assumptions["return_weights"], value: number) {
     onChange({
@@ -570,7 +587,13 @@ function AssumptionEditor({
   return (
     <div className="space-y-4 rounded border border-[#1a1a24] bg-[#111118] p-4 text-xs">
       <p className="font-['Space_Grotesk'] text-sm text-white">Assumptions</p>
-      <p style={{ color: sumColor }}>{sumLabel}</p>
+
+      <div>
+        <p className="font-['DM_Mono'] text-[10px] uppercase tracking-widest text-[#888] mb-1">
+          Historical Price Change
+        </p>
+        <p style={{ color: returnSumColor }}>{returnSumLabel}</p>
+      </div>
       {(
         [
           ["r3mo", "3mo"],
@@ -594,6 +617,15 @@ function AssumptionEditor({
           <span className="w-16 text-right">{(assumptions.return_weights[k] * 100).toFixed(0)}%</span>
         </div>
       ))}
+
+      <div className="border-t border-[#1a1a24] my-4" />
+
+      <div>
+        <p className="font-['DM_Mono'] text-[10px] uppercase tracking-widest text-[#888] mb-1">
+          Portfolio Factors
+        </p>
+        <p style={{ color: factorSumColor }}>{factorSumLabel}</p>
+      </div>
       {(
         [
           ["expense", "Expense"],
@@ -616,10 +648,11 @@ function AssumptionEditor({
           <span className="w-16 text-right">{(assumptions.factor_weights[k] * 100).toFixed(0)}%</span>
         </div>
       ))}
+
       <button
         type="button"
         onClick={onSave}
-        disabled={isRed}
+        disabled={saveDisabled}
         className="rounded border border-[#00c89655] px-3 py-1 text-[#00c896] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#00c89611]"
       >
         Save assumptions
