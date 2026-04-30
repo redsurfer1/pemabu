@@ -70,8 +70,9 @@ export const DRIFT_THRESHOLD_PCT = 5;
  * for display; use quotes for cron accuracy).
  */
 export function calculateHoldingValue(holding: Holding, quote?: Quote): number {
-  const price = quote?.price ?? holding.current_price ?? 0;
-  return Number(holding.quantity) * price;
+  const price = quote?.price ?? Number(holding.current_price ?? 0);
+  const qty = Number(holding.quantity ?? 0);
+  return qty * price;
 }
 
 /**
@@ -82,8 +83,21 @@ export function calculatePortfolioValue(
   holdings: Holding[],
   quotes: Map<string, Quote>,
 ): number {
+  const enrichedQuotes = new Map(quotes);
+  for (const h of holdings) {
+    if (h.asset_class === "cash" || h.ticker === "CASH") {
+      enrichedQuotes.set(h.ticker, {
+        ticker: h.ticker,
+        price: 1.00,
+        currency: "USD",
+        asOf: new Date(),
+        source: "fixed",
+      });
+    }
+  }
+
   return holdings.reduce((total, holding) => {
-    const quote = quotes.get(holding.ticker);
+    const quote = enrichedQuotes.get(holding.ticker);
     return total + calculateHoldingValue(holding, quote);
   }, 0);
 }

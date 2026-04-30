@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Holding, Portfolio, PortfolioSummary, Signal } from "@/lib/types/database";
+import type { AssetClass, Holding, HoldingSource, Portfolio, PortfolioSummary, Signal } from "@/lib/types/database";
 
 // ── Query keys ──────────────────────────────────────
 
@@ -263,10 +263,53 @@ export function useUpsertHolding() {
       }
       return res.json() as Promise<{ holding: Holding }>;
     },
+    onMutate: async (newHolding) => {
+      await qc.cancelQueries({ queryKey: portfolioKeys.holdings(newHolding.portfolio_id) });
+
+      const previousHoldings = qc.getQueryData<Holding[]>(
+        portfolioKeys.holdings(newHolding.portfolio_id),
+      );
+
+      qc.setQueryData<Holding[]>(
+        portfolioKeys.holdings(newHolding.portfolio_id),
+        (old = []) => [
+          ...old,
+          {
+            id: `temp-${Date.now()}`,
+            portfolio_id: newHolding.portfolio_id,
+            ticker: newHolding.ticker.toUpperCase(),
+            name: newHolding.name ?? null,
+            asset_class: newHolding.asset_class as AssetClass,
+            quantity: newHolding.quantity,
+            cost_basis: newHolding.cost_basis ?? null,
+            current_price: newHolding.asset_class === "cash" ? 1.00 : null,
+            currency: newHolding.currency ?? "USD",
+            source: (newHolding.source ?? "manual") as HoldingSource,
+            last_change_pct: null,
+            expense_ratio: newHolding.expense_ratio ?? null,
+            target_weight_pct: newHolding.target_weight_pct ?? null,
+            last_price_refreshed_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
+      );
+
+      return { previousHoldings };
+    },
+    onError: (_err, variables, context) => {
+      if (context?.previousHoldings !== undefined) {
+        qc.setQueryData(
+          portfolioKeys.holdings(variables.portfolio_id),
+          context.previousHoldings,
+        );
+      }
+    },
     onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: portfolioKeys.all });
       qc.invalidateQueries({ queryKey: portfolioKeys.holdings(variables.portfolio_id) });
-      qc.invalidateQueries({ queryKey: portfolioKeys.lists() });
       qc.invalidateQueries({ queryKey: ["consolidated"] });
+      qc.refetchQueries({ queryKey: portfolioKeys.holdings(variables.portfolio_id) });
     },
   });
 }

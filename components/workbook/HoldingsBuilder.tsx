@@ -166,28 +166,32 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
 
     const ticker = form.asset_class === "cash" ? "CASH" : form.ticker.toUpperCase();
 
-    await upsert({
-      portfolio_id: portfolioId,
-      ticker,
-      name: form.name || undefined,
-      asset_class: form.asset_class,
-      quantity: Number(form.quantity),
-      cost_basis: form.cost_basis ? Number(form.cost_basis) : undefined,
-      currency,
-      source: "manual",
-      ...(expense_ratio !== undefined ? { expense_ratio } : {}),
-      ...(target_weight_pct !== undefined ? { target_weight_pct } : {}),
-    });
-    setForm({
-      ticker: "",
-      name: "",
-      asset_class: "equity",
-      quantity: "",
-      cost_basis: "",
-      expense_pct: "",
-      target_pct: "",
-    });
-    setAdding(false);
+    try {
+      await upsert({
+        portfolio_id: portfolioId,
+        ticker,
+        name: form.name || undefined,
+        asset_class: form.asset_class,
+        quantity: Number(form.quantity),
+        cost_basis: form.cost_basis ? Number(form.cost_basis) : undefined,
+        currency,
+        source: "manual",
+        ...(expense_ratio !== undefined ? { expense_ratio } : {}),
+        ...(target_weight_pct !== undefined ? { target_weight_pct } : {}),
+      });
+      setForm({
+        ticker: "",
+        name: "",
+        asset_class: "equity",
+        quantity: "",
+        cost_basis: "",
+        expense_pct: "",
+        target_pct: "",
+      });
+      setAdding(false);
+    } catch (err) {
+      console.error("Failed to add holding:", err);
+    }
   }
 
   if (isLoading) {
