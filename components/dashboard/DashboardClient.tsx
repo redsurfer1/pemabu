@@ -134,7 +134,7 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
             Engine
           </Link>
           <span className="text-xs text-gray-500">
-            Total equity:{" "}
+            Total Value:{" "}
             <span className="font-medium text-white">
               $
               {totalEquity.toLocaleString(undefined, {
@@ -158,7 +158,7 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
         {portfolios.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr_280px]">
             <div className="space-y-4">
               <h2 className="text-xs font-medium uppercase tracking-wider text-gray-500">Your portfolios</h2>
               {portfolios.map((summary) => (

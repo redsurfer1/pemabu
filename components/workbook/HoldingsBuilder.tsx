@@ -214,16 +214,16 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-xs text-gray-500">
-                <th className="pb-2 pr-3 text-left">Ticker</th>
-                <th className="pb-2 pr-3 text-left">Name</th>
-                <th className="pb-2 pr-3 text-left">Class</th>
-                <th className="pb-2 pr-3 text-right">Qty</th>
-                <th className="pb-2 pr-3 text-right">Cost</th>
-                <th className="pb-2 pr-3 text-right">Weight %</th>
-                <th className="pb-2 pr-3 text-right">1d %</th>
-                <th className="pb-2 pr-3 text-right">Expense %</th>
-                <th className="pb-2 pr-3 text-right">Target %</th>
-                <th className="pb-2 pr-3 text-right">Δ</th>
+                <th className="pb-2 pr-2 text-left">Ticker</th>
+                <th className="pb-2 pr-2 text-left">Name</th>
+                <th className="pb-2 pr-2 text-left">Class</th>
+                <th className="pb-2 pr-2 text-right">Qty</th>
+                <th className="pb-2 pr-2 text-right">Cost</th>
+                <th className="pb-2 pr-2 text-right">Weight %</th>
+                <th className="pb-2 pr-2 text-right">1d %</th>
+                <th className="pb-2 pr-2 text-right">Expense %</th>
+                <th className="pb-2 pr-2 text-right">Target %</th>
+                <th className="pb-2 pr-2 text-right">Δ</th>
                 <th className="pb-2 text-right">Actions</th>
               </tr>
             </thead>
