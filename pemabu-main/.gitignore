@@ -44,3 +44,7 @@ next-env.d.ts
 .vercel
 .env*.local
 .env
+
+# Supabase CLI local state (keep supabase/migrations + supabase/functions in Git)
+supabase/.branches/
+supabase/.temp/
