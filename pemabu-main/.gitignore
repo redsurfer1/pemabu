@@ -41,28 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+.vercel
 .env*.local
-
-# python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-.venv/
-env/
-.envrc
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-*.egg-info/
-dist/
-build/
-*.egg
-
-# tooling / local
-.claude/
-.idea/
-*.swp
-*.swo
+.env
