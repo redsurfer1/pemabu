@@ -43,6 +43,10 @@ next-env.d.ts
 
 .env*.local
 
+# Supabase CLI local state (keep supabase/migrations + supabase/functions in Git)
+supabase/.branches/
+supabase/.temp/
+
 # python
 __pycache__/
 *.py[cod]
@@ -66,9 +70,3 @@ build/
 .idea/
 *.swp
 *.swo
-
-# Supabase CLI local state (keep supabase/migrations + supabase/functions in Git)
-supabase/.branches/
-supabase/.temp/
-pemabu-main/supabase/.branches/
-pemabu-main/supabase/.temp/

@@ -38,7 +38,6 @@
   ],
   "exclude": [
     "node_modules",
-    "supabase/functions",
-    "pemabu-main/supabase/functions"
+    "supabase/functions"
   ]
 }

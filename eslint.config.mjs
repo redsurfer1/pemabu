@@ -11,10 +11,7 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   {
-    ignores: [
-      "supabase/functions/**",
-      "pemabu-main/supabase/functions/**",
-    ],
+    ignores: ["supabase/functions/**"],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
