@@ -7,8 +7,8 @@ import type { SleeveDisplayData } from "./SleeveManager";
 import { AssumptionsPanel } from "./AssumptionsPanel";
 import type { EngineAssumptions, SleevePurpose, ComputedHolding, HoldingInput } from "@/types/allocation";
 import { DEFAULT_ENGINE_ASSUMPTIONS } from "@/types/allocation";
-import { computeMainSleeve, computeIncomeSleeve } from "@/lib/allocation/v3-engine";
-import type { IncomeHoldingInput } from "@/lib/allocation/v3-engine";
+import { computeMainSleeve, computeIncomeSleeve } from "@/lib/allocation/engine";
+import type { IncomeHoldingInput } from "@/types/allocation";
 
 interface PortfolioDashboardProps {
   portfolioId: string;
@@ -101,8 +101,9 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
 
     const allHoldings = (holdingRows ?? []) as HoldingRow[];
 
-    // Compute each sleeve
-    let nav = 0;
+    const fullNav =
+      allHoldings.reduce((s, h) => s + Number(h.qty) * Number(h.price_seed), 0) || 1;
+
     const computedSleeves: SleeveDisplayData[] = [];
 
     for (const sleeve of sleeveRows as SleeveRow[]) {
@@ -124,8 +125,7 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
           price5yr: 0,
         }));
 
-        const result = computeMainSleeve(inputs, a);
-        nav += result.totalValue;
+        const result = computeMainSleeve(inputs, a, fullNav);
 
         const signalSummary = {
           entry: result.holdings.filter((h) => h.trendSignal === "Consider Entry").length,
@@ -146,6 +146,7 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
         });
       } else if (sleeve.purpose === "Income") {
         const incomeInputs: IncomeHoldingInput[] = holdings.map((h) => ({
+          id: h.id,
           ticker: h.ticker,
           name: h.name,
           qty: Number(h.qty),
@@ -153,9 +154,8 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
           divDollar: Number(h.div_dollar),
         }));
 
-        const incomeResult = computeIncomeSleeve(incomeInputs, a.incomeBudgetPct, nav || 1);
+        const incomeResult = computeIncomeSleeve(incomeInputs, a.incomeBudgetPct, fullNav);
         const sleeveValue = incomeResult.reduce((s, h) => s + h.value, 0);
-        nav += sleeveValue;
 
         const incomeHoldings: ComputedHolding[] = incomeResult.map((h) => ({
           ticker: h.ticker,
@@ -168,9 +168,10 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
           expenseRatio: 0,
           divDollar: h.qty * h.price * h.divAPY,
           divAPY: h.divAPY,
-          currentWtPct: h.currentWtPct,
+          currentWtPct: fullNav > 0 ? h.value / fullNav : 0,
           targetWtPct: h.targetWtPct,
-          parityGapPct: 0,
+          parityGapPct:
+            fullNav > 0 ? h.value / fullNav - h.targetWtPct : 0,
           parityDollarChg: h.parityDollarChg,
           ret3mo: 0, ret6mo: 0, ret1yr: 0, ret3yr: 0, ret5yr: 0,
           blendedReturn: 0, vol3mo: 0, sharpeProxy: 0,
@@ -219,7 +220,6 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
         }));
 
         const sleeveValue = manualHoldings.reduce((s, h) => s + h.value, 0);
-        nav += sleeveValue;
 
         computedSleeves.push({
           id: sleeve.id,
@@ -235,7 +235,7 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
       }
     }
 
-    setTotalNAV(nav);
+    setTotalNAV(fullNav);
     setSleeves(computedSleeves);
     setLoading(false);
   }, [portfolioId, supabase]);

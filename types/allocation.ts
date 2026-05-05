@@ -39,7 +39,28 @@ export interface ModelAssumptions {
   themeCapPct: number;
 }
 
+export type SleeveRole = "MAIN" | "INCOME" | "MANUAL";
+export type CurrentPrices = Record<string, number>;
+
+export interface AllocationEngineHolding extends HoldingInput {
+  id: string;
+  name: string;
+  sleeveRole: SleeveRole;
+  manualTargetWt?: number | null;
+  manualPricing?: boolean;
+}
+
+export interface IncomeHoldingInput {
+  id: string;
+  ticker: string;
+  name: string;
+  qty: number;
+  price: number;
+  divDollar: number;
+}
+
 export interface ComputedHolding {
+  id?: string;
   ticker: string;
   name: string;
   status: HoldingStatus;
@@ -54,6 +75,7 @@ export interface ComputedHolding {
   targetWtPct: number;
   parityGapPct: number;
   parityDollarChg: number;
+  parityDollarAmt?: number;
   ret3mo: number;
   ret6mo: number;
   ret1yr: number;
@@ -72,7 +94,13 @@ export interface ComputedHolding {
   equalWtBase: number;
   volCapFlag: VolCapFlag;
   themeExposurePct: number;
+  themeCappedWt?: number;
   trendSignal: TrendSignal;
+  price3mo?: number;
+  price6mo?: number;
+  price1yr?: number;
+  price3yr?: number;
+  price5yr?: number;
 }
 
 export interface SleeveData {
