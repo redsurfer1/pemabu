@@ -22,8 +22,6 @@
 
 # misc
 .DS_Store
-Thumbs.db
-*.log
 *.pem
 
 # debug
@@ -43,32 +41,25 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.env*.local
-
-# Supabase CLI local state (keep supabase/migrations + supabase/functions in Git)
-supabase/.branches/
-supabase/.temp/
-
-# python
+# python (if you add scripts/tools later)
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
 venv/
 .venv/
 env/
-.envrc
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
 *.egg-info/
+.eggs/
 dist/
-build/
 *.egg
 
-# tooling / local
-.claude/
+# IDE / local tooling
 .idea/
-*.swp
-*.swo
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.claude/
+
+# OS
+Thumbs.db
