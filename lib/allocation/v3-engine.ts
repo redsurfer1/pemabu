@@ -11,11 +11,14 @@ import type {
   ComputedHolding,
   EngineAssumptions,
   HoldingInput,
+  IncomeHoldingInput,
   TrendSignal,
   VolCapFlag,
   HoldingStatus,
   Theme,
 } from "@/types/allocation";
+
+export type { IncomeHoldingInput } from "@/types/allocation";
 
 // ── Step 1: Period Returns ──────────────────────────────────────────
 
@@ -314,16 +317,6 @@ export function computeMainSleeve(
 }
 
 // ── Income Sleeve: Yield-Proportional Weighting ─────────────────────
-
-export interface IncomeHoldingInput {
-  id: string;
-  ticker: string;
-  name: string;
-  qty: number;
-  price: number;
-  divDollar: number;
-  expenseRatio?: number;
-}
 
 export function computeIncomeSleeve(
   inputs: IncomeHoldingInput[],

@@ -192,6 +192,35 @@ export interface HoldingInput {
   manualTargetWt?: number;
 }
 
+/** Role row for unified allocation intake (multi-sleeve v3.2 orchestration). */
+export type AllocationSleeveRole = "MAIN" | "INCOME" | "MANUAL";
+
+export interface AllocationEngineHolding {
+  id: string;
+  ticker: string;
+  name: string;
+  status: HoldingStatus;
+  theme: string;
+  qty: number;
+  price: number;
+  expenseRatio: number;
+  divDollar: number;
+  sleeveRole: AllocationSleeveRole;
+  manualPricing?: boolean;
+  manualTargetWt?: number;
+}
+
+/** Income sleeve row input (yield-weighted sleeve). */
+export interface IncomeHoldingInput {
+  id: string;
+  ticker: string;
+  name: string;
+  qty: number;
+  price: number;
+  divDollar: number;
+  expenseRatio?: number;
+}
+
 export interface HistoricalPrices {
   [ticker: string]: {
     "3mo"?: number;

@@ -120,7 +120,9 @@ function toHoldingInput(
 ): HoldingInput {
   const hist = mergeHistorical(normalizeTicker(h.ticker), hp);
   return {
+    id: h.id,
     ticker: h.ticker,
+    name: h.name,
     status: h.status,
     theme: h.theme,
     qty: h.qty,
@@ -242,7 +244,7 @@ export function computeMainSleeve(
     const parityGapPct = currentWtPct - finalTargetWt;
 
     return {
-      id: undefined,
+      id: d.input.id,
       ticker: d.input.ticker,
       name: d.input.ticker,
       status: "Active" as HoldingStatus,
@@ -255,6 +257,7 @@ export function computeMainSleeve(
       divAPY: d.divAPY,
       currentWtPct,
       targetWtPct: finalTargetWt,
+      finalTargetWt,
       parityGapPct,
       parityDollarChg,
       parityDollarAmt,
@@ -294,6 +297,7 @@ export function computeMainSleeve(
     const divAPY = value > 0 ? h.divDollar / value : 0;
 
     return {
+      id: h.id,
       ticker: h.ticker,
       name: h.ticker,
       status: "Comparable" as HoldingStatus,
@@ -306,6 +310,7 @@ export function computeMainSleeve(
       divAPY,
       currentWtPct: totalNAV > 0 ? value / totalNAV : 0,
       targetWtPct: 0,
+      finalTargetWt: 0,
       parityGapPct: 0,
       parityDollarChg: 0,
       parityDollarAmt: 0,
@@ -408,6 +413,7 @@ function computeManualHolding(
   const divAPY = value > 0 ? h.divDollar / value : 0;
 
   return {
+    id: h.id,
     ticker: h.ticker,
     name: h.name,
     status: "Active",
@@ -420,6 +426,7 @@ function computeManualHolding(
     divAPY,
     currentWtPct,
     targetWtPct: targetWt,
+    finalTargetWt: targetWt,
     parityGapPct: currentWtPct - targetWt,
     parityDollarChg,
     parityDollarAmt,
@@ -482,10 +489,13 @@ export function computePortfolioAllocations(
     const main = computeMainSleeve(mainInputs, assumptions, totalNAV);
     const idByTicker = new Map(mainRows.map((r) => [normalizeTicker(r.ticker), r.id]));
     for (const row of main.holdings) {
+      const nid = idByTicker.get(normalizeTicker(row.ticker)) ?? row.id;
       result.push({
         ...row,
-        name: mainRows.find((m) => normalizeTicker(m.ticker) === normalizeTicker(row.ticker))?.name ?? row.name,
-        id: idByTicker.get(normalizeTicker(row.ticker)),
+        name:
+          mainRows.find((m) => normalizeTicker(m.ticker) === normalizeTicker(row.ticker))?.name ??
+          row.name,
+        id: nid,
       });
     }
   }
@@ -526,6 +536,7 @@ export function computePortfolioAllocations(
           totalNAV > 0 ? row.value / totalNAV - row.targetWtPct : 0,
         parityDollarChg: row.parityDollarChg,
         parityDollarAmt: row.targetWtPct * totalNAV,
+        finalTargetWt: row.targetWtPct,
         ret3mo: 0,
         ret6mo: 0,
         ret1yr: 0,
@@ -559,11 +570,7 @@ export function computePortfolioAllocations(
   for (const h of manualRows) {
     const t = normalizeTicker(h.ticker);
     const price = h.manualPricing === true ? h.price : (currentPrices[t] ?? h.price);
-    result.push({
-      ...computeManualHolding(h, price, totalNAV),
-      id: h.id,
-      name: h.name,
-    });
+    result.push(computeManualHolding(h, price, totalNAV));
   }
 
   return result;

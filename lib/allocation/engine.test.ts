@@ -9,7 +9,7 @@ import {
   computeMainSleeve,
   computeIncomeSleeve,
 } from "./v3-engine";
-import type { HoldingInput, EngineAssumptions } from "@/types/allocation";
+import type { HoldingInput } from "@/types/allocation";
 import { DEFAULT_ENGINE_ASSUMPTIONS } from "@/types/allocation";
 
 // ── percentRank ─────────────────────────────────────────────────────

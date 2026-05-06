@@ -31,8 +31,7 @@ export async function createSleeve(portfolioId: string, data: CreateSleeveInput)
     };
   }
 
-  const maxOrder =
-    (existing ?? []).reduce((m: number, _: unknown, i: number, a: unknown[]) => Math.max(m, i), 0);
+  const maxOrder = (existing ?? []).reduce((m: number, _: unknown, i: number) => Math.max(m, i), 0);
   const sortOrder = data.sortOrder ?? maxOrder + 1;
 
   const { data: sleeve, error } = await supabase
