@@ -1,5 +1,9 @@
 -- =============================================================================
 -- Paste into Supabase SQL Editor (Dashboard → SQL → New query)
+--
+-- PREREQUISITE: If `user_group_assignments` / `pemabu_services` do not exist,
+-- run scripts/supabase-bootstrap-pricing-schema.sql first, then re-run this file.
+--
 -- 1) Creates assign_beta_grant_atomic if missing (same logic as repo migration)
 -- 2) Backfills every user_profiles row → beta + complimentary active services
 -- =============================================================================
@@ -122,9 +126,14 @@ begin
 end;
 $$;
 
--- ── 3) Verification (Supabase editor shows this as returned rows) ─────────────
+-- ── 3) Verification (fails soft if STEP 1 bootstrap was never run) ───────────
 select
-  (select count(*)::bigint from public.user_profiles) as user_profiles_total,
-  (select count(*)::bigint from public.user_group_assignments where subscription_group = 'beta') as rows_in_beta_group,
-  (select count(*)::bigint from public.user_subscriptions where status = 'complimentary') as complimentary_subscription_rows,
-  (select count(distinct user_id)::bigint from public.user_subscriptions where status = 'complimentary') as users_with_complimentary_row;
+  to_regclass('public.user_group_assignments') is not null as pricing_schema_ready,
+  case when to_regclass('public.user_profiles') is not null
+       then (select count(*)::bigint from public.user_profiles) end as user_profiles_total,
+  case when to_regclass('public.user_group_assignments') is not null
+       then (select count(*)::bigint from public.user_group_assignments where subscription_group = 'beta') end as rows_in_beta_group,
+  case when to_regclass('public.user_subscriptions') is not null
+       then (select count(*)::bigint from public.user_subscriptions where status = 'complimentary') end as complimentary_subscription_rows,
+  case when to_regclass('public.user_subscriptions') is not null
+       then (select count(distinct user_id)::bigint from public.user_subscriptions where status = 'complimentary') end as users_with_complimentary_row;
