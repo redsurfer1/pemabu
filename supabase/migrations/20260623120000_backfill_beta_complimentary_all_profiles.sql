@@ -18,7 +18,7 @@ begin
     j := public.assign_beta_grant_atomic(
       r.id,
       null::uuid,
-      'Migration 20260623120000: backfill beta + complimentary for all existing profiles'
+      'Migration 20260623120000: backfill beta + complimentary for all existing profiles'::text
     );
     if coalesce((j ->> 'success')::boolean, false) then
       n_applied := n_applied + 1;
