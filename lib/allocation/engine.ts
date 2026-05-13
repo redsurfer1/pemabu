@@ -32,7 +32,7 @@ import {
   computeRSI,
   denseRank,
 } from "@/lib/portfolio/formula-engine";
-import { fetchMarketDataWithFallback } from "@/lib/market-data/yahoo-finance";
+import { clearPriceCache, fetchMarketDataCached } from "@/lib/market-data/yahoo-finance";
 
 // Quote shape from market data provider
 export interface Quote {
@@ -337,6 +337,8 @@ export async function refreshPortfolioSignals(
   }));
   if (holdings.length === 0) return;
 
+  clearPriceCache();
+
   const { data: ass } = await supabase
     .from("portfolio_assumptions")
     .select("*")
@@ -362,7 +364,7 @@ export async function refreshPortfolioSignals(
     : DEFAULT_ASSUMPTIONS;
 
   const nonCashHoldings = holdings.filter((h) => h.ticker !== "CASH");
-  const market = await Promise.all(nonCashHoldings.map((h) => fetchMarketDataWithFallback(h.ticker)));
+  const market = await Promise.all(nonCashHoldings.map((h) => fetchMarketDataCached(h.ticker)));
   const marketByTicker = new Map(market.map((m) => [m.ticker, m]));
 
   if (holdings.some((h) => h.ticker === "CASH")) {

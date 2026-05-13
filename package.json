@@ -13,7 +13,8 @@
     "start": "next start",
     "lint": "eslint",
     "vault:sync": "tsx scripts/sync-local-schema.ts",
-    "watcher": "tsx services/watcher/index.ts"
+    "watcher": "tsx services/watcher/index.ts",
+    "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 import {
   fetchSignals,
   portfolioKeys,
@@ -26,7 +27,7 @@ export function PortfolioSelector({ selectedId, onSelect, className = "" }: Port
     queries: portfolios.map((p) => ({
       queryKey: portfolioKeys.signals(p.id, UNACK_FILTERS),
       queryFn: () => fetchSignals(p.id, { status: "unacknowledged", limit: 100 }),
-      staleTime: 60 * 1000,
+      staleTime: STALE.PRICES,
       enabled: !isLoading && portfolios.length > 0,
     })),
   });

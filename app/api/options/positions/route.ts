@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 
 const ADDON = "addon_options_overlay";
 
@@ -24,14 +24,6 @@ const PositionSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
-async function assertAddon(userId: string): Promise<NextResponse | null> {
-  const keys = await getActiveServiceKeysForUser(userId);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  return null;
-}
-
 async function assertPortfolioOwner(userId: string, portfolioId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
     .from("portfolios")
@@ -43,8 +35,7 @@ async function assertPortfolioOwner(userId: string, portfolioId: string): Promis
 }
 
 export const GET = withAuth(async (req, user) => {
-  const denied = await assertAddon(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   const portfolioId = new URL(req.url).searchParams.get("portfolio_id");
   if (!portfolioId) return NextResponse.json({ error: "portfolio_id required" }, { status: 400 });
@@ -65,8 +56,7 @@ export const GET = withAuth(async (req, user) => {
 });
 
 export const POST = withAuth(async (req, user) => {
-  const denied = await assertAddon(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   const body: unknown = await req.json();
   const parsed = PositionSchema.safeParse(body);

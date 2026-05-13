@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 
 const ADDON = "addon_defi_onchain";
 const SUPPORTED_CHAINS = ["ethereum", "bitcoin", "solana", "base", "arbitrum", "polygon"] as const;
@@ -13,17 +13,8 @@ const WalletSchema = z.object({
   label: z.string().max(60).optional(),
 });
 
-async function assertAddon(userId: string): Promise<NextResponse | null> {
-  const keys = await getActiveServiceKeysForUser(userId);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  return null;
-}
-
 export const GET = withAuth(async (_req, user) => {
-  const denied = await assertAddon(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   const { data, error } = await supabaseAdmin
     .from("defi_wallets")
@@ -36,8 +27,7 @@ export const GET = withAuth(async (_req, user) => {
 });
 
 export const POST = withAuth(async (req, user) => {
-  const denied = await assertAddon(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   const body: unknown = await req.json();
   const parsed = WalletSchema.safeParse(body);

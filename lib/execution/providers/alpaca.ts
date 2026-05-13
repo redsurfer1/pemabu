@@ -1,5 +1,4 @@
 import type { IExecutionProvider, PlaceOrderInput, PlaceOrderResult } from "@/lib/execution/types";
-import { isLiveExecutionMode, logStubModeWarning } from "@/lib/execution/execution-config";
 
 const ALPACA_PAPER_BASE = "https://paper-api.alpaca.markets/v2";
 const ALPACA_LIVE_BASE = "https://api.alpaca.markets/v2";
@@ -12,15 +11,6 @@ export class AlpacaProvider implements IExecutionProvider {
     decryptedApiKey: string,
     decryptedSecret: string,
   ): Promise<PlaceOrderResult> {
-    if (!isLiveExecutionMode()) {
-      logStubModeWarning("Alpaca", input);
-      return {
-        ok: true,
-        externalId: `alpaca-stub-${Date.now()}`,
-        stub: true,
-      };
-    }
-
     try {
       const baseUrl =
         process.env.ALPACA_USE_LIVE === "true" ? ALPACA_LIVE_BASE : ALPACA_PAPER_BASE;

@@ -224,3 +224,23 @@ export async function fetchMarketDataWithFallback(
     provider: "yahoo",
   };
 }
+
+const _priceCache = new Map<string, { result: MarketDataResult & { provider: "yahoo" | "tiingo" }; fetchedAt: number }>();
+const PRICE_CACHE_TTL_MS = 60 * 1000;
+
+export async function fetchMarketDataCached(
+  ticker: string,
+): Promise<MarketDataResult & { provider: "yahoo" | "tiingo" }> {
+  const key = ticker.trim().toUpperCase();
+  const cached = _priceCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < PRICE_CACHE_TTL_MS) {
+    return cached.result;
+  }
+  const result = await fetchMarketDataWithFallback(ticker);
+  _priceCache.set(key, { result, fetchedAt: Date.now() });
+  return result;
+}
+
+export function clearPriceCache(): void {
+  _priceCache.clear();
+}

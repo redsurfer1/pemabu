@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import type { IExecutionProvider, PlaceOrderInput, PlaceOrderResult } from "@/lib/execution/types";
-import { isLiveExecutionMode, logStubModeWarning } from "@/lib/execution/execution-config";
 
 const KRAKEN_API_BASE = "https://api.kraken.com";
 const KRAKEN_PRIVATE_PATH = "/0/private/AddOrder";
@@ -26,15 +25,6 @@ export class KrakenProvider implements IExecutionProvider {
     decryptedApiKey: string,
     decryptedSecret: string,
   ): Promise<PlaceOrderResult> {
-    if (!isLiveExecutionMode()) {
-      logStubModeWarning("Kraken", input);
-      return {
-        ok: true,
-        externalId: `kraken-stub-${Date.now()}`,
-        stub: true,
-      };
-    }
-
     try {
       const nonce = Date.now().toString();
       const volume = input.quantity?.trim() || "0";

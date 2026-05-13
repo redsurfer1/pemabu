@@ -46,3 +46,4 @@ docker/secrets/
 docker-compose.override.yml
 *.dump
 *.sql.local
+.claude/

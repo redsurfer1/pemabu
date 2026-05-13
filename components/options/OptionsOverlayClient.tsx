@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 
 type OptionSide = "call" | "put";
 type OptionStrategy = "covered_call" | "protective_put" | "cash_secured_put" | "long_call" | "long_put";
@@ -123,7 +124,7 @@ export function OptionsOverlayClient({ portfolioId }: OptionsOverlayClientProps)
     queryKey: ["options", "positions", portfolioId],
     queryFn: () => fetchPositions(portfolioId),
     enabled: Boolean(portfolioId),
-    staleTime: 60 * 1000,
+    staleTime: STALE.OPTIONS,
   });
 
   const { mutate: addPosition, isPending: isAdding } = useMutation({

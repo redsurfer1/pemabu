@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 
 const ADDON = "addon_family_sharing";
 
 export const DELETE = withAuth(async (_req, user, context) => {
-  const keys = await getActiveServiceKeysForUser(user.id);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Family Sharing subscription required." }, { status: 403 });
-  }
+  await assertServiceAccess(user.id, ADDON);
 
   const params = await context.params;
   const raw = params.id;

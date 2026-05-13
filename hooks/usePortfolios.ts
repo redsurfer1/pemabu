@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 import type { AssetClass, Holding, HoldingSource, Portfolio, PortfolioSummary, Signal } from "@/lib/types/database";
 
 // ── Query keys ──────────────────────────────────────
@@ -98,7 +99,7 @@ export function usePortfolios() {
   return useQuery({
     queryKey: portfolioKeys.lists(),
     queryFn: fetchPortfolios,
-    staleTime: 2 * 60 * 1000,
+    staleTime: STALE.HOLDINGS,
   });
 }
 
@@ -107,7 +108,7 @@ export function usePortfolioHoldings(portfolioId: string) {
     queryKey: portfolioKeys.holdings(portfolioId),
     queryFn: () => fetchHoldings(portfolioId),
     enabled: !!portfolioId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: STALE.HOLDINGS,
   });
 }
 
@@ -123,7 +124,7 @@ export function usePortfolioSignals(
     queryKey: portfolioKeys.signals(portfolioId, filterKey),
     queryFn: () => fetchSignals(portfolioId, filters),
     enabled: !!portfolioId,
-    staleTime: 60 * 1000,
+    staleTime: STALE.PRICES,
     refetchOnWindowFocus: true,
   });
 }
@@ -133,12 +134,10 @@ export function useConsolidatedDashboard(userId: string) {
     queryKey: portfolioKeys.consolidated(userId),
     queryFn: fetchConsolidated,
     enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.SUBSCRIPTIONS,
     refetchOnWindowFocus: true,
   });
 }
-
-// ── Mutations ────────────────────────────────────────
 
 export function useCreatePortfolio() {
   const qc = useQueryClient();

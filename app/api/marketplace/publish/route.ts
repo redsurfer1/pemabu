@@ -9,6 +9,7 @@ import type { SleeveBlueprintV1 } from "@/lib/portfolio/export-sleeve-strategy";
 import { hashSleeveToken } from "@/lib/portfolio/export-sleeve-strategy";
 import { requireIntelligenceTier } from "@/lib/portfolio/intelligence-access";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const POST = withAuth(async (req, user, _ctx) => {
   const keys = await getActiveServiceKeysForUser(user.id);
@@ -68,6 +69,13 @@ export const POST = withAuth(async (req, user, _ctx) => {
     });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+
+  if (!isLocalVaultExecutionPlane()) {
+    const { error: refreshErr } = await supabaseAdmin.rpc("refresh_leaderboard_scores");
+    if (refreshErr) {
+      console.error("refresh_leaderboard_scores:", refreshErr.message);
+    }
   }
 
   return NextResponse.json({ ok: true, sleeve_token_hash: sleeve_token_hash });

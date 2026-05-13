@@ -2,23 +2,22 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { checkAccess } from "@/lib/access/checkAccess";
 
-/** Session required; role checks happen in layouts / API handlers. Marketplace is public (teaser leaderboard). */
 const PROTECTED_ROUTE_PREFIXES = ["/dashboard", "/workbook", "/admin", "/portfolio", "/strategy-council"];
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-/**
- * Refreshes Supabase session cookies and protects selected routes with getUser().
- * Matcher excludes /api/cron/* (cron uses CRON_SECRET on route handlers).
- */
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
-    if (isProtectedPath(request.nextUrl.pathname)) {
+    if (pathname.startsWith("/api/admin")) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+    }
+    if (isProtectedPath(pathname)) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
@@ -49,12 +48,32 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && isProtectedPath(request.nextUrl.pathname)) {
-    const redirect = NextResponse.redirect(new URL("/", request.url));
-    supabaseResponse.cookies.getAll().forEach((c) => {
-      redirect.cookies.set(c.name, c.value);
+  if (pathname.startsWith("/api/admin")) {
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { data: profile } = await supabase.from("user_profiles").select("role").eq("id", user.id).single();
+    if (profile?.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-pemabu-admin", "true");
+    requestHeaders.set("x-pemabu-user-id", user.id);
+    const out = NextResponse.next({
+      request: { headers: requestHeaders },
     });
-    return redirect;
+    supabaseResponse.cookies.getAll().forEach((c) => {
+      out.cookies.set(c.name, c.value);
+    });
+    return out;
+  }
+
+  if (!user && isProtectedPath(pathname)) {
+    const redirectRes = NextResponse.redirect(new URL("/", request.url));
+    supabaseResponse.cookies.getAll().forEach((c) => {
+      redirectRes.cookies.set(c.name, c.value);
+    });
+    return redirectRes;
   }
 
   if (user && checkAccess(request.nextUrl.pathname).blocked) {
@@ -66,6 +85,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api/admin/:path*",
     "/dashboard",
     "/dashboard/:path*",
     "/admin",

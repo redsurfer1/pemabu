@@ -5,6 +5,7 @@ import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import {
   DEFAULT_ASSUMPTIONS,
@@ -144,7 +145,7 @@ function PortfolioEnginePageContent() {
   const { data: macroHist = [] } = useQuery({
     queryKey: ["macro", "history"],
     queryFn: fetchMacroRegimeHistory,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.MACRO,
     enabled: tab === "assumptions",
     retry: false,
   });

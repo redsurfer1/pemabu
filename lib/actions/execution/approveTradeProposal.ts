@@ -12,7 +12,7 @@ import {
   buildGuardrailContext,
   shouldCircuitLockFromErrorCodes,
 } from "@/lib/execution/guardrails";
-import { getExecutionProvider } from "@/lib/execution/registry";
+import { dispatchOrder } from "@/lib/execution/registry";
 import type { ExchangeName } from "@/lib/execution/types";
 import {
   assertPortfolioExecutionUnlocked,
@@ -314,9 +314,9 @@ export async function approveTradeProposal(proposalId: string) {
     notes: { proposalId },
   });
 
-  const provider = getExecutionProvider(row.exchange_name);
   const side = row.action === "BUY" ? "buy" : "sell";
-  let result = await provider.placeOrder(
+  let result = await dispatchOrder(
+    row.exchange_name,
     { ticker: row.ticker, side, quantity: row.quantity, notionalUsd: tradeNotional.toFixed(4) },
     apiKey,
     apiSecret,

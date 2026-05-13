@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import { importSleeveStrategyAction } from "@/lib/actions/portfolio/importSleeveStrategyAction";
 
@@ -28,10 +30,21 @@ function rowKey(r: TeaserRow | FullRow, i: number): string {
 }
 
 export default function MarketplacePage() {
+  const qc = useQueryClient();
   const { data: portfolios = [] } = usePortfolios();
-  const [rows, setRows] = useState<(TeaserRow | FullRow)[]>([]);
-  const [viewer, setViewer] = useState<Viewer>({ isIntelligence: false, authenticated: false });
-  const [err, setErr] = useState<string | null>(null);
+  const leaderboardQuery = useQuery({
+    queryKey: ["marketplace", "leaderboard"],
+    queryFn: async () => {
+      const res = await fetch("/api/marketplace/leaderboard", { credentials: "include" });
+      if (!res.ok) throw new Error("Leaderboard unavailable.");
+      return (await res.json()) as { strategies: (TeaserRow | FullRow)[]; viewer: Viewer };
+    },
+    staleTime: STALE.LEADERBOARD,
+  });
+
+  const rows = leaderboardQuery.data?.strategies ?? [];
+  const viewer = leaderboardQuery.data?.viewer ?? { isIntelligence: false, authenticated: false };
+  const err = leaderboardQuery.isError ? "Leaderboard unavailable." : null;
   const [sleeveToken, setSleeveToken] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [sourceSleeveId, setSourceSleeveId] = useState("");
@@ -40,22 +53,6 @@ export default function MarketplacePage() {
   const [importToken, setImportToken] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
-
-  async function loadLeaderboard() {
-    setErr(null);
-    const res = await fetch("/api/marketplace/leaderboard", { credentials: "include" });
-    if (!res.ok) {
-      setErr("Leaderboard unavailable.");
-      return;
-    }
-    const j = (await res.json()) as { strategies: (TeaserRow | FullRow)[]; viewer: Viewer };
-    setRows(j.strategies ?? []);
-    setViewer(j.viewer ?? { isIntelligence: false, authenticated: false });
-  }
-
-  useEffect(() => {
-    void loadLeaderboard();
-  }, []);
 
   useEffect(() => {
     if (!portfolios.length) return;
@@ -87,7 +84,7 @@ export default function MarketplacePage() {
     }
     setPubMsg("Published.");
     setSleeveToken("");
-    await loadLeaderboard();
+    await qc.invalidateQueries({ queryKey: ["marketplace", "leaderboard"] });
   }
 
   async function doImport() {

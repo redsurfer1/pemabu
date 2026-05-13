@@ -22,13 +22,22 @@ export async function listMarketplaceLeaderboardTeaserSupabase(
   supabase: SupabaseClient,
   limit: number,
 ): Promise<PublicLeaderboardTeaserRow[]> {
-  const { data, error } = await supabase
-    .from("marketplace_leaderboard_public")
+  const primary = await supabase
+    .from("marketplace_leaderboard_scores")
     .select("display_name, strategy_grade, vw_rsi_performance_score")
     .order("strategy_grade", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({
+  const source =
+    primary.error == null
+      ? primary
+      : await supabase
+          .from("marketplace_leaderboard_public")
+          .select("display_name, strategy_grade, vw_rsi_performance_score")
+          .order("strategy_grade", { ascending: false })
+          .limit(limit);
+  if (source.error) throw new Error(source.error.message);
+  const data = source.data ?? [];
+  return data.map((r) => ({
     display_name: String((r as { display_name: string }).display_name),
     strategy_grade: String((r as { strategy_grade: number }).strategy_grade),
     vw_rsi_performance_score: String((r as { vw_rsi_performance_score: number }).vw_rsi_performance_score),
@@ -51,13 +60,21 @@ export async function listMarketplaceLeaderboardTeaserVault(limit: number): Prom
 }
 
 export async function listMarketplaceLeaderboardSupabase(supabase: SupabaseClient, limit: number): Promise<LeaderboardRow[]> {
-  const { data, error } = await supabase
-    .from("marketplace_leaderboard_public")
+  const primary = await supabase
+    .from("marketplace_leaderboard_scores")
     .select("id, display_name, strategy_grade, blueprint_adherence_score, vw_rsi_performance_score, published_at")
     .order("strategy_grade", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({
+  const source =
+    primary.error == null
+      ? primary
+      : await supabase
+          .from("marketplace_leaderboard_public")
+          .select("id, display_name, strategy_grade, blueprint_adherence_score, vw_rsi_performance_score, published_at")
+          .order("strategy_grade", { ascending: false })
+          .limit(limit);
+  if (source.error) throw new Error(source.error.message);
+  return (source.data ?? []).map((r) => ({
     id: String((r as { id: string }).id),
     display_name: String((r as { display_name: string }).display_name),
     strategy_grade: String((r as { strategy_grade: number }).strategy_grade),

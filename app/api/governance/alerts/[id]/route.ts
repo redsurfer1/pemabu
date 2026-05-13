@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
+
+const ADDON = "addon_governance_alerts";
 
 const UpdateSchema = z.object({
   is_read: z.boolean().optional(),
@@ -9,6 +12,8 @@ const UpdateSchema = z.object({
 });
 
 export const PATCH = withAuth(async (req, user, context) => {
+  await assertServiceAccess(user.id, ADDON);
+
   const params = await context.params;
   const raw = params.id;
   const id = Array.isArray(raw) ? raw[0] : raw;

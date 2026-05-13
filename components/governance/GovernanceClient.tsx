@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 import { KNOWN_SNAPSHOT_SPACES } from "@/lib/governance/snapshot-client";
 
 interface WatchEntry {
@@ -101,7 +102,7 @@ export function GovernanceClient() {
   const { data: watchList = [], isPending: watchLoading } = useQuery({
     queryKey: ["governance", "watch-list"],
     queryFn: fetchWatchList,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.GOVERNANCE,
   });
 
   const {
@@ -113,7 +114,7 @@ export function GovernanceClient() {
   } = useQuery({
     queryKey: ["governance", "alerts"],
     queryFn: fetchAlerts,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.GOVERNANCE,
     enabled: false,
   });
 

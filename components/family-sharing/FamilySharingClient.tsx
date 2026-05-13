@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 
 interface ShareToken {
   id: string;
@@ -69,7 +70,7 @@ export function FamilySharingClient() {
   const { data: tokens = [], isPending } = useQuery({
     queryKey: ["family", "tokens"],
     queryFn: fetchTokens,
-    staleTime: 60 * 1000,
+    staleTime: STALE.FAMILY,
   });
 
   const { mutate: create, isPending: isCreating } = useMutation({

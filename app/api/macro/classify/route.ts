@@ -3,18 +3,10 @@ import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { classifyMacroRegime } from "@/lib/intelligence/macro-regime";
 import { refreshMacroCorrelationCache } from "@/lib/intelligence/macro-correlation-cache";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { z } from "zod";
 
 const ADDON = "addon_macro_intelligence";
-
-async function assertMacro(userId: string): Promise<NextResponse | null> {
-  const keys = await getActiveServiceKeysForUser(userId);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Macro Intelligence subscription required." }, { status: 403 });
-  }
-  return null;
-}
 
 const IndicatorsSchema = z.object({
   vix: z.number(),
@@ -27,8 +19,7 @@ const IndicatorsSchema = z.object({
 });
 
 export const POST = withAuth(async (req, user) => {
-  const denied = await assertMacro(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   let body: unknown;
   try {
@@ -59,9 +50,7 @@ export const POST = withAuth(async (req, user) => {
 
   if (error) console.error("Failed to persist regime history:", error);
 
-  void refreshMacroCorrelationCache(supabaseAdmin).catch((e) =>
-    console.error("macro correlation refresh:", e),
-  );
+  void refreshMacroCorrelationCache(supabaseAdmin).catch((e) => console.error("macro correlation refresh:", e));
 
   return NextResponse.json({ classification });
 });

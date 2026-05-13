@@ -3,13 +3,8 @@ import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
 import { CANONICAL_SERVICE_KEYS, type PemabuServiceKey } from "@/lib/constants/services";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-
-async function verifyAdmin(userId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("user_profiles").select("role").eq("id", userId).single();
-  return data?.role === "admin";
-}
+import { adminErrorResponse, adminResponse } from "@/lib/api/response";
+import { bustServiceCatalogCache } from "@/lib/cache/service-catalog";
 
 function isPemabuServiceKey(k: string): k is PemabuServiceKey {
   return (CANONICAL_SERVICE_KEYS as readonly string[]).includes(k);
@@ -25,9 +20,7 @@ const GrantSubscriptionSchema = z.object({
 });
 
 export const GET = withAuth(async (_req, user) => {
-  if (!(await verifyAdmin(user.id))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  void user;
 
   const { data, error } = await supabaseAdmin
     .from("user_subscriptions")
@@ -35,18 +28,14 @@ export const GET = withAuth(async (_req, user) => {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return NextResponse.json({ subscriptions: data });
+  return adminResponse(data ?? []);
 });
 
 export const POST = withAuth(async (req, user) => {
-  if (!(await verifyAdmin(user.id))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const body: unknown = await req.json();
   const parsed = GrantSubscriptionSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return adminErrorResponse(JSON.stringify(parsed.error.flatten()), 422);
   }
 
   const { user_id, service_key, status, price_paid_usd, notes, ends_at } = parsed.data;
@@ -78,5 +67,12 @@ export const POST = withAuth(async (req, user) => {
     .single();
 
   if (error) throw error;
-  return NextResponse.json({ subscription: data }, { status: 201 });
+  bustServiceCatalogCache();
+  return NextResponse.json(
+    {
+      data,
+      meta: { count: 1, timestamp: new Date().toISOString() },
+    },
+    { status: 201 },
+  );
 });

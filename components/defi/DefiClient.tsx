@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 
 interface WalletAddress {
   id: string;
@@ -109,7 +110,7 @@ export function DefiClient() {
   const { data: wallets = [], isPending: walletsLoading } = useQuery({
     queryKey: ["defi", "wallets"],
     queryFn: fetchWallets,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.DEFI,
   });
 
   const walletIdsKey = wallets.map((w) => w.id).join(",");
@@ -118,7 +119,7 @@ export function DefiClient() {
     queryKey: ["defi", "positions", walletIdsKey],
     queryFn: () => fetchPositions(wallets.map((w) => w.id)),
     enabled: wallets.length > 0,
-    staleTime: 2 * 60 * 1000,
+    staleTime: STALE.DEFI,
   });
 
   const { mutate: addWalletMutation, isPending: isAdding } = useMutation({

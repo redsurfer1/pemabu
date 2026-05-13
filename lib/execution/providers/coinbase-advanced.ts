@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import type { IExecutionProvider, PlaceOrderInput, PlaceOrderResult } from "@/lib/execution/types";
-import { isLiveExecutionMode, logStubModeWarning } from "@/lib/execution/execution-config";
 
 const COINBASE_DEFAULT_BASE = "https://api.coinbase.com";
 
@@ -30,15 +29,6 @@ export class CoinbaseAdvancedProvider implements IExecutionProvider {
     decryptedApiKey: string,
     decryptedSecret: string,
   ): Promise<PlaceOrderResult> {
-    if (!isLiveExecutionMode()) {
-      logStubModeWarning("Coinbase", input);
-      return {
-        ok: true,
-        externalId: `coinbase-stub-${Date.now()}`,
-        stub: true,
-      };
-    }
-
     try {
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const requestPath = "/api/v3/brokerage/orders";

@@ -2,18 +2,10 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { KNOWN_SNAPSHOT_SPACES } from "@/lib/governance/snapshot-client";
 
 const ADDON = "addon_governance_alerts";
-
-async function assertGovernance(userId: string): Promise<NextResponse | null> {
-  const keys = await getActiveServiceKeysForUser(userId);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Governance Alert subscription required." }, { status: 403 });
-  }
-  return null;
-}
 
 const WatchSchema = z.object({
   token_ticker: z.string().min(1).max(20).transform((s) => s.toUpperCase()),
@@ -22,8 +14,7 @@ const WatchSchema = z.object({
 });
 
 export const GET = withAuth(async (_req, user) => {
-  const denied = await assertGovernance(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   const { data, error } = await supabaseAdmin
     .from("governance_watch_list")
@@ -37,8 +28,7 @@ export const GET = withAuth(async (_req, user) => {
 });
 
 export const POST = withAuth(async (req, user) => {
-  const denied = await assertGovernance(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   let body: unknown;
   try {

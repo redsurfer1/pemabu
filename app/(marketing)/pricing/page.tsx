@@ -1,6 +1,78 @@
 import Link from "next/link";
+import type { PemabuService } from "@/lib/types/database";
+import { getCachedServices } from "@/lib/cache/service-catalog";
 
-export default function PricingPage() {
+const ADDON_BUNDLES = [
+  {
+    name: "Data & Intelligence",
+    description: "Market analysis, governance monitoring, and token scoring",
+    keys: [
+      "addon_macro_intelligence",
+      "addon_governance_alerts",
+      "addon_token_quality",
+      "addon_political_tracker",
+    ],
+  },
+  {
+    name: "Execution & Safety",
+    description: "On-chain monitoring, options tracking, and data portability",
+    keys: ["addon_defi_onchain", "addon_options_overlay", "addon_data_vault_export"],
+  },
+  {
+    name: "Sharing & Family",
+    description: "Broadcast and read-only sharing for household portfolios",
+    keys: ["addon_family_sharing", "live_broadcast_addon"],
+  },
+] as const;
+
+async function getPricingData(): Promise<PemabuService[]> {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  try {
+    const res = await fetch(`${base.replace(/\/$/, "")}/api/public/pricing`, { next: { revalidate: 600 } });
+    if (res.ok) {
+      const body = (await res.json()) as { data: PemabuService[] };
+      return body.data ?? [];
+    }
+  } catch {
+    /* build-time or no server — fall back to same catalog source */
+  }
+  try {
+    const rows = await getCachedServices();
+    return rows.filter((s) => s.is_active);
+  } catch {
+    return [];
+  }
+}
+
+function pick(services: PemabuService[], key: string): PemabuService | undefined {
+  return services.find((s) => s.service_key === key);
+}
+
+function priceLabel(s: PemabuService): string {
+  if (s.pricing_model === "one_time") return `$${s.price_usd} one-time`;
+  if (s.pricing_model === "annual") return `$${s.price_usd} / year`;
+  if (s.pricing_model === "per_event") return `$${s.price_usd} each`;
+  return `$${s.price_usd}`;
+}
+
+export default async function PricingPage() {
+  const services = await getPricingData();
+
+  const core = services.filter((s) => s.category === "core");
+  const subscriptions = services.filter((s) => s.category === "subscription");
+  const addons = services.filter((s) => s.category === "addon");
+  const upgrades = services.filter((s) => s.category === "upgrade");
+  const overages = services.filter((s) => s.category === "overage");
+
+  const coreV1 = pick(services, "core_v1");
+  const intel = pick(services, "intelligence_annual");
+  const liveBroadcast = pick(services, "live_broadcast_addon");
+  const v1v2 = pick(services, "v1_to_v2_upgrade");
+  const simOver = pick(services, "scenario_sim_overage");
+
+  const y1CorePlusLive =
+    coreV1 && liveBroadcast ? Math.round(coreV1.price_usd + liveBroadcast.price_usd) : null;
+
   return (
     <div className="min-h-screen bg-[#0A1628] px-6 py-24">
       <div className="mx-auto max-w-2xl text-center">
@@ -39,100 +111,151 @@ export default function PricingPage() {
         </Link>
       </div>
 
-      <div className="mx-auto mb-12 max-w-3xl rounded-2xl border border-white/10 bg-white/[0.02] p-8">
-        <h2 className="mb-4 text-center text-sm font-medium uppercase tracking-wider text-gray-400">
-          Why Intelligence is the anchor tier
-        </h2>
-        <p className="mb-6 text-center text-xs text-gray-500">
-          Core v1 ($199 one-time) plus the Live Broadcast add-on ($79/year) totals $278 in year one. Pemabu
-          Intelligence ($229/year) already includes Live Broadcast, Political Trade Tracker, multi-account support,
-          real-time feeds, and far more — so upgrading from Core is the rational default once you need live viewing.
-        </p>
-        <table className="w-full text-left text-sm text-gray-300">
-          <thead>
-            <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-gray-500">
-              <th className="py-2 pr-4">Bundle</th>
-              <th className="py-2 text-right">Reference</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-white/5">
-              <td className="py-3">Pemabu Core v1 + Live Broadcast add-on</td>
-              <td className="py-3 text-right font-mono text-white">$199 + $79/yr → $278 Y1</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-3">Pemabu Intelligence (annual)</td>
-              <td className="py-3 text-right font-mono text-emerald-300">$229/yr (includes Live Broadcast)</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {coreV1 && liveBroadcast && intel ? (
+        <div className="mx-auto mb-12 max-w-3xl rounded-2xl border border-white/10 bg-white/[0.02] p-8">
+          <h2 className="mb-4 text-center text-sm font-medium uppercase tracking-wider text-gray-400">
+            Why Intelligence is the anchor tier
+          </h2>
+          <p className="mb-6 text-center text-xs text-gray-500">
+            Core v1 ({priceLabel(coreV1)}) plus the Live Broadcast add-on ({priceLabel(liveBroadcast)}) totals{" "}
+            {y1CorePlusLive != null ? `$${y1CorePlusLive}` : ""} in year one. Pemabu Intelligence ({priceLabel(intel)})
+            already includes Live Broadcast, Political Trade Tracker, multi-account support, real-time feeds, and far
+            more — so upgrading from Core is the rational default once you need live viewing.
+          </p>
+          <table className="w-full text-left text-sm text-gray-300">
+            <thead>
+              <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-gray-500">
+                <th className="py-2 pr-4">Bundle</th>
+                <th className="py-2 text-right">Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-white/5">
+                <td className="py-3">Pemabu Core v1 + Live Broadcast add-on</td>
+                <td className="py-3 text-right font-mono text-white">
+                  ${coreV1.price_usd} + ${liveBroadcast.price_usd}/yr
+                  {y1CorePlusLive != null ? ` → $${y1CorePlusLive} Y1` : ""}
+                </td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-3">Pemabu Intelligence (annual)</td>
+                <td className="py-3 text-right font-mono text-emerald-300">
+                  ${intel.price_usd}/yr (includes Live Broadcast)
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <div className="mx-auto max-w-3xl space-y-10 text-left text-sm text-gray-300">
-        <section className="rounded-2xl border border-white/10 p-8">
-          <h2 className="mb-2 text-lg font-medium text-white">Pemabu Core v1</h2>
-          <p className="mb-4 font-mono text-emerald-300">$199 one-time</p>
-          <p className="leading-relaxed text-gray-400">
-            Perpetual license for v1.x. Full local allocation engine, single portfolio, offline capable. All v1.x point
-            releases free. Major version upgrade (v1 → v2) is a separate one-time fee. Live Broadcast is available as
-            a $79/year add-on for Core-only users who need browser viewing.
-          </p>
-        </section>
+        {core.map((s) => (
+          <section key={s.service_key} className="rounded-2xl border border-white/10 p-8">
+            <h2 className="mb-2 text-lg font-medium text-white">{s.display_name}</h2>
+            <p className="mb-4 font-mono text-emerald-300">{priceLabel(s)}</p>
+            <p className="leading-relaxed text-gray-400">{s.description}</p>
+          </section>
+        ))}
 
-        <section className="rounded-2xl border border-white/10 p-8">
-          <h2 className="mb-2 text-lg font-medium text-white">Pemabu Intelligence</h2>
-          <p className="mb-4 font-mono text-emerald-300">$229 / year</p>
-          <p className="leading-relaxed text-gray-400">
-            Multi-account (up to 10 portfolios), real-time price feeds, Watcher Agent (4-hour cycle), WebSocket Live
-            Broadcast, political trade overlay, hedge fund 13F overlay, morning brief.{" "}
-            <strong className="font-medium text-gray-300">20 simulations/month included.</strong> Additional
-            simulations beyond the soft cap are <strong className="font-medium text-gray-300">$0.50 each.</strong>
-          </p>
-        </section>
+        {subscriptions.map((s) => (
+          <section key={s.service_key} className="rounded-2xl border border-white/10 p-8">
+            <h2 className="mb-2 text-lg font-medium text-white">{s.display_name}</h2>
+            <p className="mb-4 font-mono text-emerald-300">{priceLabel(s)}</p>
+            <p className="leading-relaxed text-gray-400">{s.description}</p>
+            {s.service_key === "intelligence_annual" ? (
+              <p className="mt-4 leading-relaxed text-gray-400">
+                <strong className="font-medium text-gray-300">20 simulations/month included.</strong> Additional
+                simulations beyond the soft cap are billed at{" "}
+                {simOver ? (
+                  <strong className="font-medium text-gray-300">${simOver.price_usd} each.</strong>
+                ) : (
+                  <span>the Scenario Simulation overage rate in the Additional section.</span>
+                )}
+              </p>
+            ) : null}
+            {s.service_key === "autonomous_annual" && intel ? (
+              <p className="mt-4 leading-relaxed text-gray-400">
+                <strong className="font-medium text-gray-300">Unlimited scenario simulations included.</strong> The $
+                {Math.round(s.price_usd - intel.price_usd)} delta vs Intelligence covers execution, compliance-grade
+                logging, and automation depth. The immutable audit ledger is a tax and compliance feature: a complete
+                append-only transaction ledger for your accountant or tax preparer, with pre-sorted realized gains and
+                losses by tax lot.
+              </p>
+            ) : null}
+          </section>
+        ))}
 
-        <section className="rounded-2xl border border-white/10 p-8">
-          <h2 className="mb-2 text-lg font-medium text-white">Pemabu Autonomous</h2>
-          <p className="mb-4 font-mono text-emerald-300">$899 / year</p>
-          <p className="leading-relaxed text-gray-400">
-            Everything in Intelligence plus WebRTC P2P broadcast, fiat and crypto execution (Alpaca, Kraken, Coinbase),
-            trade approval queue, configurable guardrails, immutable audit ledger, tax lot tracking, bidirectional
-            browser control, emergency stop.{" "}
-            <strong className="font-medium text-gray-300">Unlimited scenario simulations included.</strong> The $670
-            delta vs Intelligence covers execution, compliance-grade logging, and automation depth. The immutable audit ledger is a tax and
-            compliance feature: a complete append-only transaction ledger for your accountant or tax preparer, with
-            pre-sorted realized gains and losses by tax lot.
-          </p>
-        </section>
+        {addons.length > 0 ? (
+          <section className="rounded-2xl border border-white/10 p-8">
+            <h2 className="mb-6 text-lg font-medium text-white">Add-on bundles</h2>
+            <div className="space-y-4">
+              {ADDON_BUNDLES.map((bundle) => {
+                const items = bundle.keys
+                  .map((k) => pick(services, k))
+                  .filter((x): x is PemabuService => !!x);
+                const total = items.reduce((sum, x) => sum + x.price_usd, 0);
+                return (
+                  <details
+                    key={bundle.name}
+                    className="group rounded-xl border border-white/10 bg-white/[0.02] px-5 py-4"
+                  >
+                    <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-base font-medium text-white">{bundle.name}</p>
+                          <p className="text-xs text-gray-500">{bundle.description}</p>
+                        </div>
+                        <p className="mt-2 font-mono text-emerald-300 sm:mt-0">
+                          ${total.toFixed(0)}/yr if all purchased
+                        </p>
+                      </div>
+                      <p className="mt-2 text-[11px] text-gray-600">Expand for individual list prices.</p>
+                    </summary>
+                    <ul className="mt-4 space-y-2 border-t border-white/5 pt-4 font-mono text-xs text-gray-400">
+                      {items.map((a) => (
+                        <li key={a.service_key} className="flex justify-between gap-4">
+                          <span>{a.display_name}</span>
+                          <span className="text-white">{priceLabel(a)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
-        <section className="rounded-2xl border border-white/10 p-8">
-          <h2 className="mb-2 text-lg font-medium text-white">Live Broadcast (add-on)</h2>
-          <p className="mb-4 font-mono text-gray-300">$79 / year</p>
-          <p className="leading-relaxed text-gray-400">
-            WebSocket relay for Core-only customers who need a secure browser session to a single portfolio. Already
-            bundled with Pemabu Intelligence and Pemabu Autonomous at no extra charge.
-          </p>
-        </section>
-
-        <section className="rounded-2xl border border-white/10 p-8">
-          <h2 className="mb-2 text-lg font-medium text-white">Add-ons (annual)</h2>
-          <ul className="space-y-2 font-mono text-xs text-gray-400">
-            <li>DeFi + On-Chain — $49</li>
-            <li>Macro Intelligence — $39</li>
-            <li>Options Overlay — $59</li>
-            <li>Family Sharing — $49</li>
-            <li>Data Vault Export — $19</li>
-            <li>Governance Alert Layer — $39</li>
-            <li>Political Trade Tracker — $29 (included with Intelligence & Autonomous)</li>
-            <li>Token Quality Score — $29</li>
-          </ul>
-        </section>
-
-        <section className="rounded-2xl border border-white/10 p-8">
-          <h2 className="mb-2 text-lg font-medium text-white">Other catalog items</h2>
-          <ul className="space-y-2 text-xs text-gray-400">
-            <li>Scenario Simulation (overage) — $0.50 per simulation beyond Intelligence&apos;s 20/month soft cap.</li>
-          </ul>
-        </section>
+        {(upgrades.length > 0 || overages.length > 0) && (
+          <section className="rounded-2xl border border-white/10 p-8">
+            <h2 className="mb-2 text-lg font-medium text-white">Additional</h2>
+            <p className="mb-4 text-xs text-gray-500">
+              Version upgrades and metered usage — shown separately from add-on bundles.
+            </p>
+            <ul className="space-y-3 text-xs text-gray-400">
+              {v1v2 ? (
+                <li>
+                  <span className="font-mono text-gray-300">{v1v2.display_name}</span> — {priceLabel(v1v2)}
+                  {v1v2.description ? <span className="block pt-1 text-gray-500">{v1v2.description}</span> : null}
+                </li>
+              ) : null}
+              {simOver ? (
+                <li>
+                  <span className="font-mono text-gray-300">{simOver.display_name}</span> — {priceLabel(simOver)}
+                  {simOver.description ? <span className="block pt-1 text-gray-500">{simOver.description}</span> : null}
+                </li>
+              ) : null}
+              {overages
+                .filter((o) => o.service_key !== "scenario_sim_overage")
+                .map((o) => (
+                  <li key={o.service_key}>
+                    <span className="font-mono text-gray-300">{o.display_name}</span> — {priceLabel(o)}
+                    {o.description ? <span className="block pt-1 text-gray-500">{o.description}</span> : null}
+                  </li>
+                ))}
+            </ul>
+          </section>
+        )}
 
         <p className="mt-4 text-center text-xs text-gray-500">
           Pemabu is not a registered investment advisor. All platform outputs are for informational purposes only and
@@ -140,7 +263,7 @@ export default function PricingPage() {
         </p>
 
         <p className="text-center text-xs text-gray-600">
-          Spots are limited. Beta access is by invitation only. Prices shown are the public catalog; active
+          Spots are limited. Beta access is by invitation only. Prices reflect the live service catalog; active
           subscriptions are never repriced retroactively.
         </p>
         <div className="text-center">

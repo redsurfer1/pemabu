@@ -1,20 +1,10 @@
-import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { adminResponse } from "@/lib/api/response";
 import { getActiveProvider } from "@/lib/market-data";
 
-async function verifyAdmin(userId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("user_profiles").select("role").eq("id", userId).single();
-  return data?.role === "admin";
-}
-
-export const GET = withAuth(async (req, user, _ctx) => {
-  const isAdmin = await verifyAdmin(user.id);
-  if (!isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+export const GET = withAuth(async (_req, user, _ctx) => {
+  void user;
 
   const [usersRes, portfoliosRes, signalsRes, health] = await Promise.all([
     supabaseAdmin.from("user_profiles").select("*", { count: "exact", head: true }),
@@ -36,7 +26,7 @@ export const GET = withAuth(async (req, user, _ctx) => {
     throw signalsRes.error;
   }
 
-  return NextResponse.json({
+  return adminResponse({
     users: usersRes.count ?? 0,
     portfolios: portfoliosRes.count ?? 0,
     unacknowledged_signals: signalsRes.count ?? 0,

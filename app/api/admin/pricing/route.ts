@@ -1,14 +1,8 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-
-async function verifyAdmin(userId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("user_profiles").select("role").eq("id", userId).single();
-  return data?.role === "admin";
-}
+import { adminErrorResponse, adminResponse } from "@/lib/api/response";
+import { bustServiceCatalogCache, getCachedServices } from "@/lib/cache/service-catalog";
 
 const PatchServiceSchema = z
   .object({
@@ -22,33 +16,23 @@ const PatchServiceSchema = z
   .strict();
 
 export const GET = withAuth(async (_req, user) => {
-  if (!(await verifyAdmin(user.id))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  const { data, error } = await supabaseAdmin
-    .from("pemabu_services")
-    .select("*")
-    .order("sort_order", { ascending: true });
-  if (error) throw error;
-  return NextResponse.json({ services: data });
+  void user;
+  const data = await getCachedServices();
+  return adminResponse(data);
 });
 
 export const PATCH = withAuth(async (req, user) => {
-  if (!(await verifyAdmin(user.id))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+  void user;
   const body: unknown = await req.json();
   const parsed = PatchServiceSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return adminErrorResponse(JSON.stringify(parsed.error.flatten()), 422);
   }
 
   const { service_key, ...updates } = parsed.data;
 
-  // service_key identifies the row only; it must never be updated via PATCH
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    return adminErrorResponse("No fields to update", 400);
   }
 
   const { data, error } = await supabaseAdmin
@@ -59,5 +43,6 @@ export const PATCH = withAuth(async (req, user) => {
     .single();
 
   if (error) throw error;
-  return NextResponse.json({ service: data });
+  bustServiceCatalogCache();
+  return adminResponse(data);
 });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { STALE } from "@/lib/constants/query-config";
 
 type MacroRegime = "risk_on" | "risk_off" | "stagflation" | "deflation";
 
@@ -161,13 +162,13 @@ export function MacroIntelligenceClient() {
   const { data: history = [] } = useQuery({
     queryKey: ["macro", "history"],
     queryFn: fetchHistory,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE.MACRO,
   });
 
   const { data: correlations = [] } = useQuery({
     queryKey: ["macro", "correlation"],
     queryFn: fetchCorrelations,
-    staleTime: 10 * 60 * 1000,
+    staleTime: STALE.MACRO_CORRELATION,
   });
 
   const { mutate: classify, isPending: isClassifying } = useMutation({

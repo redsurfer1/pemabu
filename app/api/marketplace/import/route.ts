@@ -56,5 +56,10 @@ export const POST = withAuth(async (req, user, _ctx) => {
     }
   }
 
+  const { error: refreshErr } = await supabaseAdmin.rpc("refresh_leaderboard_scores");
+  if (refreshErr) {
+    console.error("refresh_leaderboard_scores:", refreshErr.message);
+  }
+
   return NextResponse.json({ ok: true, sleeveId: out.sleeveId });
 });

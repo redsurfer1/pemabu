@@ -7,8 +7,13 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import PemabuLogo from "@/components/brand/PemabuLogo";
 import AuthModal from "@/components/AuthModal";
 import MarketingNav from "@/components/home/MarketingNav";
+import type { LeaderboardPreviewItem } from "@/components/home/leaderboard-preview";
 
-export default function HomePage() {
+interface HomePageProps {
+  leaderboardPreview?: LeaderboardPreviewItem[];
+}
+
+export default function HomePage({ leaderboardPreview = [] }: HomePageProps) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuth, setShowAuth] = useState(false);
@@ -177,6 +182,61 @@ export default function HomePage() {
         </div>
       </section>
 
+      {leaderboardPreview.length > 0 ? (
+        <section
+          style={{
+            maxWidth: 560,
+            margin: "0 auto 48px",
+            padding: "24px 20px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.08)",
+            backgroundColor: "rgba(255,255,255,0.02)",
+          }}
+        >
+          <p
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.18em",
+              color: "#10b981",
+              textTransform: "uppercase",
+              marginBottom: 12,
+              textAlign: "center",
+            }}
+          >
+            Marketplace activity
+          </p>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {leaderboardPreview.map((row) => (
+              <li
+                key={row.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 0",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  fontSize: 13,
+                  color: "#cbd5e1",
+                }}
+              >
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>{row.pseudonym}</span>
+                <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                  grade {row.strategy_grade.toFixed(2)} · {row.subscriber_count} subs
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div style={{ textAlign: "center", marginTop: 16 }}>
+            <Link
+              href="/marketplace"
+              style={{ fontSize: 12, color: "#34d399", textDecoration: "none", letterSpacing: "0.04em" }}
+            >
+              View full leaderboard →
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       <footer
         id="site-footer"
         style={{
@@ -195,7 +255,7 @@ export default function HomePage() {
             margin: 0,
           }}
         >
-          © 2025 Pemabu&nbsp;&nbsp;·&nbsp;&nbsp;Private Beta&nbsp;&nbsp;·&nbsp;&nbsp;By
+          © 2026 Pemabu&nbsp;&nbsp;·&nbsp;&nbsp;Private Beta&nbsp;&nbsp;·&nbsp;&nbsp;By
           invitation only
         </p>
       </footer>

@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 
 const ADDON = "addon_options_overlay";
 
 export const DELETE = withAuth(async (_req, user, ctx) => {
-  const keys = await getActiveServiceKeysForUser(user.id);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  await assertServiceAccess(user.id, ADDON);
 
   const { id: idParam } = await ctx.params;
   const id = Array.isArray(idParam) ? idParam[0] : idParam;

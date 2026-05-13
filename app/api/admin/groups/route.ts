@@ -2,13 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-
-async function verifyAdmin(userId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("user_profiles").select("role").eq("id", userId).single();
-  return data?.role === "admin";
-}
+import { adminErrorResponse, adminResponse } from "@/lib/api/response";
+import { bustServiceCatalogCache } from "@/lib/cache/service-catalog";
 
 const AssignGroupSchema = z.object({
   user_id: z.string().uuid(),
@@ -17,9 +12,7 @@ const AssignGroupSchema = z.object({
 });
 
 export const GET = withAuth(async (_req, user) => {
-  if (!(await verifyAdmin(user.id))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  void user;
 
   const { data, error } = await supabaseAdmin
     .from("user_group_assignments")
@@ -27,18 +20,14 @@ export const GET = withAuth(async (_req, user) => {
     .order("assigned_at", { ascending: false });
 
   if (error) throw error;
-  return NextResponse.json({ assignments: data });
+  return adminResponse(data ?? []);
 });
 
 export const POST = withAuth(async (req, user) => {
-  if (!(await verifyAdmin(user.id))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const body: unknown = await req.json();
   const parsed = AssignGroupSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return adminErrorResponse(JSON.stringify(parsed.error.flatten()), 422);
   }
 
   const { user_id, subscription_group, notes } = parsed.data;
@@ -59,10 +48,7 @@ export const POST = withAuth(async (req, user) => {
     };
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error ?? "Beta group assignment failed" },
-        { status: 500 },
-      );
+      return adminErrorResponse(result.error ?? "Beta group assignment failed", 500);
     }
 
     const { data: assignment, error: fetchErr } = await supabaseAdmin
@@ -72,18 +58,21 @@ export const POST = withAuth(async (req, user) => {
       .single();
     if (fetchErr) throw fetchErr;
 
+    bustServiceCatalogCache();
     return NextResponse.json(
       {
-        success: true,
-        group: "beta",
-        services_granted: result.services_granted,
-        assignment,
+        data: {
+          success: true,
+          group: "beta",
+          services_granted: result.services_granted,
+          assignment,
+        },
+        meta: { count: 1, timestamp: new Date().toISOString() },
       },
       { status: 201 },
     );
   }
 
-  // Upsert the group assignment (one row per user)
   const { data: assignment, error: assignError } = await supabaseAdmin
     .from("user_group_assignments")
     .upsert(
@@ -101,7 +90,6 @@ export const POST = withAuth(async (req, user) => {
 
   if (assignError) throw assignError;
 
-  // Alumni: cancel all complimentary subscriptions
   if (subscription_group === "alumni") {
     const { error: cancelError } = await supabaseAdmin
       .from("user_subscriptions")
@@ -115,5 +103,12 @@ export const POST = withAuth(async (req, user) => {
     if (cancelError) throw cancelError;
   }
 
-  return NextResponse.json({ assignment }, { status: 201 });
+  bustServiceCatalogCache();
+  return NextResponse.json(
+    {
+      data: { assignment },
+      meta: { count: 1, timestamp: new Date().toISOString() },
+    },
+    { status: 201 },
+  );
 });

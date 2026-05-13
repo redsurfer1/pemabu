@@ -3,7 +3,7 @@ import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchSnapshotProposals } from "@/lib/governance/snapshot-client";
 import { summariseProposal } from "@/lib/governance/governance-summariser";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 
 const ADDON = "addon_governance_alerts";
 
@@ -14,10 +14,7 @@ function numScore(v: unknown): number | null {
 }
 
 export const GET = withAuth(async (_req, user) => {
-  const keys = await getActiveServiceKeysForUser(user.id);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Governance Alert subscription required." }, { status: 403 });
-  }
+  await assertServiceAccess(user.id, ADDON);
 
   const { data: watchList } = await supabaseAdmin
     .from("governance_watch_list")

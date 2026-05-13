@@ -2,7 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isSubscriptionRowAccessActive } from "@/lib/constants/services";
-import type { Portfolio, PemabuService, UserSubscription, UserGroupAssignment, SubscriptionGroup, SubscriptionStatus } from "@/lib/types/database";
+import { STALE } from "@/lib/constants/query-config";
+import type {
+  Portfolio,
+  PemabuService,
+  UserSubscription,
+  UserGroupAssignment,
+  SubscriptionGroup,
+  SubscriptionStatus,
+} from "@/lib/types/database";
 
 export interface AdminUser {
   id: string;
@@ -39,8 +47,8 @@ async function fetchAdminUsers(): Promise<AdminUser[]> {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Admin users ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { users: AdminUser[] };
-  return data.users;
+  const envelope = (await res.json()) as { data: AdminUser[] };
+  return envelope.data;
 }
 
 async function fetchAdminPortfolios(): Promise<AdminPortfolio[]> {
@@ -49,8 +57,8 @@ async function fetchAdminPortfolios(): Promise<AdminPortfolio[]> {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Admin portfolios ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { portfolios: AdminPortfolio[] };
-  return data.portfolios;
+  const envelope = (await res.json()) as { data: AdminPortfolio[] };
+  return envelope.data;
 }
 
 async function fetchAdminStats(): Promise<AdminStats> {
@@ -59,14 +67,15 @@ async function fetchAdminStats(): Promise<AdminStats> {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Admin stats ${res.status}: ${JSON.stringify(body)}`);
   }
-  return res.json() as Promise<AdminStats>;
+  const envelope = (await res.json()) as { data: AdminStats };
+  return envelope.data;
 }
 
 export function useAdminUsers() {
   return useQuery({
     queryKey: ["admin", "users"],
     queryFn: fetchAdminUsers,
-    staleTime: 60 * 1000,
+    staleTime: STALE.ADMIN_USERS,
   });
 }
 
@@ -74,7 +83,7 @@ export function useAdminPortfolios() {
   return useQuery({
     queryKey: ["admin", "portfolios"],
     queryFn: fetchAdminPortfolios,
-    staleTime: 60 * 1000,
+    staleTime: STALE.HOLDINGS,
   });
 }
 
@@ -82,14 +91,10 @@ export function useAdminStats() {
   return useQuery({
     queryKey: ["admin", "stats"],
     queryFn: fetchAdminStats,
-    staleTime: 30 * 1000,
+    staleTime: STALE.ADMIN_USERS,
     refetchInterval: 60 * 1000,
   });
 }
-
-// ─────────────────────────────────────────────────
-// Pricing & Subscription hooks
-// ─────────────────────────────────────────────────
 
 async function fetchServices(): Promise<PemabuService[]> {
   const res = await fetch("/api/admin/pricing", { credentials: "same-origin" });
@@ -97,8 +102,8 @@ async function fetchServices(): Promise<PemabuService[]> {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Admin pricing ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { services: PemabuService[] };
-  return data.services;
+  const envelope = (await res.json()) as { data: PemabuService[] };
+  return envelope.data;
 }
 
 async function patchService(payload: {
@@ -119,8 +124,8 @@ async function patchService(payload: {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Patch service ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { service: PemabuService };
-  return data.service;
+  const envelope = (await res.json()) as { data: PemabuService };
+  return envelope.data;
 }
 
 async function fetchSubscriptions(): Promise<UserSubscription[]> {
@@ -129,8 +134,8 @@ async function fetchSubscriptions(): Promise<UserSubscription[]> {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Admin subscriptions ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { subscriptions: UserSubscription[] };
-  return data.subscriptions;
+  const envelope = (await res.json()) as { data: UserSubscription[] };
+  return envelope.data;
 }
 
 async function grantSubscription(payload: {
@@ -151,8 +156,8 @@ async function grantSubscription(payload: {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Grant subscription ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { subscription: UserSubscription };
-  return data.subscription;
+  const envelope = (await res.json()) as { data: UserSubscription };
+  return envelope.data;
 }
 
 async function fetchGroupAssignments(): Promise<UserGroupAssignment[]> {
@@ -161,15 +166,15 @@ async function fetchGroupAssignments(): Promise<UserGroupAssignment[]> {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Admin groups ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { assignments: UserGroupAssignment[] };
-  return data.assignments;
+  const envelope = (await res.json()) as { data: UserGroupAssignment[] };
+  return envelope.data;
 }
 
 async function assignGroup(payload: {
   user_id: string;
   subscription_group: SubscriptionGroup;
   notes?: string | null;
-}): Promise<UserGroupAssignment> {
+}): Promise<unknown> {
   const res = await fetch("/api/admin/groups", {
     method: "POST",
     credentials: "same-origin",
@@ -180,8 +185,7 @@ async function assignGroup(payload: {
     const body = await res.json().catch(() => ({}));
     throw new Error(`Assign group ${res.status}: ${JSON.stringify(body)}`);
   }
-  const data = (await res.json()) as { assignment: UserGroupAssignment };
-  return data.assignment;
+  return (await res.json()) as { data: unknown };
 }
 
 export function useAdminPricing() {
@@ -190,7 +194,7 @@ export function useAdminPricing() {
   const services = useQuery({
     queryKey: ["admin", "pricing"],
     queryFn: fetchServices,
-    staleTime: 60 * 1000,
+    staleTime: STALE.CATALOG,
   });
 
   const updateService = useMutation({
@@ -201,7 +205,7 @@ export function useAdminPricing() {
   const subscriptions = useQuery({
     queryKey: ["admin", "subscriptions"],
     queryFn: fetchSubscriptions,
-    staleTime: 30 * 1000,
+    staleTime: STALE.SUBSCRIPTIONS,
   });
 
   const grantSub = useMutation({
@@ -212,7 +216,7 @@ export function useAdminPricing() {
   const groupAssignments = useQuery({
     queryKey: ["admin", "groups"],
     queryFn: fetchGroupAssignments,
-    staleTime: 30 * 1000,
+    staleTime: STALE.SUBSCRIPTIONS,
   });
 
   const assignUserGroup = useMutation({
@@ -234,7 +238,6 @@ export function useAdminPricing() {
   };
 }
 
-/** Active subscription row: paying, beta complimentary, or (future) explicit trial row. */
 export function hasServiceAccess(status: SubscriptionStatus | string): boolean {
   return isSubscriptionRowAccessActive(status);
 }

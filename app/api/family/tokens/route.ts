@@ -3,17 +3,9 @@ import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { generateShareToken, hashShareToken, buildShareUrl } from "@/lib/family-sharing/token-service";
-import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { assertServiceAccess } from "@/lib/security/tier-guard";
 
 const ADDON = "addon_family_sharing";
-
-async function assertFamily(userId: string): Promise<NextResponse | null> {
-  const keys = await getActiveServiceKeysForUser(userId);
-  if (!keys.includes(ADDON)) {
-    return NextResponse.json({ error: "Family Sharing subscription required." }, { status: 403 });
-  }
-  return null;
-}
 
 const CreateTokenSchema = z.object({
   viewer_label: z.string().min(1).max(60).optional(),
@@ -24,8 +16,7 @@ const CreateTokenSchema = z.object({
 });
 
 export const GET = withAuth(async (_req, user) => {
-  const denied = await assertFamily(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   const { data, error } = await supabaseAdmin
     .from("family_share_tokens")
@@ -41,8 +32,7 @@ export const GET = withAuth(async (_req, user) => {
 });
 
 export const POST = withAuth(async (req, user) => {
-  const denied = await assertFamily(user.id);
-  if (denied) return denied;
+  await assertServiceAccess(user.id, ADDON);
 
   let body: unknown;
   try {
