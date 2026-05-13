@@ -8,6 +8,7 @@ import { PortfolioCard } from "@/components/dashboard/PortfolioCard";
 import { SignalFeed } from "@/components/dashboard/SignalFeed";
 import { HoldingsBuilder } from "@/components/workbook/HoldingsBuilder";
 import { PortfolioSelector } from "@/components/workbook/PortfolioSelector";
+import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
 
 interface DashboardClientProps {
   userId: string;
@@ -128,10 +129,22 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
         </div>
         <div className="flex items-center gap-4">
           <Link
-            href={`/portfolio/engine${selectedPortfolioId ? `?portfolioId=${encodeURIComponent(selectedPortfolioId)}` : ""}`}
+            href={`/portfolio/engine${selectedPortfolioId ? `?portfolio=${encodeURIComponent(selectedPortfolioId)}` : ""}`}
             className="rounded border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
           >
             Engine
+          </Link>
+          <Link
+            href="/strategy-council"
+            className="rounded border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
+          >
+            Strategy Council
+          </Link>
+          <Link
+            href="/marketplace"
+            className="rounded border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
+          >
+            Marketplace
           </Link>
           <span className="text-xs text-gray-500">
             Total Value:{" "}
@@ -154,11 +167,13 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
         </div>
       </nav>
 
+      <SystemSafetyBanner portfolioId={selectedPortfolioId} />
+
       <div className="mx-auto max-w-7xl px-6 py-8">
         {portfolios.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr_280px]">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_1fr_280px]">
             <div className="space-y-4">
               <h2 className="text-xs font-medium uppercase tracking-wider text-gray-500">Your portfolios</h2>
               {portfolios.map((summary) => (

@@ -115,6 +115,61 @@ export interface AllocationSnapshot {
   created_at: string;
 }
 
+// ─────────────────────────────────────────────────
+// Pricing & Subscription types
+// Catalog rows and keys must match lib/constants/services.ts (PEMABU_SERVICES).
+// ─────────────────────────────────────────────────
+
+export type PricingModel = "one_time" | "annual" | "per_event" | "free";
+
+export type ServiceCategory = "core" | "subscription" | "addon" | "upgrade" | "overage";
+
+export type SubscriptionGroup = "beta" | "standard" | "trial" | "alumni";
+
+export type SubscriptionStatus = "active" | "cancelled" | "expired" | "complimentary" | "trial";
+
+export interface PemabuService {
+  id: string;
+  service_key: string;
+  display_name: string;
+  description: string | null;
+  category: ServiceCategory;
+  pricing_model: PricingModel;
+  price_usd: number;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserSubscription {
+  id: string;
+  user_id: string;
+  service_key: string;
+  status: SubscriptionStatus;
+  price_paid_usd: number | null;
+  granted_by: string | null;
+  notes: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Joined from pemabu_services */
+  service?: PemabuService;
+}
+
+export interface UserGroupAssignment {
+  id: string;
+  user_id: string;
+  subscription_group: SubscriptionGroup;
+  assigned_by: string | null;
+  assigned_at: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─────────────────────────────────────────────────
 // Derived / computed types used in the application layer
 
 export interface AllocationWeight {

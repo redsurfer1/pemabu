@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePortfolios } from "@/hooks/usePortfolios";
@@ -166,6 +167,7 @@ function PortfolioEnginePageContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-[#ddd]">
+      <SystemSafetyBanner portfolioId={selected || null} />
       <style>{`
         @keyframes loading-dot {
           0%, 100% { opacity: 1; }

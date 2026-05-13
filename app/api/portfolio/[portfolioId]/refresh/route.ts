@@ -27,6 +27,14 @@ async function executeRefresh(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  if (!options.skipOwnership && options.user) {
+    const { getActiveServiceKeysForUser } = await import("@/lib/services/user-entitlements");
+    const { canUseExchangePriceSync } = await import("@/lib/entitlements/tier-capabilities");
+    const { tierForbiddenResponse } = await import("@/lib/security/tier-guard");
+    const keys = await getActiveServiceKeysForUser(options.user.id);
+    if (!canUseExchangePriceSync(keys)) return tierForbiddenResponse("INTELLIGENCE");
+  }
+
   // TODO: replace 202 path with Supabase Edge Function queue
   // trigger once background job infrastructure is in place
   const { count: holdingCount, error: countError } = await supabase

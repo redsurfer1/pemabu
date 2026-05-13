@@ -1,8 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { checkAccess } from "@/lib/access/checkAccess";
 
-/** Session required; role checks happen in layouts / API handlers. */
-const PROTECTED_ROUTE_PREFIXES = ["/dashboard", "/workbook", "/admin"];
+/** Session required; role checks happen in layouts / API handlers. Marketplace is public (teaser leaderboard). */
+const PROTECTED_ROUTE_PREFIXES = ["/dashboard", "/workbook", "/admin", "/portfolio", "/strategy-council"];
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -56,6 +57,10 @@ export async function middleware(request: NextRequest) {
     return redirect;
   }
 
+  if (user && checkAccess(request.nextUrl.pathname).blocked) {
+    return NextResponse.redirect(new URL("/request-access", request.url));
+  }
+
   return supabaseResponse;
 }
 
@@ -67,5 +72,11 @@ export const config = {
     "/admin/:path*",
     "/workbook",
     "/workbook/:path*",
+    "/portfolio",
+    "/portfolio/:path*",
+    "/strategy-council",
+    "/strategy-council/:path*",
+    "/marketplace",
+    "/marketplace/:path*",
   ],
 };

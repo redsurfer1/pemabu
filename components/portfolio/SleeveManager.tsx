@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ComputedHolding, SleevePurpose, SleeveWeightingMethod } from "@/types/allocation";
+import type { ComputedHolding, SleevePurpose } from "@/types/allocation";
 import { SleeveCard } from "./SleeveCard";
 import { AddSleeveModal } from "./AddSleeveModal";
 
@@ -9,7 +9,6 @@ export interface SleeveDisplayData {
   id: string;
   name: string;
   purpose: SleevePurpose;
-  weightingMethod: SleeveWeightingMethod;
   budgetPct: number;
   sortOrder: number;
   holdings: ComputedHolding[];
@@ -21,14 +20,9 @@ export interface SleeveDisplayData {
 interface SleeveManagerProps {
   sleeves: SleeveDisplayData[];
   totalPortfolioNAV: number;
-  onAddSleeve: (data: {
-    name: string;
-    purpose: SleevePurpose;
-    weightingMethod: SleeveWeightingMethod;
-    budgetPct: number;
-    description: string;
-  }) => void;
+  onAddSleeve: (data: { name: string; purpose: SleevePurpose; budgetPct: number; description: string }) => void;
   onRemoveSleeve: (sleeveId: string) => void;
+  onReorder?: (orderedIds: string[]) => void;
 }
 
 export function SleeveManager({
@@ -51,48 +45,6 @@ export function SleeveManager({
           Sleeve budgets sum to {(totalBudget * 100).toFixed(0)}% — expected 100%.
           {totalBudget > 1 && " Over-allocated."}
           {totalBudget < 1 && " Under-allocated."}
-        </div>
-      )}
-
-      {/* Budget allocation bar */}
-      {sleeves.length > 0 && (
-        <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-          <p className="mb-2 text-[10px] uppercase tracking-wider text-gray-500">
-            Budget Allocation
-          </p>
-          <div className="flex h-4 w-full overflow-hidden rounded-full">
-            {sortedSleeves.map((sl, i) => {
-              const hue = [
-                "bg-[#C9A84C]",
-                "bg-emerald-500",
-                "bg-teal-500",
-                "bg-purple-500",
-                "bg-blue-500",
-              ][i % 5];
-              return (
-                <div
-                  key={sl.id}
-                  className={`${hue} transition-all`}
-                  style={{ width: `${sl.budgetPct * 100}%` }}
-                  title={`${sl.name}: ${(sl.budgetPct * 100).toFixed(0)}%`}
-                />
-              );
-            })}
-            {remainingBudget > 0.001 && (
-              <div
-                className="bg-white/10"
-                style={{ width: `${remainingBudget * 100}%` }}
-                title={`Unallocated: ${(remainingBudget * 100).toFixed(0)}%`}
-              />
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-3">
-            {sortedSleeves.map((sl) => (
-              <span key={sl.id} className="text-[10px] text-gray-400">
-                {sl.name}: {(sl.budgetPct * 100).toFixed(0)}%
-              </span>
-            ))}
-          </div>
         </div>
       )}
 

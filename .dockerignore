@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+coverage
+*.md
+.env
+.env.*
+!.env.example
+pemabu_vault_data
+docker/data

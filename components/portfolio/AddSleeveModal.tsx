@@ -1,41 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { SleevePurpose, SleeveWeightingMethod } from "@/types/allocation";
+import type { SleevePurpose } from "@/types/allocation";
 
 interface AddSleeveModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: {
-    name: string;
-    purpose: SleevePurpose;
-    weightingMethod: SleeveWeightingMethod;
-    budgetPct: number;
-    description: string;
-  }) => void;
+  onSubmit: (data: { name: string; purpose: SleevePurpose; budgetPct: number; description: string }) => void;
   remainingBudget: number;
 }
 
 const PURPOSES: SleevePurpose[] = ["Appreciation", "Income", "Stability", "Growth", "Custom"];
 
-const METHOD_OPTIONS: { value: SleeveWeightingMethod; label: string }[] = [
-  { value: "COMPOSITE_SCORE", label: "Composite Score (Main ETF)" },
-  { value: "YIELD_PROPORTIONAL", label: "Yield-Proportional (Income)" },
-  { value: "MANUAL", label: "Manual (Fidelity / Cash)" },
-];
-
-const DEFAULT_METHOD: Record<SleevePurpose, SleeveWeightingMethod> = {
-  Appreciation: "COMPOSITE_SCORE",
-  Growth: "COMPOSITE_SCORE",
-  Income: "YIELD_PROPORTIONAL",
-  Stability: "MANUAL",
-  Custom: "COMPOSITE_SCORE",
-};
-
 export function AddSleeveModal({ open, onClose, onSubmit, remainingBudget }: AddSleeveModalProps) {
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState<SleevePurpose>("Appreciation");
-  const [method, setMethod] = useState<SleeveWeightingMethod>("COMPOSITE_SCORE");
   const [budgetPct, setBudgetPct] = useState("");
   const [description, setDescription] = useState("");
 
@@ -44,20 +23,9 @@ export function AddSleeveModal({ open, onClose, onSubmit, remainingBudget }: Add
   const budgetNum = Number(budgetPct) / 100;
   const isValid = name.trim().length > 0 && budgetNum > 0 && budgetNum <= remainingBudget;
 
-  function handlePurposeChange(p: SleevePurpose) {
-    setPurpose(p);
-    setMethod(DEFAULT_METHOD[p]);
-  }
-
   function handleSubmit() {
     if (!isValid) return;
-    onSubmit({
-      name: name.trim(),
-      purpose,
-      weightingMethod: method,
-      budgetPct: budgetNum,
-      description: description.trim(),
-    });
+    onSubmit({ name: name.trim(), purpose, budgetPct: budgetNum, description: description.trim() });
     setName("");
     setPurpose("Appreciation");
     setBudgetPct("");
@@ -85,24 +53,11 @@ export function AddSleeveModal({ open, onClose, onSubmit, remainingBudget }: Add
             <label className="mb-1 block text-xs text-gray-400">Purpose *</label>
             <select
               value={purpose}
-              onChange={(e) => handlePurposeChange(e.target.value as SleevePurpose)}
+              onChange={(e) => setPurpose(e.target.value as SleevePurpose)}
               className="w-full rounded border border-white/20 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#C9A84C]/50"
             >
               {PURPOSES.map((p) => (
                 <option key={p} value={p} className="bg-[#0D1B2A]">{p}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-gray-400">Weighting Method *</label>
-            <select
-              value={method}
-              onChange={(e) => setMethod(e.target.value as SleeveWeightingMethod)}
-              className="w-full rounded border border-white/20 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#C9A84C]/50"
-            >
-              {METHOD_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value} className="bg-[#0D1B2A]">{o.label}</option>
               ))}
             </select>
           </div>

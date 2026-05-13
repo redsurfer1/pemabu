@@ -11,14 +11,21 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "vault:sync": "tsx scripts/sync-local-schema.ts",
+    "watcher": "tsx services/watcher/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
+    "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "0.10.2",
     "@supabase/supabase-js": "^2.103.0",
     "@tanstack/react-query": "^5.99.0",
+    "decimal.js": "^10.6.0",
+    "dotenv": "^17.4.2",
     "next": "15.5.15",
+    "node-cron": "^4.2.1",
+    "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.11.0",
@@ -30,6 +37,8 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/ui": "^4.1.4",
@@ -37,6 +46,7 @@
     "eslint-config-next": "15.5.15",
     "jsdom": "^29.0.2",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.4"
   }

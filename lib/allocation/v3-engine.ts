@@ -3,8 +3,7 @@
  *
  * All computation happens server-side. Pure functions — no side effects.
  * PERCENTRANK is computed across ALL active holdings simultaneously.
- * Sequence: fetch all prices -> compute all returns -> PERCENTRANK across full array
- * -> composite scores -> allocation pipeline (8 steps).
+ * Sequence: fetch all prices -> compute all returns -> PERCENTRANK across full array -> composite scores.
  */
 
 import type {
@@ -15,12 +14,11 @@ import type {
   TrendSignal,
   VolCapFlag,
   HoldingStatus,
-  Theme,
 } from "@/types/allocation";
 
 export type { IncomeHoldingInput } from "@/types/allocation";
 
-// ── Step 1: Period Returns ──────────────────────────────────────────
+// ── Step 1: Period Returns ──────────────────────────────────────
 
 export interface HoldingReturns {
   ret3mo: number;
@@ -39,7 +37,7 @@ export function computeReturns(h: HoldingInput): HoldingReturns {
   return { ret3mo, ret6mo, ret1yr, ret3yr, ret5yr };
 }
 
-// ── Step 2: Blended Return ──────────────────────────────────────────
+// ── Step 2: Blended Return ──────────────────────────────────────
 
 export function computeBlendedReturn(
   returns: HoldingReturns,
@@ -54,7 +52,7 @@ export function computeBlendedReturn(
   );
 }
 
-// ── Step 3: Volatility & Sharpe Proxy ──────────────────────────────
+// ── Step 3: Volatility & Sharpe Proxy ───────────────────────────
 
 export function computeVolAndSharpe(
   ret3mo: number,
@@ -65,18 +63,18 @@ export function computeVolAndSharpe(
   return { vol, sharpe };
 }
 
-// ── Step 4: PERCENTRANK (continuous, 0-1) ──────────────────────────
-// Matches Excel PERCENTRANK: count(values < target) / (count - 1)
-// Result clamped to [0, 1] — Excel returns #N/A for out-of-range values;
-// clamping is safer and correct for all in-array targets.
+// ── Step 4: PERCENTRANK (continuous, 0-1) ───────────────────────
+// Computed across the full active universe for each factor.
+// Formula matches Excel PERCENTRANK: count(values < target) / (count - 1)
 
 export function percentRank(values: number[], target: number): number {
-  if (values.length <= 1) return 0;
-  const below = values.filter((v) => v < target).length;
-  return Math.min(1, Math.max(0, below / (values.length - 1)));
+  const sorted = [...values].sort((a, b) => a - b);
+  const below = sorted.filter((v) => v < target).length;
+  const total = sorted.length - 1;
+  return total > 0 ? below / total : 0;
 }
 
-// ── Step 5: Composite Score ─────────────────────────────────────────
+// ── Step 5: Composite Score ─────────────────────────────────────
 
 export function computeCompositeScore(
   prExpense: number,
@@ -93,7 +91,52 @@ export function computeCompositeScore(
   );
 }
 
-// ── Trend Signal ────────────────────────────────────────────────────
+// ── Step 6: Score-Proportional Allocation ───────────────────────
+
+export function computeTargetWeights(
+  activeHoldings: Array<{ ticker: string; theme: string; compositeScore: number }>,
+  assumptions: EngineAssumptions,
+): Map<string, number> {
+  const totalScore = activeHoldings.reduce((sum, h) => sum + h.compositeScore, 0);
+  const equalWeight = 1 / activeHoldings.length;
+  const volCap = assumptions.volCapMultiplier * equalWeight;
+
+  const rawWeights = new Map(
+    activeHoldings.map((h) => [
+      h.ticker,
+      totalScore > 0 ? h.compositeScore / totalScore : equalWeight,
+    ]),
+  );
+
+  // Vol cap: cap any position exceeding N x equal weight
+  const cappedWeights = new Map(
+    [...rawWeights].map(([t, w]) => [t, Math.min(w, volCap)]),
+  );
+
+  // Theme cap: if a theme's total exposure exceeds themeCapPct, scale down proportionally
+  const themeExposure = new Map<string, number>();
+  activeHoldings.forEach((h) => {
+    const w = cappedWeights.get(h.ticker) ?? 0;
+    themeExposure.set(h.theme, (themeExposure.get(h.theme) ?? 0) + w);
+  });
+
+  const themeCapped = new Map(
+    activeHoldings.map((h) => {
+      const w = cappedWeights.get(h.ticker) ?? 0;
+      const exp = themeExposure.get(h.theme) ?? 0;
+      const adj = exp > assumptions.themeCapPct ? w * (assumptions.themeCapPct / exp) : w;
+      return [h.ticker, adj] as [string, number];
+    }),
+  );
+
+  // Normalize to (1 - incomeBudgetPct) = 88% of NAV
+  const sumCapped = [...themeCapped.values()].reduce((s, v) => s + v, 0);
+  const scaleFactor = sumCapped > 0 ? (1 - assumptions.incomeBudgetPct) / sumCapped : 0;
+
+  return new Map([...themeCapped].map(([t, w]) => [t, w * scaleFactor]));
+}
+
+// ── Trend Signal ────────────────────────────────────────────────
 
 export function computeTrendSignal(blendedReturn: number): TrendSignal {
   if (blendedReturn > 0.05) return "Consider Entry";
@@ -101,9 +144,9 @@ export function computeTrendSignal(blendedReturn: number): TrendSignal {
   return "Hold";
 }
 
-// ── Full Engine: Compute All Holdings Simultaneously ────────────────
-// Primary entry point. Processes ALL active holdings at once to ensure
-// PERCENTRANK is computed across the full universe.
+// ── Full Engine: Compute All Holdings Simultaneously ────────────
+// This is the primary entry point. It processes ALL active holdings
+// at once to ensure PERCENTRANK is computed across the full universe.
 
 export interface ComputedMainSleeve {
   holdings: ComputedHolding[];
@@ -114,12 +157,12 @@ export interface ComputedMainSleeve {
 export function computeMainSleeve(
   inputs: HoldingInput[],
   assumptions: EngineAssumptions,
-  totalPortfolioNAV?: number,
 ): ComputedMainSleeve {
+  // Separate active from comparable
   const activeInputs = inputs.filter((h) => h.status === "Active");
   const comparableInputs = inputs.filter((h) => h.status === "Comparable");
 
-  // Step 1-3: Returns, blended return, vol/sharpe for ALL active holdings
+  // Step 1 & 2: Compute returns and blended return for ALL active holdings
   const activeData = activeInputs.map((h) => {
     const returns = computeReturns(h);
     const blendedReturn = computeBlendedReturn(returns, assumptions);
@@ -129,17 +172,20 @@ export function computeMainSleeve(
     return { input: h, returns, blendedReturn, vol, sharpe, value, divAPY };
   });
 
-  // Step 4: PERCENTRANK — across ALL active holdings simultaneously
+  // Step 4: PERCENTRANK — computed across ALL active holdings simultaneously
   const allExpenses = activeData.map((d) => d.input.expenseRatio);
   const allBlended = activeData.map((d) => d.blendedReturn);
   const allDivAPY = activeData.map((d) => d.divAPY);
   const allSharpe = activeData.map((d) => d.sharpe);
 
   const activeWithScores = activeData.map((d) => {
+    // For expense: lower is better, so use 1 - percentRank
     const prExpense = 1 - percentRank(allExpenses, d.input.expenseRatio);
     const prReturn = percentRank(allBlended, d.blendedReturn);
     const prDivAPY = percentRank(allDivAPY, d.divAPY);
     const prSharpe = percentRank(allSharpe, d.sharpe);
+
+    // Step 5: Composite score
     const compositeScore = computeCompositeScore(
       prExpense,
       prReturn,
@@ -147,85 +193,77 @@ export function computeMainSleeve(
       prSharpe,
       assumptions,
     );
+
     return { ...d, prExpense, prReturn, prDivAPY, prSharpe, compositeScore };
   });
 
-  // Step 6: Score rank (1 = highest)
+  // Step 5b: Rank by composite score (1 = highest)
   const sortedByScore = [...activeWithScores].sort(
     (a, b) => b.compositeScore - a.compositeScore,
   );
   const rankMap = new Map<string, number>();
-  sortedByScore.forEach((d, i) => rankMap.set(d.input.id, i + 1));
+  sortedByScore.forEach((d, i) => rankMap.set(d.input.ticker, i + 1));
 
-  // Step 7: Allocation pipeline
-  const totalScore = activeWithScores.reduce((s, d) => s + d.compositeScore, 0);
-  const equalWtBase = activeWithScores.length > 0 ? 1 / activeWithScores.length : 0;
-  const volCap = assumptions.volCapMultiplier * equalWtBase;
+  // Step 6: Target weights
+  const targetWeights = computeTargetWeights(
+    activeWithScores.map((d) => ({
+      ticker: d.input.ticker,
+      theme: d.input.theme,
+      compositeScore: d.compositeScore,
+    })),
+    assumptions,
+  );
 
-  // Pass 1: raw score weight + vol cap
-  const pass1 = activeWithScores.map((d) => {
-    const rawScoreWt = totalScore > 0 ? d.compositeScore / totalScore : equalWtBase;
-    const cappedWt = Math.min(rawScoreWt, volCap);
-    return { ...d, rawScoreWt, cappedWt };
-  });
-
-  // Pass 2: theme exposure per theme (using cappedWt from pass 1)
+  // Compute theme exposures for display
   const themeExposureMap = new Map<string, number>();
-  for (const d of pass1) {
+  activeWithScores.forEach((d) => {
+    const w = targetWeights.get(d.input.ticker) ?? 0;
     themeExposureMap.set(
       d.input.theme,
-      (themeExposureMap.get(d.input.theme) ?? 0) + d.cappedWt,
+      (themeExposureMap.get(d.input.theme) ?? 0) + w,
     );
-  }
-
-  // Pass 3: theme cap scaling -> themeCappedWt
-  const pass3 = pass1.map((d) => {
-    const themeExp = themeExposureMap.get(d.input.theme) ?? 0;
-    const themeCappedWt =
-      themeExp > assumptions.themeCapPct
-        ? d.cappedWt * (assumptions.themeCapPct / themeExp)
-        : d.cappedWt;
-    return { ...d, themeExp, themeCappedWt };
   });
 
-  // Normalize to (1 - incomeBudgetPct) = 88% of NAV
-  const sumThemeCapped = pass3.reduce((s, d) => s + d.themeCappedWt, 0);
-  const scaleFactor =
-    sumThemeCapped > 0 ? (1 - assumptions.incomeBudgetPct) / sumThemeCapped : 0;
+  const totalValue = activeWithScores.reduce((s, d) => s + d.value, 0);
+  const equalWeight = activeWithScores.length > 0 ? 1 / activeWithScores.length : 0;
+  const volCap = assumptions.volCapMultiplier * equalWeight;
 
-  // Step 8: Parity
-  const activeTotalValue = activeWithScores.reduce((s, d) => s + d.value, 0);
-  const navForParity = totalPortfolioNAV ?? activeTotalValue;
-
+  // Build computed holdings
   let cappedCount = 0;
-  const activeHoldings: ComputedHolding[] = pass3.map((d) => {
-    const finalTargetWt = d.themeCappedWt * scaleFactor;
-    const value = d.value;
-    const currentWtPct = navForParity > 0 ? value / navForParity : 0;
-    const targetWtPct = finalTargetWt;
-    const parityGapPct = currentWtPct - targetWtPct;
-    const parityDollarAmt = finalTargetWt * navForParity;
-    const parityDollarChg = parityDollarAmt - value;
-    const isCapped = d.rawScoreWt > volCap;
+  const activeHoldings: ComputedHolding[] = activeWithScores.map((d) => {
+    const targetWt = targetWeights.get(d.input.ticker) ?? 0;
+    const currentWtPct = totalValue > 0 ? d.value / totalValue : 0;
+    const targetDollar = targetWt * totalValue;
+    const parityDollarChg = targetDollar - d.value;
+    const parityGapPct = targetWt > 0 ? (d.value - targetDollar) / targetDollar : 0;
+
+    const rawWt =
+      activeWithScores.reduce((s, x) => s + x.compositeScore, 0) > 0
+        ? d.compositeScore /
+          activeWithScores.reduce((s, x) => s + x.compositeScore, 0)
+        : equalWeight;
+    const isCapped = rawWt > volCap;
     if (isCapped) cappedCount++;
 
+    const volCapFlag: VolCapFlag = isCapped ? "CAPPED" : "OK";
+    const themeExp = themeExposureMap.get(d.input.theme) ?? 0;
+    const trendSignal = computeTrendSignal(d.blendedReturn);
+
     return {
-      id: d.input.id,
       ticker: d.input.ticker,
-      name: d.input.name,
+      name: d.input.ticker,
       status: "Active" as HoldingStatus,
-      theme: d.input.theme as Theme,
+      theme: d.input.theme as ComputedHolding["theme"],
       qty: d.input.qty,
       price: d.input.price,
-      value,
+      value: d.value,
       expenseRatio: d.input.expenseRatio,
       divDollar: d.input.divDollar,
       divAPY: d.divAPY,
-      price3mo: d.input.price3mo,
-      price6mo: d.input.price6mo,
-      price1yr: d.input.price1yr,
-      price3yr: d.input.price3yr,
-      price5yr: d.input.price5yr,
+      currentWtPct,
+      targetWtPct: targetWt,
+      parityGapPct,
+      parityDollarChg,
       ret3mo: d.returns.ret3mo,
       ret6mo: d.returns.ret6mo,
       ret1yr: d.returns.ret1yr,
@@ -239,19 +277,12 @@ export function computeMainSleeve(
       prDivAPY: d.prDivAPY,
       prSharpe: d.prSharpe,
       compositeScore: d.compositeScore,
-      scoreRank: rankMap.get(d.input.id) ?? null,
-      rawScoreWt: d.rawScoreWt,
-      equalWtBase,
-      volCapFlag: (isCapped ? "CAPPED" : "OK") as VolCapFlag,
-      themeExposurePct: d.themeExp,
-      themeCappedWt: d.themeCappedWt,
-      finalTargetWt,
-      parityDollarAmt,
-      parityDollarChg,
-      currentWtPct,
-      targetWtPct,
-      parityGapPct,
-      trendSignal: computeTrendSignal(d.blendedReturn),
+      scoreRank: rankMap.get(d.input.ticker) ?? null,
+      rawScoreWt: rawWt,
+      equalWtBase: equalWeight,
+      volCapFlag,
+      themeExposurePct: themeExp,
+      trendSignal,
     };
   });
 
@@ -264,22 +295,20 @@ export function computeMainSleeve(
     const divAPY = value > 0 ? h.divDollar / value : 0;
 
     return {
-      id: h.id,
       ticker: h.ticker,
-      name: h.name,
+      name: h.ticker,
       status: "Comparable" as HoldingStatus,
-      theme: h.theme as Theme,
+      theme: h.theme as ComputedHolding["theme"],
       qty: h.qty,
       price: h.price,
       value,
       expenseRatio: h.expenseRatio,
       divDollar: h.divDollar,
       divAPY,
-      price3mo: h.price3mo,
-      price6mo: h.price6mo,
-      price1yr: h.price1yr,
-      price3yr: h.price3yr,
-      price5yr: h.price5yr,
+      currentWtPct: 0,
+      targetWtPct: 0,
+      parityGapPct: 0,
+      parityDollarChg: 0,
       ret3mo: returns.ret3mo,
       ret6mo: returns.ret6mo,
       ret1yr: returns.ret1yr,
@@ -298,31 +327,40 @@ export function computeMainSleeve(
       equalWtBase: 0,
       volCapFlag: "N/A" as VolCapFlag,
       themeExposurePct: 0,
-      themeCappedWt: 0,
-      finalTargetWt: 0,
-      parityDollarAmt: 0,
-      parityDollarChg: 0,
-      currentWtPct: 0,
-      targetWtPct: 0,
-      parityGapPct: 0,
       trendSignal: computeTrendSignal(blendedReturn),
     };
   });
 
   return {
     holdings: [...activeHoldings, ...comparableHoldings],
-    totalValue: activeTotalValue,
+    totalValue,
     cappedCount,
   };
 }
 
-// ── Income Sleeve: Yield-Proportional Weighting ─────────────────────
+// ── Income Sleeve: Yield-Proportional Weighting ─────────────────
+
+export interface ComputedIncomeHolding {
+  id?: string;
+  ticker: string;
+  name: string;
+  qty: number;
+  price: number;
+  value: number;
+  divAPY: number;
+  currentWtPct: number;
+  targetWtPct: number;
+  parityGapPct: number;
+  parityDollarChg: number;
+  parityDollarAmt: number;
+  finalTargetWt: number;
+}
 
 export function computeIncomeSleeve(
   inputs: IncomeHoldingInput[],
   incomeBudgetPct: number,
   totalPortfolioNAV: number,
-): ComputedHolding[] {
+): ComputedIncomeHolding[] {
   const data = inputs.map((h) => {
     const value = h.qty * h.price;
     const divAPY = value > 0 ? h.divDollar / value : 0;
@@ -330,59 +368,33 @@ export function computeIncomeSleeve(
   });
 
   const totalDivAPY = data.reduce((s, d) => s + d.divAPY, 0);
+  const sleeveValue = data.reduce((s, d) => s + d.value, 0);
 
   return data.map((d) => {
-    const finalTargetWt =
+    const targetWtPct =
       totalDivAPY > 0 ? (d.divAPY / totalDivAPY) * incomeBudgetPct : 0;
-    const currentWtPct = totalPortfolioNAV > 0 ? d.value / totalPortfolioNAV : 0;
-    const targetWtPct = finalTargetWt;
-    const parityGapPct = currentWtPct - targetWtPct;
-    const parityDollarAmt = finalTargetWt * totalPortfolioNAV;
-    const parityDollarChg = parityDollarAmt - d.value;
+    const currentWtPct = sleeveValue > 0 ? d.value / sleeveValue : 0;
+    const targetDollar = targetWtPct * totalPortfolioNAV;
+    const parityDollarChg = targetDollar - d.value;
+    const parityDollarAmt = targetDollar;
+    const finalTargetWt = targetWtPct;
+    const parityGapPct =
+      totalPortfolioNAV > 0 ? d.value / totalPortfolioNAV - targetWtPct : 0;
 
     return {
       id: d.id,
       ticker: d.ticker,
       name: d.name,
-      status: "Active" as HoldingStatus,
-      theme: "Dividend" as Theme,
       qty: d.qty,
       price: d.price,
       value: d.value,
-      expenseRatio: d.expenseRatio ?? 0,
-      divDollar: d.divDollar,
       divAPY: d.divAPY,
-      price3mo: 0,
-      price6mo: 0,
-      price1yr: 0,
-      price3yr: 0,
-      price5yr: 0,
-      ret3mo: 0,
-      ret6mo: 0,
-      ret1yr: 0,
-      ret3yr: 0,
-      ret5yr: 0,
-      blendedReturn: 0,
-      vol3mo: 0,
-      sharpeProxy: 0,
-      prExpense: 0,
-      prReturn: 0,
-      prDivAPY: 0,
-      prSharpe: 0,
-      compositeScore: 0,
-      scoreRank: null,
-      rawScoreWt: 0,
-      equalWtBase: 0,
-      volCapFlag: "N/A" as VolCapFlag,
-      themeExposurePct: 0,
-      themeCappedWt: 0,
-      finalTargetWt,
-      parityDollarAmt,
-      parityDollarChg,
       currentWtPct,
       targetWtPct,
       parityGapPct,
-      trendSignal: "Hold" as TrendSignal,
+      parityDollarChg,
+      parityDollarAmt,
+      finalTargetWt,
     };
   });
 }

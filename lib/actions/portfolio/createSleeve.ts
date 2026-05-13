@@ -51,3 +51,5 @@ export async function createSleeve(portfolioId: string, data: CreateSleeveInput)
   if (error) return { success: false, error: error.message };
   return { success: true, sleeve };
 }
+
+export { createSleeve as addSleeve };

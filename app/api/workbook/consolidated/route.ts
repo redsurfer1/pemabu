@@ -4,6 +4,9 @@ import { getConsolidatedDashboard, getUserPortfolios, getPortfolioHoldings } fro
 import { getActiveProvider } from "@/lib/market-data";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Quote as EngineQuote } from "@/lib/allocation/engine";
+import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { canUseExchangePriceSync } from "@/lib/entitlements/tier-capabilities";
+import { tierForbiddenResponse } from "@/lib/security/tier-guard";
 
 const DASHBOARD_COMPUTE_TIMEOUT_MS = 15_000;
 
@@ -43,6 +46,9 @@ async function computeDashboard(userId: string) {
 }
 
 export const GET = withAuth(async (req, user, _ctx) => {
+  const keys = await getActiveServiceKeysForUser(user.id);
+  if (!canUseExchangePriceSync(keys)) return tierForbiddenResponse("INTELLIGENCE");
+
   try {
     const result = await Promise.race([
       computeDashboard(user.id),

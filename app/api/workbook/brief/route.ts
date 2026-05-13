@@ -32,6 +32,13 @@ export const POST = withAuth(async (req, user, _ctx) => {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+
+  const { getActiveServiceKeysForUser } = await import("@/lib/services/user-entitlements");
+  const { requireIntelligenceTier } = await import("@/lib/portfolio/intelligence-access");
+  const keys = await getActiveServiceKeysForUser(user.id);
+  const tierBlock = requireIntelligenceTier(keys);
+  if (tierBlock) return tierBlock;
+
   const portfolio = await getPortfolio(parsed.data.portfolioId);
   if (!portfolio || portfolio.user_id !== user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

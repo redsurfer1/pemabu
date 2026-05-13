@@ -7,6 +7,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 const NAV_ITEMS = [
   { label: "Users", href: "/admin" },
   { label: "Portfolios", href: "/admin/portfolios" },
+  { label: "Pricing", href: "/admin/pricing" },
+  { label: "Subscriptions", href: "/admin/subscriptions" },
   { label: "Ops", href: "/admin/ops" },
 ];
 

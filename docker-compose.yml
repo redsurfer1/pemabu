@@ -1,0 +1,69 @@
+# Pemabu Local Vault — zero-trust data plane stays on the Docker network.
+# The app may still use Supabase for auth/session; portfolio vault tables use LOCAL_DB_URL.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pemabu_vault_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pemabu
+      POSTGRES_PASSWORD: ${VAULT_POSTGRES_PASSWORD:-pemabu_local_only}
+      POSTGRES_DB: pemabu_vault
+    volumes:
+      - pemabu_vault_data:/var/lib/postgresql/data
+    # DB is reachable only on the Docker internal network (app/worker use db:5432).
+    # To expose Postgres on the host for local tools, run:
+    #   docker compose run --service-ports -p 5433:5432 db
+    # or temporarily add: ports: ["127.0.0.1:5433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pemabu -d pemabu_vault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pemabu_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      USE_LOCAL_VAULT: "true"
+      LOCAL_DB_URL: postgresql://pemabu:${VAULT_POSTGRES_PASSWORD:-pemabu_local_only}@db:5432/pemabu_vault
+      FLOMISMA_RELAY_KEY: ${FLOMISMA_RELAY_KEY:-}
+      FLOMISMA_RELAY_URL: ${FLOMISMA_RELAY_URL:-http://host.docker.internal:8787/v1/relay}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.watcher
+    container_name: pemabu_watcher
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      USE_LOCAL_VAULT: "true"
+      LOCAL_DB_URL: postgresql://pemabu:${VAULT_POSTGRES_PASSWORD:-pemabu_local_only}@db:5432/pemabu_vault
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: pemabu
+      PGDATABASE: pemabu_vault
+      PGPASSWORD: ${VAULT_POSTGRES_PASSWORD:-pemabu_local_only}
+      FLOMISMA_RELAY_KEY: ${FLOMISMA_RELAY_KEY:-}
+      FLOMISMA_RELAY_URL: ${FLOMISMA_RELAY_URL:-http://host.docker.internal:8787/v1/relay}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pemabu_vault_data:
+    name: pemabu_vault_data

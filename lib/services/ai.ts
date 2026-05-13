@@ -11,6 +11,7 @@ const anthropic = new Anthropic({
 });
 
 const MODEL = "claude-opus-4-5";
+const STRATEGY_COUNCIL_MODEL = process.env.STRATEGY_COUNCIL_ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
 const MAX_TOKENS = 1024;
 
 // ── Signal narrative ─────────────────────────────────
@@ -122,4 +123,94 @@ export async function explainHolding(input: {
 
   const content = message.content[0];
   return content.type === "text" ? content.text : "";
+}
+
+// ── Strategy Council (Autonomous; explicit user trigger only) ──
+
+export type StrategyCouncilPdfSection = {
+  id: string;
+  heading: string;
+  bodyMarkdown: string;
+};
+
+export type StrategyCouncilMemoPayload = {
+  markdown: string;
+  pdfLayout: {
+    documentTitle: string;
+    sections: StrategyCouncilPdfSection[];
+  };
+};
+
+/**
+ * Sovereign Strategy Council monthly memo — call only after explicit user action.
+ * `contextPacketJson` must be the sanitized Institutional Memory JSON (no automated batching).
+ */
+export async function generateStrategyCouncilMonthlyMemo(contextPacketJson: string): Promise<StrategyCouncilMemoPayload> {
+  const prompt =
+    `You are acting as a sovereign portfolio protocol analyst. You will receive a single JSON object ` +
+    `"Institutional Memory" for one portfolio window (aggregates only; no free-form PII). ` +
+    `Provide a professional, stoic, and data-driven assessment of the month's activity.\n\n` +
+    `Institutional Memory JSON:\n${contextPacketJson}\n\n` +
+    `Respond with ONLY valid JSON (no markdown code fences, no prose outside JSON) in this exact shape:\n` +
+    `{"fullMarkdown": string, "pdfLayout": {"documentTitle": string, "sections": [` +
+    `{"id":"executive","heading":"Executive Summary","bodyMarkdown": string},` +
+    `{"id":"discipline","heading":"Discipline Report","bodyMarkdown": string},` +
+    `{"id":"macro","heading":"Macro-Tilt Suggestions","bodyMarkdown": string}` +
+    `]}}\n\n` +
+    `Requirements:\n` +
+    `- fullMarkdown: concatenation of the three sections with ## headings, suitable for dashboard display.\n` +
+    `- Each bodyMarkdown: substantive paragraphs; no sensational language; no personalized legal or tax advice.\n` +
+    `- Macro-Tilt: suggest rebalancing themes informed by drift aggregates and execution stats only.\n` +
+    `- If data gaps are noted in the JSON, acknowledge uncertainty briefly.`;
+
+  const message = await anthropic.messages.create({
+    model: STRATEGY_COUNCIL_MODEL,
+    max_tokens: 8192,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const content = message.content[0];
+  const raw = content.type === "text" ? content.text.trim() : "{}";
+  const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  let parsed: {
+    fullMarkdown?: string;
+    pdfLayout?: { documentTitle?: string; sections?: StrategyCouncilPdfSection[] };
+  };
+  try {
+    parsed = JSON.parse(stripped) as typeof parsed;
+  } catch {
+    return {
+      markdown: raw,
+      pdfLayout: {
+        documentTitle: "Strategy Council — Monthly Memo",
+        sections: [
+          {
+            id: "executive",
+            heading: "Executive Summary",
+            bodyMarkdown: "_Model returned non-JSON; raw output preserved._",
+          },
+        ],
+      },
+    };
+  }
+
+  const pdfLayout = {
+    documentTitle: parsed.pdfLayout?.documentTitle ?? "Strategy Council — Monthly Memo",
+    sections:
+      parsed.pdfLayout?.sections?.length === 3
+        ? parsed.pdfLayout.sections
+        : [
+            {
+              id: "executive",
+              heading: "Executive Summary",
+              bodyMarkdown: parsed.fullMarkdown ?? "_No structured sections._",
+            },
+          ],
+  };
+
+  return {
+    markdown:
+      parsed.fullMarkdown ?? pdfLayout.sections.map((s) => `## ${s.heading}\n\n${s.bodyMarkdown}`).join("\n\n"),
+    pdfLayout,
+  };
 }

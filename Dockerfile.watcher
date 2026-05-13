@@ -1,0 +1,16 @@
+# Watcher worker — isolated entrypoint (no Next.js server)
+FROM node:20-bookworm-slim
+WORKDIR /app
+RUN apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY lib ./lib
+COPY services ./services
+COPY tsconfig.json ./
+COPY scripts/watcher-entrypoint.sh /usr/local/bin/watcher-entrypoint.sh
+COPY scripts/watcher-healthcheck.sh /usr/local/bin/watcher-healthcheck.sh
+RUN chmod +x /usr/local/bin/watcher-entrypoint.sh /usr/local/bin/watcher-healthcheck.sh
+ENV NODE_ENV=production
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD /usr/local/bin/watcher-healthcheck.sh
+ENTRYPOINT ["/usr/local/bin/watcher-entrypoint.sh"]

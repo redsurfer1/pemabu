@@ -41,25 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# python (if you add scripts/tools later)
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-venv/
-.venv/
-env/
-*.egg-info/
-.eggs/
-dist/
-*.egg
-
-# IDE / local tooling
-.idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-.claude/
-
-# OS
-Thumbs.db
+# Local vault / Docker secrets (never commit)
+docker/secrets/
+docker-compose.override.yml
+*.dump
+*.sql.local
