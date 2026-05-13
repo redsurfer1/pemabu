@@ -120,7 +120,7 @@ export interface AllocationSnapshot {
 // Catalog rows and keys must match lib/constants/services.ts (PEMABU_SERVICES).
 // ─────────────────────────────────────────────────
 
-export type PricingModel = "one_time" | "annual" | "per_event" | "free";
+export type PricingModel = "one_time" | "annual" | "per_event";
 
 export type ServiceCategory = "core" | "subscription" | "addon" | "upgrade" | "overage";
 

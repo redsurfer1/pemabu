@@ -43,6 +43,46 @@ export const POST = withAuth(async (req, user) => {
 
   const { user_id, subscription_group, notes } = parsed.data;
 
+  if (subscription_group === "beta") {
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc("assign_beta_grant_atomic", {
+      p_user_id: user_id,
+      p_assigned_by: user.id,
+      p_notes: notes ?? null,
+    });
+
+    if (rpcError) throw rpcError;
+
+    const result = rpcResult as {
+      success: boolean;
+      services_granted?: number;
+      error?: string;
+    };
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error ?? "Beta group assignment failed" },
+        { status: 500 },
+      );
+    }
+
+    const { data: assignment, error: fetchErr } = await supabaseAdmin
+      .from("user_group_assignments")
+      .select()
+      .eq("user_id", user_id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    return NextResponse.json(
+      {
+        success: true,
+        group: "beta",
+        services_granted: result.services_granted,
+        assignment,
+      },
+      { status: 201 },
+    );
+  }
+
   // Upsert the group assignment (one row per user)
   const { data: assignment, error: assignError } = await supabaseAdmin
     .from("user_group_assignments")
@@ -60,34 +100,6 @@ export const POST = withAuth(async (req, user) => {
     .single();
 
   if (assignError) throw assignError;
-
-  // Beta: atomically grant all active services as complimentary
-  if (subscription_group === "beta") {
-    const { data: activeServices, error: svcError } = await supabaseAdmin
-      .from("pemabu_services")
-      .select("service_key")
-      .eq("is_active", true);
-
-    if (svcError) throw svcError;
-
-    if (activeServices && activeServices.length > 0) {
-      const upserts = activeServices.map((s) => ({
-        user_id,
-        service_key: s.service_key,
-        status: "complimentary" as const,
-        price_paid_usd: null as number | null,
-        ends_at: null as string | null,
-        granted_by: user.id,
-        notes: "Auto-granted via beta group assignment",
-      }));
-
-      const { error: upsertError } = await supabaseAdmin
-        .from("user_subscriptions")
-        .upsert(upserts, { onConflict: "user_id,service_key" });
-
-      if (upsertError) throw upsertError;
-    }
-  }
 
   // Alumni: cancel all complimentary subscriptions
   if (subscription_group === "alumni") {

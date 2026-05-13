@@ -7,15 +7,6 @@ import type { SubscriptionStatus } from "@/lib/types/database";
 
 export const PEMABU_SERVICES = [
   {
-    service_key: "core_free",
-    display_name: "Pemabu Core (Free)",
-    category: "core",
-    pricing_model: "free",
-    price_usd: 0,
-    description:
-      "Local-first allocation workspace: one portfolio, manual entry only, no exchange sync, no Watcher automation. Upgrade to Intelligence for feeds, Watcher, and blueprint import.",
-  },
-  {
     service_key: "core_v1",
     display_name: "Pemabu Core v1",
     category: "core",
@@ -141,6 +132,15 @@ export const PEMABU_SERVICES = [
     description:
       "WebSocket relay broadcast for Core-only users. View a single portfolio from any browser via secure session token. Included in Intelligence and Autonomous tiers.",
   },
+  {
+    service_key: "marketplace_import_token",
+    display_name: "Marketplace Import Token",
+    category: "overage",
+    pricing_model: "per_event",
+    price_usd: 4.99,
+    description:
+      "One-time token consumed when importing a Sleeve Blueprint strategy. Each import costs one token. Tokens do not expire. Beta users receive unlimited imports at no charge.",
+  },
 ] as const;
 
 export type PemabuServiceKey = (typeof PEMABU_SERVICES)[number]["service_key"];
@@ -149,7 +149,6 @@ export const CANONICAL_SERVICE_KEYS = PEMABU_SERVICES.map((s) => s.service_key) 
 
 /** Services INCLUDED in each tier at no extra charge */
 export const TIER_INCLUSIONS = {
-  core_free: ["core_free"],
   core_v1: ["core_v1"],
   intelligence_annual: [
     "intelligence_annual",
@@ -163,14 +162,12 @@ export const SCENARIO_SIM_SOFT_CAP = {
   intelligence_annual: 20,
   autonomous_annual: Number.POSITIVE_INFINITY,
   core_v1: 0,
-  core_free: 0,
 } as const;
 
 /**
  * Decoy pricing ladder — Intelligence is the rational upgrade vs Core + Live Broadcast.
  */
 export const PRICING_LADDER = {
-  core_free: { price: 0, model: "free" as const },
   core_v1: { price: 199, model: "one_time" as const },
   intelligence_annual: { price: 229, model: "annual" as const },
   autonomous_annual: { price: 899, model: "annual" as const },

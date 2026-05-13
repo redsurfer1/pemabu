@@ -39,6 +39,16 @@ services:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      EXECUTION_LIVE_MODE: "false"
+      ALPACA_USE_LIVE: "false"
+      COINBASE_USE_SANDBOX: "true"
+      ALPACA_API_KEY: ""
+      ALPACA_API_SECRET: ""
+      KRAKEN_API_KEY: ""
+      KRAKEN_API_SECRET: ""
+      COINBASE_API_KEY: ""
+      COINBASE_API_SECRET: ""
+      COINBASE_API_PASSPHRASE: ""
     depends_on:
       db:
         condition: service_healthy

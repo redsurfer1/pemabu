@@ -38,21 +38,15 @@ export async function saveExchangeCredentials(input: {
     return { success: true };
   }
 
-  const { error } = await supabase.from("exchange_credentials").upsert(
-    {
-      user_id: user.id,
-      exchange_name: input.exchange,
-      encrypted_api_key: encKey.ciphertextB64,
-      iv: encKey.ivB64,
-      auth_tag: encKey.authTagB64,
-      encrypted_secret: encSecret.ciphertextB64,
-      secret_iv: encSecret.ivB64,
-      secret_auth_tag: encSecret.authTagB64,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,exchange_name" },
-  );
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  // SOVEREIGN BOUNDARY ENFORCEMENT
+  // Exchange credentials may only be stored in the local vault execution plane.
+  // Writing credentials to a cloud provider violates the Pemabu sovereign promise.
+  // To fix: deploy with docker-compose and set USE_LOCAL_VAULT=true.
+  return {
+    success: false,
+    error:
+      "Exchange credentials require local vault mode. " +
+      "Deploy with docker-compose and set USE_LOCAL_VAULT=true in your environment. " +
+      "Pemabu does not store exchange credentials in cloud infrastructure.",
+  };
 }

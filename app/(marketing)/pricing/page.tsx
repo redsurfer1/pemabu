@@ -134,6 +134,11 @@ export default function PricingPage() {
           </ul>
         </section>
 
+        <p className="mt-4 text-center text-xs text-gray-500">
+          Pemabu is not a registered investment advisor. All platform outputs are for informational purposes only and
+          do not constitute financial advice.
+        </p>
+
         <p className="text-center text-xs text-gray-600">
           Spots are limited. Beta access is by invitation only. Prices shown are the public catalog; active
           subscriptions are never repriced retroactively.

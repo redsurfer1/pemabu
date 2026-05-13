@@ -18,7 +18,6 @@ const PRICING_MODEL_LABELS: Record<PricingModel, string> = {
   one_time: "One-time",
   annual: "Annual",
   per_event: "Per event",
-  free: "Free",
 };
 
 function formatPriceCell(svc: PemabuService): string {

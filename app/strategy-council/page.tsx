@@ -175,7 +175,7 @@ export default function StrategyCouncilPage() {
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Portable sleeve (blueprint)</h2>
           <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
             Pemabu is a local-first software utility. All strategies are for informational purposes; the user retains
-            full fiduciary responsibility for execution.
+            full fiduciary responsibility for execution. Not a registered investment advisor.
           </p>
           <label className="mt-3 block text-xs text-gray-500">Sleeve</label>
           <select

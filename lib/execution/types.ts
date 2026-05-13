@@ -15,6 +15,10 @@ export interface PlaceOrderResult {
   ok: boolean;
   externalId?: string;
   errorCode?: string;
+  /** Human-readable exchange / network error (when ok is false). */
+  error?: string;
+  /** True when no real broker request was sent (stub / dry-run). */
+  stub?: boolean;
 }
 
 /**

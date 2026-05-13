@@ -198,7 +198,7 @@ describe("computeMainSleeve — theme cap", () => {
     );
     const { holdings: computed } = computeMainSleeve(holdings, DEFAULT_ENGINE_ASSUMPTIONS);
     const active = computed.filter((h) => h.status === "Active");
-    const totalTargetWt = active.reduce((s, h) => s + h.finalTargetWt, 0);
+    const totalTargetWt = active.reduce((s, h) => s + (h.finalTargetWt ?? h.targetWtPct), 0);
     // All should sum to 1 - incomeBudgetPct = 0.88 (±0.001)
     expect(totalTargetWt).toBeCloseTo(1 - DEFAULT_ENGINE_ASSUMPTIONS.incomeBudgetPct, 3);
     // Each holding should be ≤ themeCapPct × (1/10) after normalization
@@ -217,7 +217,7 @@ describe("computeMainSleeve — weight invariants", () => {
     const { holdings: computed } = computeMainSleeve(holdings, DEFAULT_ENGINE_ASSUMPTIONS);
     const sum = computed
       .filter((h) => h.status === "Active")
-      .reduce((s, h) => s + h.finalTargetWt, 0);
+      .reduce((s, h) => s + (h.finalTargetWt ?? h.targetWtPct), 0);
     expect(sum).toBeCloseTo(1 - DEFAULT_ENGINE_ASSUMPTIONS.incomeBudgetPct, 3);
   });
 
@@ -251,7 +251,7 @@ describe("computeMainSleeve — weight invariants", () => {
 
   it("parityDollarChg is positive when underweight (need to buy)", () => {
     const h = makeHolding("h1", "T1", "Tech", 0.003, 50, 1, 0); // qty=0 → value=0
-    const { holdings: computed } = computeMainSleeve([h], DEFAULT_ENGINE_ASSUMPTIONS, 10000);
+    const { holdings: computed } = computeMainSleeve([h], DEFAULT_ENGINE_ASSUMPTIONS);
     const c = computed.find((x) => x.status === "Active")!;
     expect(c.parityDollarChg).toBeGreaterThan(0);
   });
@@ -259,7 +259,7 @@ describe("computeMainSleeve — weight invariants", () => {
   it("parityDollarChg is negative when overweight (need to sell)", () => {
     // Large qty relative to NAV so current weight > target weight
     const h = makeHolding("h1", "T1", "Tech", 0.003, 50, 1, 1000); // value = 1000 * 55 = 55000
-    const { holdings: computed } = computeMainSleeve([h], DEFAULT_ENGINE_ASSUMPTIONS, 1000);
+    const { holdings: computed } = computeMainSleeve([h], DEFAULT_ENGINE_ASSUMPTIONS);
     const c = computed.find((x) => x.status === "Active")!;
     // With qty=1000 and price=55, value=55000 >> navForParity=1000 → overweight
     expect(c.parityDollarChg).toBeLessThan(0);

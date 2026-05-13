@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const DISCLAIMER =
-  "This is educational information only. Crypto is highly volatile and speculative. This is not financial advice.";
+  "Pemabu is not a registered investment advisor. This is educational information only and does not constitute financial advice. Crypto is highly volatile and speculative.";
 
 const ACCUMULATION_STRATEGIES = [
   {

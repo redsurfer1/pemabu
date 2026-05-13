@@ -90,6 +90,9 @@ export function SystemSafetyBanner({ portfolioId }: { portfolioId: string | null
           </p>
         </>
       ) : null}
+      <p className="mt-2 text-[11px] text-amber-300/60">
+        Not a registered investment advisor. For informational purposes only.
+      </p>
       <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
         <Link
           href={`/portfolio/${encodeURIComponent(pid)}/execution-safety`}

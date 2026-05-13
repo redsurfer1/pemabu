@@ -330,7 +330,7 @@ export async function approveTradeProposal(proposalId: string) {
   }
 
   if (!result.ok) {
-    const code = result.errorCode ?? "UNKNOWN";
+    const code = result.errorCode ?? (result.error ? "EXCHANGE_ERROR" : "UNKNOWN");
     const codes = appendErrorCode(ctx.control.last_error_codes, code);
     const lock = shouldCircuitLockFromErrorCodes(codes);
     if (vault) {

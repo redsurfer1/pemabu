@@ -6,7 +6,7 @@ import { usePortfolios } from "@/hooks/usePortfolios";
 import { importSleeveStrategyAction } from "@/lib/actions/portfolio/importSleeveStrategyAction";
 
 const LIABILITY_FOOTER =
-  "Pemabu is a local-first software utility. All strategies are for informational purposes; the user retains full fiduciary responsibility for execution.";
+  "Pemabu is a local-first software utility. All strategies are for informational purposes only. Not a registered investment advisor. The user retains full fiduciary responsibility for execution.";
 
 type TeaserRow = {
   display_name: string;

@@ -1,5 +1,5 @@
--- Core free tier support fields, circuit breaker v2 (hard vs soft), PAUSED status,
--- watcher cooldown, public marketplace leaderboard read for anon.
+-- Circuit breaker v2 (hard vs soft), PAUSED status, watcher cooldown,
+-- public marketplace leaderboard read for anon.
 
 -- ── Portfolios: PAUSED + streaks + watcher cooldown ─────────────────
 ALTER TABLE public.portfolios
@@ -26,18 +26,6 @@ COMMENT ON COLUMN public.execution_errors.failure_category IS
 
 -- Public leaderboard teaser (unauthenticated)
 GRANT SELECT ON public.marketplace_leaderboard_public TO anon;
-
-INSERT INTO public.pemabu_services (service_key, display_name, description, category, pricing_model, price_usd, sort_order)
-VALUES (
-  'core_free',
-  'Pemabu Core (Free)',
-  'Local-first: one portfolio, manual entry, no exchange sync or Watcher until upgraded.',
-  'core',
-  'free',
-  0,
-  -1
-)
-ON CONFLICT (service_key) DO NOTHING;
 
 DO $$
 BEGIN

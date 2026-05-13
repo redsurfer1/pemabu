@@ -13,7 +13,7 @@ create table if not exists public.pemabu_services (
   category     text        not null
                            check (category in ('core','subscription','addon','upgrade','overage')),
   pricing_model text       not null
-                           check (pricing_model in ('one_time','annual','per_event','free')),
+                           check (pricing_model in ('one_time','annual','per_event')),
   price_usd    numeric(10,2) not null default 0.00,
   is_active    boolean     not null default true,
   sort_order   integer     not null default 0,
