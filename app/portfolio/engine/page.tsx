@@ -4,6 +4,7 @@ import Link from "next/link";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import {
   DEFAULT_ASSUMPTIONS,
@@ -52,6 +53,41 @@ function num(v: number | null | undefined, d = 2): string {
 function pct(v: number | null | undefined, d = 2): string {
   if (v == null || !Number.isFinite(v)) return "—";
   return `${Number(v * 100).toFixed(d)}%`;
+}
+
+interface MacroHistoryRow {
+  regime: string;
+  confidence_pct: number;
+  classified_at: string;
+  suggested_weights: Record<string, number> | null;
+}
+
+async function fetchMacroRegimeHistory(): Promise<MacroHistoryRow[]> {
+  const res = await fetch("/api/macro/history", { credentials: "same-origin" });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { history: MacroHistoryRow[] };
+  return data.history ?? [];
+}
+
+function macroPercentsToReturnWeights(
+  w: Record<string, number> | null | undefined,
+): Assumptions["return_weights"] | null {
+  if (!w) return null;
+  const a = Number(w.hist3mo);
+  const b = Number(w.hist6mo);
+  const c = Number(w.hist1yr);
+  const d = Number(w.hist3yr);
+  const e = Number(w.hist5yr);
+  if ([a, b, c, d, e].some((n) => !Number.isFinite(n))) return null;
+  const sum = a + b + c + d + e;
+  if (sum <= 0) return null;
+  return {
+    r3mo: a / sum,
+    r6mo: b / sum,
+    r1yr: c / sum,
+    r3yr: d / sum,
+    r5yr: e / sum,
+  };
 }
 
 export default function PortfolioEnginePage() {
@@ -104,6 +140,14 @@ function PortfolioEnginePageContent() {
   } = usePortfolioEngine(selected);
 
   const [savedAssumptions, setSavedAssumptions] = useState<Assumptions>(DEFAULT_ASSUMPTIONS);
+
+  const { data: macroHist = [] } = useQuery({
+    queryKey: ["macro", "history"],
+    queryFn: fetchMacroRegimeHistory,
+    staleTime: 5 * 60 * 1000,
+    enabled: tab === "assumptions",
+    retry: false,
+  });
 
   useEffect(() => {
     setLocalAssumptions(engineAssumptions);
@@ -413,6 +457,39 @@ function PortfolioEnginePageContent() {
 
       {tab === "assumptions" && (
         <div className="space-y-4 p-6">
+          {macroHist[0]?.suggested_weights && (
+            <div className="rounded border border-emerald-500/25 bg-emerald-500/5 p-4 text-xs text-[#ccc]">
+              <p className="font-['Space_Grotesk'] text-sm text-emerald-300">Macro Intelligence suggestion</p>
+              <p className="mt-1 text-[#888]">
+                Latest regime:{" "}
+                <span className="text-white">{String(macroHist[0].regime).replace(/_/g, " ")}</span> (
+                {macroHist[0].confidence_pct}% confidence, {new Date(macroHist[0].classified_at).toLocaleString()}
+                ). Weights below are hints for return horizons — they normalise to 100%.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded border border-emerald-500/40 px-3 py-1.5 text-emerald-200 hover:bg-emerald-500/10"
+                  onClick={() => {
+                    const rw = macroPercentsToReturnWeights(macroHist[0]!.suggested_weights);
+                    if (!rw) return;
+                    setLocalAssumptions((prev) => ({
+                      ...prev,
+                      return_weights: rw,
+                    }));
+                  }}
+                >
+                  Apply suggested return weights
+                </button>
+                <Link
+                  href="/macro"
+                  className="rounded border border-[#1a1a24] px-3 py-1.5 text-[#888] hover:text-white"
+                >
+                  Open Macro Intelligence
+                </Link>
+              </div>
+            </div>
+          )}
           <AssumptionEditor
             assumptions={localAssumptions}
             onChange={setLocalAssumptions}

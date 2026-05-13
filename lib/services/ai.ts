@@ -125,6 +125,17 @@ export async function explainHolding(input: {
   return content.type === "text" ? content.text : "";
 }
 
+/** DeFi governance proposal summary — call only from server actions / API routes after user opt-in. */
+export async function generateGovernanceProposalSummary(prompt: string): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: MAX_TOKENS,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const content = message.content[0];
+  return content.type === "text" ? content.text.trim() : "";
+}
+
 // ── Strategy Council (Autonomous; explicit user trigger only) ──
 
 export type StrategyCouncilPdfSection = {
