@@ -121,3 +121,10 @@ begin
   raise notice 'Backfill complete: assign_beta_grant_atomic succeeded for % user_profiles row(s).', n_applied;
 end;
 $$;
+
+-- ── 3) Verification (Supabase editor shows this as returned rows) ─────────────
+select
+  (select count(*)::bigint from public.user_profiles) as user_profiles_total,
+  (select count(*)::bigint from public.user_group_assignments where subscription_group = 'beta') as rows_in_beta_group,
+  (select count(*)::bigint from public.user_subscriptions where status = 'complimentary') as complimentary_subscription_rows,
+  (select count(distinct user_id)::bigint from public.user_subscriptions where status = 'complimentary') as users_with_complimentary_row;
