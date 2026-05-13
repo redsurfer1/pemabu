@@ -13,7 +13,7 @@ export const PEMABU_SERVICES = [
     pricing_model: "one_time",
     price_usd: 199.0,
     description:
-      "Perpetual license for v1.x. Full local allocation engine, single portfolio, offline capable. All v1.x point releases free. Major version upgrade (v1 → v2) is a separate one-time fee.",
+      "Perpetual license for v1.x. Full local allocation engine, single portfolio, offline capable. All v1.x point releases free. Major version upgrade (v1 → v2) is a separate one-time fee. Live Broadcast is available as a $79/year add-on for Core-only users who need browser viewing.",
   },
   {
     service_key: "intelligence_annual",

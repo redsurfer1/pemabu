@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { PemabuService } from "@/lib/types/database";
+import type { PemabuService, PricingModel, ServiceCategory } from "@/lib/types/database";
+import { PEMABU_SERVICES } from "@/lib/constants/services";
 import { getCachedServices } from "@/lib/cache/service-catalog";
 
 const ADDON_BUNDLES = [
@@ -55,8 +56,54 @@ function priceLabel(s: PemabuService): string {
   return `$${s.price_usd}`;
 }
 
+function staticRow(row: (typeof PEMABU_SERVICES)[number], i: number): PemabuService {
+  return {
+    id: `catalog-fallback-${row.service_key}`,
+    service_key: row.service_key,
+    display_name: row.display_name,
+    description: row.description,
+    category: row.category as ServiceCategory,
+    pricing_model: row.pricing_model as PricingModel,
+    price_usd: row.price_usd,
+    is_active: true,
+    sort_order: i,
+    created_at: "",
+    updated_at: "",
+  };
+}
+
+/** Overlay API rows onto canonical `PEMABU_SERVICES` order; fill empty DB copy; fill missing keys from static defaults. */
+function fullCatalogWithPrices(api: PemabuService[]): PemabuService[] {
+  const byKey = new Map(api.map((s) => [s.service_key, s]));
+  return PEMABU_SERVICES.map((row, i) => {
+    const live = byKey.get(row.service_key);
+    if (live) {
+      return {
+        ...live,
+        display_name: live.display_name?.trim() || row.display_name,
+        description: live.description?.trim() || row.description,
+      };
+    }
+    return staticRow(row, i);
+  });
+}
+
+function marketingDescription(s: PemabuService): string {
+  return s.description?.trim() || "";
+}
+
+const WHATS_INCLUDED = [
+  "Pemabu Core v1 engine access",
+  "Pemabu Intelligence & Autonomous feature set",
+  "Live Broadcast & Political Trade Tracker (included in paid Intelligence — bundled in beta)",
+  "Scenario simulations (Autonomous = unlimited in GA)",
+  "Admin dashboard & workbook tooling",
+] as const;
+
 export default async function PricingPage() {
-  const services = await getPricingData();
+  const apiRows = await getPricingData();
+  const merged = fullCatalogWithPrices(apiRows);
+  const services = merged.filter((s) => s.is_active);
 
   const core = services.filter((s) => s.category === "core");
   const subscriptions = services.filter((s) => s.category === "subscription");
@@ -85,18 +132,30 @@ export default async function PricingPage() {
         </p>
       </div>
 
+      <section className="mx-auto mb-16 max-w-3xl rounded-2xl border border-white/10 bg-white/[0.02] p-8">
+        <h2 className="mb-4 text-center text-sm font-medium uppercase tracking-wider text-gray-400">
+          What Pemabu includes
+        </h2>
+        <p className="mb-6 text-center text-xs text-gray-500">
+          Core engine, Intelligence and Autonomous capabilities, live viewing and policy overlays, simulations by tier,
+          and operator tooling — as described in each catalog item below.
+        </p>
+        <ul className="mx-auto max-w-xl space-y-3 text-left text-sm text-gray-300">
+          {WHATS_INCLUDED.map((line) => (
+            <li key={line} className="flex items-start gap-3">
+              <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <div className="mx-auto mb-16 max-w-2xl rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-10 text-center">
         <p className="mb-4 text-xs uppercase tracking-widest text-emerald-400">Private beta</p>
         <p className="mb-2 text-5xl font-light text-white">Complimentary</p>
         <p className="mb-8 text-sm text-gray-500">All active catalog services · no expiry while beta is active</p>
         <ul className="mx-auto mb-8 max-w-xs space-y-3 text-left">
-          {[
-            "Pemabu Core v1 engine access",
-            "Pemabu Intelligence & Autonomous feature set",
-            "Live Broadcast & Political Trade Tracker (included in paid Intelligence — bundled in beta)",
-            "Scenario simulations (Autonomous = unlimited in GA)",
-            "Admin dashboard & workbook tooling",
-          ].map((feature) => (
+          {WHATS_INCLUDED.map((feature) => (
             <li key={feature} className="flex items-center gap-3 text-sm text-gray-300">
               <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
               {feature}
@@ -153,7 +212,7 @@ export default async function PricingPage() {
           <section key={s.service_key} className="rounded-2xl border border-white/10 p-8">
             <h2 className="mb-2 text-lg font-medium text-white">{s.display_name}</h2>
             <p className="mb-4 font-mono text-emerald-300">{priceLabel(s)}</p>
-            <p className="leading-relaxed text-gray-400">{s.description}</p>
+            <p className="leading-relaxed text-gray-400">{marketingDescription(s)}</p>
           </section>
         ))}
 
@@ -161,7 +220,7 @@ export default async function PricingPage() {
           <section key={s.service_key} className="rounded-2xl border border-white/10 p-8">
             <h2 className="mb-2 text-lg font-medium text-white">{s.display_name}</h2>
             <p className="mb-4 font-mono text-emerald-300">{priceLabel(s)}</p>
-            <p className="leading-relaxed text-gray-400">{s.description}</p>
+            <p className="leading-relaxed text-gray-400">{marketingDescription(s)}</p>
             {s.service_key === "intelligence_annual" ? (
               <p className="mt-4 leading-relaxed text-gray-400">
                 <strong className="font-medium text-gray-300">20 simulations/month included.</strong> Additional
@@ -211,11 +270,18 @@ export default async function PricingPage() {
                       </div>
                       <p className="mt-2 text-[11px] text-gray-600">Expand for individual list prices.</p>
                     </summary>
-                    <ul className="mt-4 space-y-2 border-t border-white/5 pt-4 font-mono text-xs text-gray-400">
+                    <ul className="mt-4 space-y-4 border-t border-white/5 pt-4 text-xs text-gray-400">
                       {items.map((a) => (
-                        <li key={a.service_key} className="flex justify-between gap-4">
-                          <span>{a.display_name}</span>
-                          <span className="text-white">{priceLabel(a)}</span>
+                        <li key={a.service_key} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                          <div className="flex justify-between gap-4 font-mono">
+                            <span className="text-gray-300">{a.display_name}</span>
+                            <span className="text-white">{priceLabel(a)}</span>
+                          </div>
+                          {marketingDescription(a) ? (
+                            <p className="mt-2 pl-0 font-sans text-[11px] leading-relaxed text-gray-500">
+                              {marketingDescription(a)}
+                            </p>
+                          ) : null}
                         </li>
                       ))}
                     </ul>
@@ -236,13 +302,17 @@ export default async function PricingPage() {
               {v1v2 ? (
                 <li>
                   <span className="font-mono text-gray-300">{v1v2.display_name}</span> — {priceLabel(v1v2)}
-                  {v1v2.description ? <span className="block pt-1 text-gray-500">{v1v2.description}</span> : null}
+                  {marketingDescription(v1v2) ? (
+                    <span className="block pt-1 text-gray-500">{marketingDescription(v1v2)}</span>
+                  ) : null}
                 </li>
               ) : null}
               {simOver ? (
                 <li>
                   <span className="font-mono text-gray-300">{simOver.display_name}</span> — {priceLabel(simOver)}
-                  {simOver.description ? <span className="block pt-1 text-gray-500">{simOver.description}</span> : null}
+                  {marketingDescription(simOver) ? (
+                    <span className="block pt-1 text-gray-500">{marketingDescription(simOver)}</span>
+                  ) : null}
                 </li>
               ) : null}
               {overages
@@ -250,7 +320,9 @@ export default async function PricingPage() {
                 .map((o) => (
                   <li key={o.service_key}>
                     <span className="font-mono text-gray-300">{o.display_name}</span> — {priceLabel(o)}
-                    {o.description ? <span className="block pt-1 text-gray-500">{o.description}</span> : null}
+                    {marketingDescription(o) ? (
+                      <span className="block pt-1 text-gray-500">{marketingDescription(o)}</span>
+                    ) : null}
                   </li>
                 ))}
             </ul>
