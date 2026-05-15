@@ -70,6 +70,8 @@ services:
       PGPASSWORD: ${VAULT_POSTGRES_PASSWORD:-pemabu_local_only}
       FLOMISMA_RELAY_KEY: ${FLOMISMA_RELAY_KEY:-}
       FLOMISMA_RELAY_URL: ${FLOMISMA_RELAY_URL:-http://host.docker.internal:8787/v1/relay}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
     depends_on:
       db:
         condition: service_healthy

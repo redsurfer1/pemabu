@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../../lib/supabase/admin";
 import { runDriftDetectorCycle } from "./drift-detector";
 import { runWeeklyMacroClassification } from "./macro-classifier";
 import { runDailyGovernanceFetch } from "./governance-fetcher";
+import { runDailyDeFiNativeBalanceSync } from "./defi-native-balances";
 
 void runDriftDetectorCycle().catch((e) => console.error("[watcher] initial run failed", e));
 
@@ -31,6 +32,12 @@ cron.schedule("1 0 * * *", () => {
   })();
 });
 
+cron.schedule("0 4 * * *", () => {
+  void runDailyDeFiNativeBalanceSync().catch((e) =>
+    console.error("[watcher] defi native daily failed", e),
+  );
+});
+
 console.log(
-  "[watcher] drift hourly · macro Mon 08:00 UTC · governance daily 06:00 UTC · trial expiry 00:01 UTC",
+  "[watcher] drift hourly · macro Mon 08:00 UTC · governance daily 06:00 UTC · trial expiry 00:01 UTC · defi native 04:00 UTC",
 );
