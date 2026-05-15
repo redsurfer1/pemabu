@@ -95,6 +95,10 @@ export default function MarketplacePage() {
       if (!r.success) {
         if ("code" in r && r.code === "TIER_REQUIRED" && "requiredTier" in r) {
           setImportMsg(`Intelligence tier required (REQUIRED_TIER: ${r.requiredTier}).`);
+        } else if ("code" in r && r.code === "PAYMENT_REQUIRED") {
+          setImportMsg(
+            `${r.error} Click “Pay $9.99 unlock” after pasting the same sleeve token, complete Stripe checkout, then import again.`,
+          );
         } else {
           setImportMsg(r.error);
         }
@@ -102,6 +106,31 @@ export default function MarketplacePage() {
       }
       setImportMsg(`Imported new sleeve (target protocol only). Sleeve id: ${r.sleeveId}`);
       setImportToken("");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function startUnlockCheckout() {
+    setImportMsg(null);
+    setImportBusy(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sleeveToken: importToken.trim() }),
+      });
+      const j = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) {
+        setImportMsg(j.error ?? "Could not start checkout");
+        return;
+      }
+      if (j.url) {
+        window.location.assign(j.url);
+        return;
+      }
+      setImportMsg("Checkout did not return a redirect URL");
     } finally {
       setImportBusy(false);
     }
@@ -210,6 +239,14 @@ export default function MarketplacePage() {
                 className="mt-3 rounded border border-sky-500/40 bg-sky-950/30 px-4 py-2 text-sm text-sky-100 hover:bg-sky-950/50 disabled:opacity-40"
               >
                 {importBusy ? "Importing…" : "Import sleeve protocol"}
+              </button>
+              <button
+                type="button"
+                disabled={importBusy || !importToken.trim()}
+                onClick={() => void startUnlockCheckout()}
+                className="ml-2 mt-3 rounded border border-emerald-500/40 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-950/40 disabled:opacity-40"
+              >
+                Pay $9.99 unlock (Stripe)
               </button>
               {importMsg ? <p className="mt-2 text-xs text-gray-400">{importMsg}</p> : null}
             </>
