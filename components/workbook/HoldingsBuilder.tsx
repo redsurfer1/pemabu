@@ -14,8 +14,7 @@ import {
   type Quote,
 } from "@/lib/allocation/engine";
 import { PortfolioApiSettings } from "@/components/workbook/PortfolioApiSettings";
-
-const ASSET_CLASSES: AssetClass[] = ["equity", "fixed_income", "alternatives", "cash", "crypto", "other"];
+import { ASSET_CLASSES } from "@/lib/constants/asset-classes";
 
 function quotesMapFromHoldings(holdings: Holding[]): Map<string, Quote> {
   const m = new Map<string, Quote>();
@@ -96,7 +95,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
   const quotesMap = useMemo(() => {
     const m = quotesMapFromHoldings(holdings);
     for (const h of holdings) {
-      if (h.asset_class === "cash" || h.ticker === "CASH") {
+      if (h.asset_class === "cash") {
         m.set(h.ticker, {
           ticker: h.ticker,
           price: 1.00,
@@ -112,9 +111,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
   const totalPortfolioValue = useMemo(() => {
     return holdings.reduce((sum, h) => {
       const q = quotesMap.get(h.ticker);
-      const price = (h.asset_class === "cash" || h.ticker === "CASH")
-        ? 1.00
-        : (q?.price ?? Number(h.current_price ?? 0));
+      const price = h.asset_class === "cash" ? 1.00 : (q?.price ?? Number(h.current_price ?? 0));
       return sum + Number(h.quantity) * price;
     }, 0);
   }, [holdings, quotesMap]);
@@ -240,20 +237,17 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
 
       {holdings.length > 0 && (
         <div className="overflow-x-auto">
+          {/* 8-column holdings table: Ticker · Name · Qty · Value · Wt% · 1d% · Target/Δ · Actions */}
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-xs text-gray-500">
-                <th className="pb-2 pr-2 text-left">Ticker</th>
-                <th className="pb-2 pr-2 text-left">Name</th>
-                <th className="pb-2 pr-2 text-left">Class</th>
-                <th className="pb-2 pr-2 text-right">Qty</th>
-                <th className="pb-2 pr-2 text-right">Value</th>
-                <th className="pb-2 pr-2 text-right">Cost</th>
-                <th className="pb-2 pr-2 text-right">Weight %</th>
-                <th className="pb-2 pr-2 text-right">1d %</th>
-                <th className="pb-2 pr-2 text-right">Expense %</th>
-                <th className="pb-2 pr-2 text-right">Target %</th>
-                <th className="pb-2 pr-2 text-right">Δ</th>
+                <th className="pb-2 pr-3 text-left">Ticker</th>
+                <th className="pb-2 pr-3 text-left">Name</th>
+                <th className="pb-2 pr-3 text-right">Qty</th>
+                <th className="pb-2 pr-3 text-right">Value</th>
+                <th className="pb-2 pr-3 text-right">Wt%</th>
+                <th className="pb-2 pr-3 text-right">1d%</th>
+                <th className="pb-2 pr-3 text-right">Target / Δ</th>
                 <th className="pb-2 text-right">Actions</th>
               </tr>
             </thead>
@@ -266,101 +260,86 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
                 const isConfirmingDelete = deletingId === h.id;
 
                 if (isEditing) {
+                  // Collapsed edit form spanning all 8 columns
                   return (
                     <tr key={h.id} className="border-b border-white/10 bg-white/5">
-                      <td className="py-2 pr-3 align-top">
-                        <span
-                          className="font-mono text-xs text-white/80"
-                          title={editForm.asset_class === "cash" ? "Cash ticker is always CASH" : "To change ticker, delete and re-add this holding."}
-                        >
-                          {editForm.asset_class === "cash" ? "CASH" : h.ticker}
-                        </span>
-                        {editForm.asset_class === "cash" && (
-                          <p className="text-[10px] text-emerald-400 mt-0.5">$1.00 fixed</p>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 align-top">
-                        <input
-                          value={editForm.name}
-                          onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                          placeholder="Name"
-                          className="w-full min-w-[6rem] max-w-[10rem] rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none placeholder:text-gray-500"
-                        />
-                      </td>
-                      <td className="py-2 pr-3 align-top">
-                        <select
-                          value={editForm.asset_class}
-                          onChange={(e) => {
-                            const ac = e.target.value as AssetClass;
-                            setEditForm((f) => ({ ...f, asset_class: ac }));
-                          }}
-                          className="w-full min-w-[5.5rem] rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
-                        >
-                          {ASSET_CLASSES.map((ac) => (
-                            <option key={ac} value={ac} className="bg-[#0d1f35]">
-                              {ac.replace("_", " ")}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-2 pr-3 align-top">
-                        <input
-                          type="number"
-                          value={editForm.quantity}
-                          onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
-                          className="w-20 rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
-                        />
-                      </td>
-                      <td className="py-2 pr-3 text-right text-xs text-gray-500">—</td>
-                      <td className="py-2 pr-3 align-top">
-                        <input
-                          type="number"
-                          value={editForm.cost_basis}
-                          placeholder="—"
-                          onChange={(e) => setEditForm((f) => ({ ...f, cost_basis: e.target.value }))}
-                          className="w-20 rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
-                        />
-                      </td>
-                      <td className="py-2 pr-3 text-xs text-gray-500">—</td>
-                      <td className="py-2 pr-3 text-xs text-gray-500">—</td>
-                      <td className="py-2 pr-3 align-top">
-                        <input
-                          type="number"
-                          step="any"
-                          value={editForm.expense_ratio}
-                          placeholder="0.06"
-                          title="Annual expense as percent (e.g. 0.06 = 0.06%)"
-                          onChange={(e) => setEditForm((f) => ({ ...f, expense_ratio: e.target.value }))}
-                          className="w-16 rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
-                        />
-                      </td>
-                      <td className="py-2 pr-3 align-top">
-                        <input
-                          type="number"
-                          step="any"
-                          value={editForm.target_weight_pct}
-                          placeholder="20"
-                          onChange={(e) =>
-                            setEditForm((f) => ({ ...f, target_weight_pct: e.target.value }))
-                          }
-                          className="w-16 rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
-                        />
-                      </td>
-                      <td className="py-2 pr-3 text-xs text-gray-500">—</td>
-                      <td className="py-2 align-top">
-                        <div className="flex flex-wrap gap-1">
+                      <td colSpan={8} className="py-3 px-2">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                          <div>
+                            <p className="mb-1 text-[10px] text-gray-500">Ticker</p>
+                            <span className="font-mono text-xs text-white/80">
+                              {editForm.asset_class === "cash" ? "CASH ($1.00)" : h.ticker}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] text-gray-500">Name</p>
+                            <input
+                              value={editForm.name}
+                              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                              placeholder="Optional"
+                              className="w-full rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none placeholder:text-gray-500"
+                            />
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] text-gray-500">Class</p>
+                            <select
+                              value={editForm.asset_class}
+                              onChange={(e) => setEditForm((f) => ({ ...f, asset_class: e.target.value as AssetClass }))}
+                              className="w-full rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
+                            >
+                              {ASSET_CLASSES.map((ac) => (
+                                <option key={ac} value={ac} className="bg-[#0d1f35]">
+                                  {ac.replace("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] text-gray-500">Qty *</p>
+                            <input
+                              type="number"
+                              value={editForm.quantity}
+                              onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
+                              className="w-full rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
+                            />
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] text-gray-500">Expense % (annual)</p>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editForm.expense_ratio}
+                              placeholder="0.06"
+                              title="Annual expense as percent (e.g. 0.06 = 0.06%)"
+                              onChange={(e) => setEditForm((f) => ({ ...f, expense_ratio: e.target.value }))}
+                              className="w-full rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
+                            />
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] text-gray-500">Target Wt%</p>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editForm.target_weight_pct}
+                              placeholder="20"
+                              onChange={(e) => setEditForm((f) => ({ ...f, target_weight_pct: e.target.value }))}
+                              className="w-full rounded border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-2 flex gap-2">
                           <button
                             type="button"
                             onClick={() => void handleSaveEdit(h)}
                             disabled={isUpdating}
-                            className="rounded border border-emerald-500/30 px-2 py-1 text-xs text-emerald-400 transition-colors hover:text-emerald-300 disabled:opacity-50"
+                            className="rounded border border-emerald-500/30 px-3 py-1 text-xs text-emerald-400 transition-colors hover:text-emerald-300 disabled:opacity-50"
                           >
-                            {isUpdating ? "…" : "Save"}
+                            {isUpdating ? "Saving…" : "Save"}
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
-                            className="px-2 py-1 text-xs text-gray-500 transition-colors hover:text-white"
+                            className="px-3 py-1 text-xs text-gray-500 transition-colors hover:text-white"
                           >
                             Cancel
                           </button>
@@ -370,68 +349,39 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
                   );
                 }
 
+                // Pre-compute price/value/weight — avoids repeated IIFE and fixes cash guard
+                const rowQ = quotesMap.get(h.ticker);
+                const rowPrice = h.asset_class === "cash" ? 1.00 : (rowQ?.price ?? Number(h.current_price ?? 0));
+                const rowVal = Number(h.quantity) * rowPrice;
+                const rowWt = totalPortfolioValue > 0 ? (rowVal / totalPortfolioValue) * 100 : 0;
+
                 return (
-                  <tr key={h.id} className="border-b border-white/5">
-                    <td className="py-2 pr-3 font-mono text-xs text-white">{h.ticker}</td>
-                    <td className="py-2 pr-3 text-xs text-gray-400">
-                      {h.name?.trim() ? (
-                        <span className="line-clamp-2 max-w-[8rem]" title={h.name}>
-                          {h.name}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
+                  <tr key={h.id} className="border-b border-white/5 hover:bg-white/5">
+                    <td className="py-2 pr-3 font-mono text-xs text-white">
+                      {h.ticker}
+                      <span className="ml-1 text-[9px] capitalize text-gray-600">{h.asset_class.replace("_", " ")}</span>
                     </td>
-                    <td className="py-2 pr-3 text-xs capitalize text-gray-400">
-                      {h.asset_class.replace("_", " ")}
+                    <td className="py-2 pr-3 text-xs text-gray-400 max-w-[8rem] truncate" title={h.name ?? undefined}>
+                      {h.name?.trim() || "—"}
                     </td>
                     <td className="py-2 pr-3 text-right text-xs text-white">
                       {Number(h.quantity).toLocaleString()}
                     </td>
                     <td className="py-2 pr-3 text-right text-xs text-white">
-                      {(() => {
-                        const q = quotesMap.get(h.ticker);
-                        const price = (h.asset_class === "cash" || h.ticker === "CASH")
-                          ? 1.00
-                          : (q?.price ?? Number(h.current_price ?? 0));
-                        const val = Number(h.quantity) * price;
-                        if (val === 0) return "\u2014";
-                        return `$${val.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}`;
-                      })()}
-                    </td>
-                    <td className="py-2 pr-3 text-right text-xs text-gray-400">
-                      {h.cost_basis != null ? `$${Number(h.cost_basis).toLocaleString()}` : "\u2014"}
+                      {rowVal === 0 ? "\u2014" : `$${rowVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </td>
                     <td className="py-2 pr-3 text-right text-xs text-gray-300">
-                      {(() => {
-                        if (totalPortfolioValue === 0) return "\u2014";
-                        const q = quotesMap.get(h.ticker);
-                        const price = (h.asset_class === "cash" || h.ticker === "CASH")
-                          ? 1.00
-                          : (q?.price ?? Number(h.current_price ?? 0));
-                        const val = Number(h.quantity) * price;
-                        const weight = (val / totalPortfolioValue) * 100;
-                        return `${weight.toFixed(2)}%`;
-                      })()}
+                      {totalPortfolioValue === 0 ? "\u2014" : `${rowWt.toFixed(2)}%`}
                     </td>
                     <td className={`py-2 pr-3 text-right text-xs font-medium ${changePctClass(h.last_change_pct)}`}>
                       {h.last_change_pct != null && Number.isFinite(Number(h.last_change_pct))
                         ? `${Number(h.last_change_pct) > 0 ? "+" : ""}${Number(h.last_change_pct).toFixed(2)}%`
                         : "—"}
                     </td>
-                    <td className="py-2 pr-3 text-right text-xs text-gray-300">
-                      {formatExpenseDisplay(h.expense_ratio)}
-                    </td>
-                    <td className="py-2 pr-3 text-right text-xs text-gray-300">
-                      {h.target_weight_pct != null && Number.isFinite(Number(h.target_weight_pct))
-                        ? `${Number(h.target_weight_pct).toFixed(1)}%`
-                        : "—"}
-                    </td>
                     <td className={`py-2 pr-3 text-right text-xs font-medium ${driftClass(drift, hasTarget)}`}>
-                      {!hasTarget || drift == null ? "—" : `${drift > 0 ? "+" : ""}${drift.toFixed(2)}%`}
+                      {hasTarget && h.target_weight_pct != null
+                        ? `${Number(h.target_weight_pct).toFixed(1)}% (${drift != null ? (drift > 0 ? "+" : "") + drift.toFixed(1) : "—"}%)`
+                        : "—"}
                     </td>
                     <td className="py-2 text-right">
                       {isConfirmingDelete ? (

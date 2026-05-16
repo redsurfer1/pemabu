@@ -322,6 +322,34 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
     setIsRecomputing(false);
   }
 
+  async function handleSaveIncomeAssumptions(updated: EngineAssumptions) {
+    setIsRecomputing(true);
+    // Upsert income-sleeve assumptions.
+    await supabase.from("model_assumptions").upsert(
+      {
+        portfolio_id: portfolioId,
+        sleeve_type: "income",
+        ret_weight_3mo: updated.retWeight3mo,
+        ret_weight_6mo: updated.retWeight6mo,
+        ret_weight_1yr: updated.retWeight1yr,
+        ret_weight_3yr: updated.retWeight3yr,
+        ret_weight_5yr: updated.retWeight5yr,
+        score_weight_exp: updated.scoreWeightExp,
+        score_weight_ret: updated.scoreWeightRet,
+        score_weight_div: updated.scoreWeightDiv,
+        score_weight_shp: updated.scoreWeightShp,
+        income_budget_pct: updated.incomeBudgetPct,
+        vol_cap_multiplier: updated.volCapMultiplier,
+        theme_cap_pct: updated.themeCapPct,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "portfolio_id,sleeve_type" },
+    );
+    setIncomeAssumptions(updated);
+    await loadData();
+    setIsRecomputing(false);
+  }
+
   // KPI calculations
   const activeETFCount = sleeves.reduce(
     (s, sl) => s + sl.holdings.filter((h) => h.status === "Active").length, 0,
@@ -356,6 +384,8 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
             assumptions={assumptions}
             onSave={handleSaveAssumptions}
             isRecomputing={isRecomputing}
+            incomeAssumptions={incomeAssumptions}
+            onSaveIncome={handleSaveIncomeAssumptions}
           />
           <button
             type="button"
