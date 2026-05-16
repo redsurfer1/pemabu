@@ -41,6 +41,8 @@ export interface UserProfile {
   id: string;
   role: UserRole;
   display_name: string | null;
+  /** Stripe Customer ID (cus_…). Set on first auto-renewal purchase; used for Customer Portal. */
+  stripe_customer_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -152,6 +154,12 @@ export interface UserSubscription {
   notes: string | null;
   starts_at: string;
   ends_at: string | null;
+  /** auto = Stripe recurring subscription; manual = one-time annual payment; one_time = perpetual. */
+  renewal_mode: "auto" | "manual" | "one_time" | null;
+  /** Stripe Subscription ID (sub_…). Set for auto-renewal subscriptions only. */
+  stripe_subscription_id: string | null;
+  /** Stripe Checkout Session ID (cs_…). Idempotency key for webhook fulfilment. */
+  stripe_session_id: string | null;
   created_at: string;
   updated_at: string;
   /** Joined from pemabu_services */

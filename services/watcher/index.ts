@@ -5,6 +5,8 @@ import { runDriftDetectorCycle } from "./drift-detector";
 import { runWeeklyMacroClassification } from "./macro-classifier";
 import { runDailyGovernanceFetch } from "./governance-fetcher";
 import { runDailyDeFiNativeBalanceSync } from "./defi-native-balances";
+import { runDailyPoliticalTrackerFetch } from "./political-tracker-fetcher";
+import { runWeeklyVaultExport } from "./vault-exporter";
 
 void runDriftDetectorCycle().catch((e) => console.error("[watcher] initial run failed", e));
 
@@ -38,6 +40,19 @@ cron.schedule("0 4 * * *", () => {
   );
 });
 
+cron.schedule("30 5 * * *", () => {
+  void runDailyPoliticalTrackerFetch().catch((e) =>
+    console.error("[watcher] political tracker daily failed", e),
+  );
+});
+
+// Weekly Sunday 03:00 UTC — vault export
+cron.schedule("0 3 * * 0", () => {
+  void runWeeklyVaultExport().catch((e) =>
+    console.error("[watcher] vault export weekly failed", e),
+  );
+});
+
 console.log(
-  "[watcher] drift hourly · macro Mon 08:00 UTC · governance daily 06:00 UTC · trial expiry 00:01 UTC · defi native 04:00 UTC",
+  "[watcher] drift hourly · macro Mon 08:00 UTC · governance daily 06:00 UTC · trial expiry 00:01 UTC · defi native 04:00 UTC · political tracker 05:30 UTC · vault export Sun 03:00 UTC",
 );

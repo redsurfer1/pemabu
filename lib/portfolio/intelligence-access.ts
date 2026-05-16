@@ -21,10 +21,10 @@ export function canGenerateMorningBriefContext(activeServiceKeys: readonly strin
   return canAccessWatcher(activeServiceKeys);
 }
 
-/** 13F / institutional overlays — Autonomous tier only. */
+/** 13F / institutional overlays — Intelligence tier and above. */
 export function canAccess13FOverlay(activeServiceKeys: readonly string[]): boolean {
   const t = resolveEffectiveTier(activeServiceKeys);
-  return tierMeetsMinimum(t, "AUTONOMOUS");
+  return tierMeetsMinimum(t, "INTELLIGENCE");
 }
 
 export function canConsolidateMultiPortfolio(activeServiceKeys: readonly string[]): boolean {
