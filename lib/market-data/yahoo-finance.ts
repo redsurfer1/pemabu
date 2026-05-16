@@ -79,7 +79,7 @@ const CRYPTO_SUFFIXES = [
   'BONK', 'PEPE', 'FLOKI',
 ];
 
-function normalizeTicker(ticker: string): string {
+export function normalizeTicker(ticker: string): string {
   const t = ticker.trim().toUpperCase();
   if (t.endsWith('-USD') || t.endsWith('-USDT') || t.endsWith('-BTC')) return t;
   if (CRYPTO_SUFFIXES.includes(t)) return `${t}-USD`;

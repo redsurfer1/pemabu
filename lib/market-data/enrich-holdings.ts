@@ -1,27 +1,26 @@
 import type { Holding } from "@/lib/types/database";
 import { getActiveProvider } from "./index";
+import { normalizeTicker } from "./yahoo-finance";
 
 /** Fill missing current_price / last_change_pct from the active market-data provider (display-only). */
 export async function enrichHoldingsWithLiveQuotes(holdings: Holding[]): Promise<Holding[]> {
+  // asset_class === "cash" is the canonical predicate (ticker check removed — phase-2 fix)
   const tickers = [
     ...new Set(
       holdings
         .filter(
           (h) =>
             h.asset_class !== "cash" &&
-            h.ticker !== "CASH" &&
             (h.current_price == null || !Number.isFinite(Number(h.current_price))),
         )
-        .map((h) => h.ticker.trim().toUpperCase())
+        .map((h) => normalizeTicker(h.ticker))
         .filter((t) => t.length > 0),
     ),
   ];
 
   if (tickers.length === 0) {
     return holdings.map((h) =>
-      h.asset_class === "cash" || h.ticker === "CASH"
-        ? { ...h, current_price: h.current_price ?? 1 }
-        : h,
+      h.asset_class === "cash" ? { ...h, current_price: h.current_price ?? 1 } : h,
     );
   }
 
@@ -41,10 +40,12 @@ export async function enrichHoldingsWithLiveQuotes(holdings: Holding[]): Promise
   }
 
   return holdings.map((h) => {
-    if (h.asset_class === "cash" || h.ticker === "CASH") {
+    if (h.asset_class === "cash") {
       return { ...h, current_price: h.current_price ?? 1 };
     }
-    const live = liveByTicker.get(h.ticker.toUpperCase());
+    // Look up by normalized ticker so crypto tickers (BTC-USD) resolve correctly
+    const normalized = normalizeTicker(h.ticker);
+    const live = liveByTicker.get(normalized.toUpperCase());
     if (!live) return h;
     return {
       ...h,

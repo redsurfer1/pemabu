@@ -19,4 +19,5 @@ export function getActiveProvider(): MarketDataProvider {
   }
 }
 
-export type { MarketDataProvider, Quote, QuoteBatchResult } from "./types";
+export type { MarketDataProvider, Quote, QuoteBatchResult, PriceResult } from "./types";
+export { isPriceStale } from "./types";

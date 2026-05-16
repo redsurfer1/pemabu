@@ -10,6 +10,7 @@ import type {
   QuoteBatchResult,
   QuoteErrorKind,
 } from "./types";
+import { normalizeTicker } from "./yahoo-finance";
 
 const DELAY_MS = 200;
 const TIMEOUT_MS = 8000;
@@ -19,14 +20,30 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function fetchGoogleFinanceQuote(ticker: string): Promise<Quote | null> {
+  // CASH is always $1.00 — never hit the network for it
+  if (ticker === "CASH") {
+    return {
+      ticker: "CASH",
+      price: 1.00,
+      change: 0,
+      changePercent: 0,
+      currency: "USD",
+      asOf: new Date(),
+      source: "fixed",
+    };
+  }
+
+  // Normalize crypto tickers (BTC → BTC-USD) before fetching
+  const normalizedTicker = normalizeTicker(ticker);
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    // Google Finance JSON endpoint
+    // Yahoo Finance chart endpoint (labelled "google-finance" for historical reasons — see AUDIT_REPORT.md)
     const url =
       `https://query1.finance.yahoo.com/v8/finance/` +
-      `chart/${encodeURIComponent(ticker)}` +
+      `chart/${encodeURIComponent(normalizedTicker)}` +
       `?interval=1d&range=1d`;
 
     const res = await fetch(url, {
