@@ -1,50 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useConsolidatedDashboard } from "@/hooks/usePortfolios";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useDashboardServices } from "@/components/dashboard/DashboardServicesContext";
 import { PortfolioCard } from "@/components/dashboard/PortfolioCard";
 import { ServicesSidebar } from "@/components/dashboard/ServicesSidebar";
 import { SignalFeed } from "@/components/dashboard/SignalFeed";
 import { HoldingsBuilder } from "@/components/workbook/HoldingsBuilder";
-import { PortfolioSelector } from "@/components/workbook/PortfolioSelector";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
-import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
+import { WORKSPACE_PORTFOLIO_STORAGE_KEY } from "@/components/navigation/WorkspaceChrome";
 
 interface DashboardClientProps {
   userId: string;
   userEmail: string;
 }
 
-const SERVICES_SIDEBAR_STORAGE_KEY = "pemabu.dashboard.servicesOpen";
-
-export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
+export function DashboardClient({ userId }: DashboardClientProps) {
+  const { servicesOpen } = useDashboardServices();
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
-  const [servicesOpen, setServicesOpen] = useState(true);
 
   const { data, isPending, isError, error } = useConsolidatedDashboard(userId);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SERVICES_SIDEBAR_STORAGE_KEY);
-      if (stored !== null) setServicesOpen(stored === "true");
-    } catch {
-      /* private mode */
-    }
-  }, []);
-
-  const toggleServicesSidebar = () => {
-    setServicesOpen((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(SERVICES_SIDEBAR_STORAGE_KEY, String(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  };
 
   useEffect(() => {
     const list = data?.portfolios;
@@ -52,43 +27,45 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
 
     setSelectedPortfolioId((prev) => {
       if (prev && list.some((s) => s.portfolio.id === prev)) return prev;
+      try {
+        const stored = localStorage.getItem(WORKSPACE_PORTFOLIO_STORAGE_KEY);
+        if (stored && list.some((s) => s.portfolio.id === stored)) return stored;
+      } catch {
+        /* ignore */
+      }
       return list[0]!.portfolio.id;
     });
   }, [data?.portfolios]);
 
-  const handleSignOut = async () => {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    window.location.href = "/";
+  useEffect(() => {
+    if (!selectedPortfolioId) return;
+    try {
+      localStorage.setItem(WORKSPACE_PORTFOLIO_STORAGE_KEY, selectedPortfolioId);
+    } catch {
+      /* ignore */
+    }
+  }, [selectedPortfolioId]);
+
+  useEffect(() => {
+    const onPortfolioChange = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) setSelectedPortfolioId(id);
+    };
+    window.addEventListener("pemabu-portfolio-change", onPortfolioChange);
+    return () => window.removeEventListener("pemabu-portfolio-change", onPortfolioChange);
+  }, []);
+
+  const selectPortfolio = (portfolioId: string) => {
+    setSelectedPortfolioId(portfolioId);
+    window.dispatchEvent(new CustomEvent("pemabu-portfolio-change", { detail: portfolioId }));
   };
 
   if (isPending) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#0A1628",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "white",
-          fontFamily: "system-ui, sans-serif",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              margin: "0 auto 12px",
-              border: "2px solid #10b981",
-              borderTopColor: "transparent",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-            }}
-          />
-          <p style={{ margin: 0, fontSize: 14, color: "#9ca3af" }}>Loading dashboard...</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="flex min-h-[40vh] items-center justify-center text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" aria-hidden />
+          <p className="text-sm text-gray-400">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -96,45 +73,15 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
 
   if (isError) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#0A1628",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-          gap: "12px",
-          color: "white",
-          fontFamily: "sans-serif",
-          padding: "24px",
-          textAlign: "center",
-        }}
-      >
-        <p style={{ color: "#f87171", fontSize: "14px" }}>Dashboard error:</p>
-        <p
-          style={{
-            color: "#9ca3af",
-            fontSize: "12px",
-            maxWidth: "600px",
-            wordBreak: "break-all",
-          }}
-        >
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 text-center text-white">
+        <p className="text-sm text-red-400">Dashboard error:</p>
+        <p className="max-w-xl break-all text-xs text-gray-400">
           {error instanceof Error ? error.message : JSON.stringify(error)}
         </p>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          style={{
-            marginTop: "8px",
-            padding: "8px 16px",
-            background: "#10b981",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "13px",
-          }}
+          className="mt-2 rounded-md bg-emerald-500 px-4 py-2 text-sm text-white"
         >
           Retry
         </button>
@@ -143,52 +90,10 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
   }
 
   const portfolios = data?.portfolios ?? [];
-  const totalEquity = data?.totalEquity ?? 0;
   const selectedSummary = portfolios.find((p) => p.portfolio.id === selectedPortfolioId);
 
   return (
-    <div className="min-h-screen bg-[#0A1628]">
-      <nav className="flex items-center justify-between border-b border-white/10 px-6 py-3">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold tracking-widest text-white">PEMABU</span>
-          <button
-            type="button"
-            onClick={toggleServicesSidebar}
-            className={`rounded border px-3 py-1 text-xs transition-colors ${
-              servicesOpen
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
-            }`}
-            aria-expanded={servicesOpen}
-            aria-controls="dashboard-services-sidebar"
-          >
-            {servicesOpen ? "Hide services" : "Show services"}
-          </button>
-          <PortfolioSelector selectedId={selectedPortfolioId} onSelect={setSelectedPortfolioId} />
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <WorkspaceNav portfolioId={selectedPortfolioId} />
-          <span className="text-xs text-gray-500">
-            Total Value:{" "}
-            <span className="font-medium text-white">
-              $
-              {totalEquity.toLocaleString(undefined, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              })}
-            </span>
-          </span>
-          {userEmail ? <span className="hidden text-xs text-gray-500 sm:inline">{userEmail}</span> : null}
-          <button
-            type="button"
-            onClick={() => void handleSignOut()}
-            className="rounded border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
-          >
-            Sign out
-          </button>
-        </div>
-      </nav>
-
+    <>
       <SystemSafetyBanner portfolioId={selectedPortfolioId} />
 
       <div className="w-full px-4 py-8 lg:px-6 xl:px-8">
@@ -215,7 +120,7 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
                   key={summary.portfolio.id}
                   summary={summary}
                   isSelected={summary.portfolio.id === selectedPortfolioId}
-                  onClick={() => setSelectedPortfolioId(summary.portfolio.id)}
+                  onClick={() => selectPortfolio(summary.portfolio.id)}
                 />
               ))}
             </div>
@@ -252,7 +157,7 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
           </div>
         ) : null}
       </div>
-    </div>
+    </>
   );
 }
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import { generateStrategyCouncilMemoAction } from "@/lib/actions/intelligence/generateStrategyCouncilMemo";
 import { exportSleeveStrategyAction } from "@/lib/actions/portfolio/exportSleeveStrategyAction";
@@ -122,11 +121,7 @@ export default function StrategyCouncilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A1628] text-gray-200">
-      <nav className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-3">
-        <span className="text-sm font-semibold tracking-widest text-white">PEMABU</span>
-        <WorkspaceNav portfolioId={portfolioId || portfolios[0]?.id} />
-      </nav>
+    <div className="text-gray-200">
       <div className="mx-auto max-w-2xl space-y-8 px-6 py-10">
         <div>
           <h1 className="font-serif text-2xl text-white">Strategy Council</h1>

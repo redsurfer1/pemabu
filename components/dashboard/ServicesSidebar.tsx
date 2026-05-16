@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { PEMABU_SERVICES } from "@/lib/constants/services";
+import { INTELLIGENCE_FEATURES } from "@/lib/constants/intelligence-features";
 import {
   DASHBOARD_SERVICE_GROUPS,
+  INTELLIGENCE_FEATURE_GROUP_LABEL,
+  intelligenceFeatureHref,
   SERVICE_CATEGORY_LABELS,
   serviceHref,
   servicePriceLabel,
@@ -42,6 +45,30 @@ export function ServicesSidebar() {
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        {INTELLIGENCE_FEATURES.length > 0 ? (
+          <div className="mb-3">
+            <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wider text-gray-600">
+              {INTELLIGENCE_FEATURE_GROUP_LABEL}
+            </p>
+            <ul className="space-y-0.5">
+              {INTELLIGENCE_FEATURES.map((feat) => (
+                <li key={feat.feature_key}>
+                  <Link
+                    href={intelligenceFeatureHref(feat.feature_key)}
+                    className="group block rounded-md border border-transparent px-2 py-1.5 transition-colors hover:border-white/10 hover:bg-white/5"
+                    title={feat.description}
+                  >
+                    <span className="block text-[11px] font-medium leading-tight text-gray-200 group-hover:text-white">
+                      {feat.display_name}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] text-gray-500">Included w/ Intelligence</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {byCategory.map((group) => (
           <div key={group.category} className="mb-3 last:mb-0">
             <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wider text-gray-600">

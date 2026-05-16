@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { PemabuService, PricingModel, ServiceCategory } from "@/lib/types/database";
+import { INTELLIGENCE_FEATURES } from "@/lib/constants/intelligence-features";
 import { PEMABU_SERVICES } from "@/lib/constants/services";
 import { getCachedServices } from "@/lib/cache/service-catalog";
+import { intelligenceFeatureHref, serviceHref } from "@/lib/dashboard/service-links";
 
 const ADDON_BUNDLES = [
   {
@@ -95,9 +97,27 @@ function marketingDescription(s: PemabuService): string {
 const WHATS_INCLUDED = [
   "Pemabu Core v1 engine access",
   "Pemabu Intelligence & Autonomous feature set",
-  "Live Broadcast & Political Trade Tracker (included in paid Intelligence — bundled in beta)",
+  "Live Broadcast, Political Trade Tracker, and 13F Institutional Overlay (included in paid Intelligence — bundled in beta)",
   "Scenario simulations (Autonomous = unlimited in GA)",
   "Admin dashboard & workbook tooling",
+] as const;
+
+const INTELLIGENCE_INCLUDED_LINKS = [
+  {
+    label: "Political Trade Tracker",
+    href: serviceHref("addon_political_tracker"),
+    note: "Included with Intelligence; $29/yr add-on for Core-only users",
+  },
+  {
+    label: "13F Institutional Overlay",
+    href: intelligenceFeatureHref("intelligence_13f_overlay"),
+    note: "Included with Intelligence and Autonomous",
+  },
+  {
+    label: "Live Broadcast",
+    href: serviceHref("live_broadcast_addon"),
+    note: "Included with Intelligence; $79/yr add-on for Core-only users",
+  },
 ] as const;
 
 export default async function PricingPage() {
@@ -178,8 +198,8 @@ export default async function PricingPage() {
           <p className="mb-6 text-center text-xs text-gray-500">
             Core v1 ({priceLabel(coreV1)}) plus the Live Broadcast add-on ({priceLabel(liveBroadcast)}) totals{" "}
             {y1CorePlusLive != null ? `$${y1CorePlusLive}` : ""} in year one. Pemabu Intelligence ({priceLabel(intel)})
-            already includes Live Broadcast, Political Trade Tracker, multi-account support, real-time feeds, and far
-            more — so upgrading from Core is the rational default once you need live viewing.
+            already includes Live Broadcast, Political Trade Tracker, 13F institutional overlay, multi-account support,
+            real-time feeds, and far more — so upgrading from Core is the rational default once you need live viewing.
           </p>
           <table className="w-full text-left text-sm text-gray-300">
             <thead>
@@ -222,15 +242,44 @@ export default async function PricingPage() {
             <p className="mb-4 font-mono text-emerald-300">{priceLabel(s)}</p>
             <p className="leading-relaxed text-gray-400">{marketingDescription(s)}</p>
             {s.service_key === "intelligence_annual" ? (
-              <p className="mt-4 leading-relaxed text-gray-400">
-                <strong className="font-medium text-gray-300">20 simulations/month included.</strong> Additional
-                simulations beyond the soft cap are billed at{" "}
-                {simOver ? (
-                  <strong className="font-medium text-gray-300">${simOver.price_usd} each.</strong>
-                ) : (
-                  <span>the Scenario Simulation overage rate in the Additional section.</span>
-                )}
-              </p>
+              <>
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Included apps (sign in to open)
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {INTELLIGENCE_INCLUDED_LINKS.map((item) => (
+                      <li key={item.href}>
+                        <Link href={item.href} className="font-medium text-emerald-400 hover:text-emerald-300">
+                          {item.label}
+                        </Link>
+                        <span className="text-gray-500"> — {item.note}</span>
+                      </li>
+                    ))}
+                    {INTELLIGENCE_FEATURES.filter(
+                      (f) => !INTELLIGENCE_INCLUDED_LINKS.some((l) => l.href === f.route),
+                    ).map((f) => (
+                      <li key={f.feature_key}>
+                        <Link
+                          href={f.route}
+                          className="font-medium text-emerald-400 hover:text-emerald-300"
+                        >
+                          {f.display_name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="mt-4 leading-relaxed text-gray-400">
+                  <strong className="font-medium text-gray-300">20 simulations/month included.</strong> Additional
+                  simulations beyond the soft cap are billed at{" "}
+                  {simOver ? (
+                    <strong className="font-medium text-gray-300">${simOver.price_usd} each.</strong>
+                  ) : (
+                    <span>the Scenario Simulation overage rate in the Additional section.</span>
+                  )}
+                </p>
+              </>
             ) : null}
             {s.service_key === "autonomous_annual" && intel ? (
               <p className="mt-4 leading-relaxed text-gray-400">
@@ -274,7 +323,12 @@ export default async function PricingPage() {
                       {items.map((a) => (
                         <li key={a.service_key} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
                           <div className="flex justify-between gap-4 font-mono">
-                            <span className="text-gray-300">{a.display_name}</span>
+                            <Link
+                              href={serviceHref(a.service_key)}
+                              className="text-gray-300 transition-colors hover:text-emerald-300"
+                            >
+                              {a.display_name}
+                            </Link>
                             <span className="text-white">{priceLabel(a)}</span>
                           </div>
                           {marketingDescription(a) ? (

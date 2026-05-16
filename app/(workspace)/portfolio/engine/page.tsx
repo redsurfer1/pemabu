@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
-import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -232,7 +231,6 @@ function PortfolioEnginePageContent() {
               Last refreshed: {lastRefreshed ?? "never"}
             </p>
           </div>
-          <WorkspaceNav portfolioId={selected || null} />
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             <select

@@ -1,3 +1,4 @@
+import { INTELLIGENCE_FEATURES } from "@/lib/constants/intelligence-features";
 import { PEMABU_SERVICES } from "@/lib/constants/services";
 
 /** Primary in-app route per service (view / use). Falls back to upgrade gate. */
@@ -18,6 +19,15 @@ export const SERVICE_APP_ROUTES: Partial<Record<string, string>> = {
   live_broadcast_addon: "/broadcast",
   marketplace_import_token: "/marketplace",
 };
+
+for (const f of INTELLIGENCE_FEATURES) {
+  SERVICE_APP_ROUTES[f.feature_key] = f.route;
+}
+
+export function intelligenceFeatureHref(featureKey: string): string {
+  const row = INTELLIGENCE_FEATURES.find((f) => f.feature_key === featureKey);
+  return row?.route ?? "/upgrade?service=intelligence_annual";
+}
 
 export function serviceHref(serviceKey: string): string {
   return SERVICE_APP_ROUTES[serviceKey] ?? `/upgrade?service=${encodeURIComponent(serviceKey)}`;
@@ -46,3 +56,5 @@ export const SERVICE_CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const DASHBOARD_SERVICE_GROUPS = ["core", "subscription", "addon", "overage", "upgrade"] as const;
+
+export const INTELLIGENCE_FEATURE_GROUP_LABEL = "Intelligence (included)";
