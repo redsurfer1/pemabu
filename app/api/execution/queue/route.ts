@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { requireAutonomousTier } from "@/lib/portfolio/intelligence-access";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
+import { VAULT_REQUIRED_CODE, VAULT_REQUIRED_MESSAGE } from "@/lib/execution/sovereign-messages";
 import { listTradeProposalsForUserVault, isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
 
 const CLOUD_EXECUTION_FORBIDDEN = NextResponse.json(
-  {
-    error: "Autonomous execution requires local-first Vault deployment mode.",
-    code: "VAULT_REQUIRED",
-  },
+  { error: VAULT_REQUIRED_MESSAGE, code: VAULT_REQUIRED_CODE },
   { status: 403 },
 );
 

@@ -5,6 +5,7 @@ import { isAutonomous } from "@/lib/portfolio/intelligence-access";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { createClient } from "@/lib/supabase/server";
 import type { ExchangeName } from "@/lib/execution/types";
+import { EXCHANGE_CREDENTIALS_VAULT_ONLY_MESSAGE } from "@/lib/execution/sovereign-messages";
 import { upsertExchangeCredentialsVault, isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
 
 export async function saveExchangeCredentials(input: {
@@ -42,11 +43,5 @@ export async function saveExchangeCredentials(input: {
   // Exchange credentials may only be stored in the local vault execution plane.
   // Writing credentials to a cloud provider violates the Pemabu sovereign promise.
   // To fix: deploy with docker-compose and set USE_LOCAL_VAULT=true.
-  return {
-    success: false,
-    error:
-      "Exchange credentials require local vault mode. " +
-      "Deploy with docker-compose and set USE_LOCAL_VAULT=true in your environment. " +
-      "Pemabu does not store exchange credentials in cloud infrastructure.",
-  };
+  return { success: false, error: EXCHANGE_CREDENTIALS_VAULT_ONLY_MESSAGE };
 }

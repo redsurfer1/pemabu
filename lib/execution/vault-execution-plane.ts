@@ -206,6 +206,16 @@ export async function insertDailyExecutionLogVault(input: {
   );
 }
 
+export async function deleteExchangeCredentialsVault(
+  userId: string,
+  exchangeName: ExchangeName,
+): Promise<void> {
+  await pool().query(
+    `DELETE FROM exchange_credentials WHERE user_id = $1::uuid AND exchange_name = $2`,
+    [userId, exchangeName],
+  );
+}
+
 export async function upsertExchangeCredentialsVault(row: {
   userId: string;
   exchange: ExchangeName;

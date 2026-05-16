@@ -31,6 +31,18 @@ export function providerRequiresSecret(provider: PortfolioApiProvider): boolean 
   return provider !== "tiingo";
 }
 
+/** Execution venues — must persist only in local vault, never Supabase cloud. */
+export function isExecutionPortfolioProvider(provider: PortfolioApiProvider): boolean {
+  return provider !== "tiingo";
+}
+
+export function exchangeNameFromProvider(
+  provider: PortfolioApiProvider,
+): "alpaca" | "kraken" | "coinbase_advanced" | null {
+  if (provider === "tiingo") return null;
+  return provider;
+}
+
 export function maskApiKey(apiKey: string): string {
   const trimmed = apiKey.trim();
   if (trimmed.length <= 4) return "••••";

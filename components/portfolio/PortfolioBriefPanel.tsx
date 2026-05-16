@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NON_FIDUCIARY_FOOTER } from "@/lib/constants/compliance";
 
 interface PortfolioBriefPanelProps {
   portfolioId: string;
@@ -123,6 +124,10 @@ export function PortfolioBriefPanel({ portfolioId }: PortfolioBriefPanelProps) {
           {cached ? "Cached — check back later" : "Regenerate"}
         </button>
       )}
+
+      <p className="mt-6 border-t border-white/10 pt-4 text-[10px] leading-relaxed text-gray-500">
+        {NON_FIDUCIARY_FOOTER}
+      </p>
     </div>
   );
 }

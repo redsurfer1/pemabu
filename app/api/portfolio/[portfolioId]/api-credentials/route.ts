@@ -10,6 +10,7 @@ import {
 import {
   deletePortfolioApiCredential,
   listPortfolioApiCredentialSummaries,
+  SovereignCredentialError,
   upsertPortfolioApiCredential,
 } from "@/lib/portfolio/api-credentials";
 
@@ -81,6 +82,9 @@ export const PUT = withAuth(async (req, user, ctx: RouteHandlerContext) => {
       apiSecret,
     });
   } catch (e) {
+    if (e instanceof SovereignCredentialError) {
+      return NextResponse.json({ error: e.message, code: "VAULT_REQUIRED" }, { status: 403 });
+    }
     const msg = e instanceof Error ? e.message : "Failed to save credentials";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
@@ -106,7 +110,14 @@ export const DELETE = withAuth(async (req, user, ctx: RouteHandlerContext) => {
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   }
 
-  await deletePortfolioApiCredential(supabase, portfolioId, provider);
+  try {
+    await deletePortfolioApiCredential(supabase, portfolioId, provider, user.id);
+  } catch (e) {
+    if (e instanceof SovereignCredentialError) {
+      return NextResponse.json({ error: e.message, code: "VAULT_REQUIRED" }, { status: 403 });
+    }
+    throw e;
+  }
   const credentials = await listPortfolioApiCredentialSummaries(supabase, portfolioId);
   return NextResponse.json({ ok: true, credentials });
 });

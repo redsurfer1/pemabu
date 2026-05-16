@@ -3,7 +3,16 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExchangeName } from "@/lib/execution/types";
 import { decryptUtf8, encryptUtf8, type EncryptedPayload } from "@/lib/security/encryption";
+import { EXCHANGE_CREDENTIALS_VAULT_ONLY_MESSAGE } from "@/lib/execution/sovereign-messages";
 import {
+  deleteExchangeCredentialsVault,
+  fetchExchangeCredentialsVault,
+  isLocalVaultExecutionPlane,
+  upsertExchangeCredentialsVault,
+} from "@/lib/execution/vault-execution-plane";
+import {
+  exchangeNameFromProvider,
+  isExecutionPortfolioProvider,
   maskApiKey,
   providerRequiresSecret,
   type PortfolioApiCredentialSummary,
@@ -14,14 +23,18 @@ export type { PortfolioApiCredentialSummary, PortfolioApiProvider } from "@/lib/
 export {
   PORTFOLIO_API_PROVIDERS,
   PORTFOLIO_API_PROVIDER_LABELS,
+  exchangeNameFromProvider,
+  isExecutionPortfolioProvider,
   isPortfolioApiProvider,
   providerRequiresSecret,
   maskApiKey,
 } from "@/lib/portfolio/api-credentials-shared";
 
-export function exchangeNameFromProvider(provider: PortfolioApiProvider): ExchangeName | null {
-  if (provider === "tiingo") return null;
-  return provider;
+export class SovereignCredentialError extends Error {
+  constructor(message: string = EXCHANGE_CREDENTIALS_VAULT_ONLY_MESSAGE) {
+    super(message);
+    this.name = "SovereignCredentialError";
+  }
 }
 
 type CredentialRow = {
@@ -95,13 +108,34 @@ export async function upsertPortfolioApiCredential(
     apiSecret?: string;
   },
 ): Promise<void> {
-  const encKey = encryptUtf8(input.apiKey.trim());
   const needsSecret = providerRequiresSecret(input.provider);
   const secretPlain = input.apiSecret?.trim() ?? "";
   if (needsSecret && !secretPlain) {
     throw new Error("API secret is required for this provider");
   }
 
+  if (isExecutionPortfolioProvider(input.provider)) {
+    if (!isLocalVaultExecutionPlane()) {
+      throw new SovereignCredentialError();
+    }
+    const exchange = exchangeNameFromProvider(input.provider);
+    if (!exchange) throw new Error("Invalid execution provider");
+    const encKey = encryptUtf8(input.apiKey.trim());
+    const encSecret = encryptUtf8(secretPlain);
+    await upsertExchangeCredentialsVault({
+      userId: input.userId,
+      exchange,
+      encrypted_api_key: encKey.ciphertextB64,
+      iv: encKey.ivB64,
+      auth_tag: encKey.authTagB64,
+      encrypted_secret: encSecret.ciphertextB64,
+      secret_iv: encSecret.ivB64,
+      secret_auth_tag: encSecret.authTagB64,
+    });
+    return;
+  }
+
+  const encKey = encryptUtf8(input.apiKey.trim());
   const encSecret = secretPlain ? encryptUtf8(secretPlain) : null;
 
   const { error } = await supabase.from("portfolio_api_credentials").upsert(
@@ -126,7 +160,17 @@ export async function deletePortfolioApiCredential(
   supabase: SupabaseClient,
   portfolioId: string,
   provider: PortfolioApiProvider,
+  userId: string,
 ): Promise<void> {
+  if (isExecutionPortfolioProvider(provider)) {
+    if (!isLocalVaultExecutionPlane()) {
+      throw new SovereignCredentialError();
+    }
+    const exchange = exchangeNameFromProvider(provider);
+    if (exchange) await deleteExchangeCredentialsVault(userId, exchange);
+    return;
+  }
+
   const { error } = await supabase
     .from("portfolio_api_credentials")
     .delete()
@@ -164,7 +208,28 @@ export async function getPortfolioExchangeCredential(
   supabase: SupabaseClient,
   portfolioId: string,
   exchange: ExchangeName,
+  userId?: string,
 ): Promise<DecryptedExchangeCredential | null> {
+  if (isLocalVaultExecutionPlane() && userId) {
+    const row = await fetchExchangeCredentialsVault(userId, exchange);
+    if (!row) return null;
+    try {
+      const apiKey = decryptUtf8({
+        ciphertextB64: row.encrypted_api_key,
+        ivB64: row.iv,
+        authTagB64: row.auth_tag,
+      });
+      const apiSecret = decryptUtf8({
+        ciphertextB64: row.encrypted_secret,
+        ivB64: row.secret_iv ?? row.iv,
+        authTagB64: row.secret_auth_tag ?? row.auth_tag,
+      });
+      return { apiKey, apiSecret };
+    } catch {
+      return null;
+    }
+  }
+
   const { data, error } = await supabase
     .from("portfolio_api_credentials")
     .select("*")

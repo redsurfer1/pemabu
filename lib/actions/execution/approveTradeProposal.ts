@@ -28,6 +28,10 @@ import {
 } from "@/lib/execution/execution-outcomes";
 import { getPortfolioExchangeCredential } from "@/lib/portfolio/api-credentials";
 import {
+  VAULT_REQUIRED_CODE,
+  VAULT_REQUIRED_MESSAGE,
+} from "@/lib/execution/sovereign-messages";
+import {
   buildGuardrailContextVault,
   fetchExchangeCredentialsVault,
   fetchSleeveHoldingQtyPriceVault,
@@ -66,7 +70,15 @@ export async function approveTradeProposal(proposalId: string) {
     return { success: false, error: "Autonomous tier required" };
   }
 
-  const vault = isLocalVaultExecutionPlane();
+  if (!isLocalVaultExecutionPlane()) {
+    return {
+      success: false,
+      error: VAULT_REQUIRED_MESSAGE,
+      code: VAULT_REQUIRED_CODE,
+    };
+  }
+
+  const vault = true;
 
   const audit = async (r: HoldingAuditInsert) => {
     if (vault) await insertHoldingAuditVault(r);
@@ -203,6 +215,7 @@ export async function approveTradeProposal(proposalId: string) {
     supabase,
     row.portfolio_id,
     row.exchange_name as ExchangeName,
+    user.id,
   );
 
   const userCred = portfolioCred
