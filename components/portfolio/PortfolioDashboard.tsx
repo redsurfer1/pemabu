@@ -40,7 +40,10 @@ interface HoldingRow {
 
 export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDashboardProps) {
   const [sleeves, setSleeves] = useState<SleeveDisplayData[]>([]);
+  /** Main-sleeve scoring assumptions (shown in AssumptionsPanel). */
   const [assumptions, setAssumptions] = useState<EngineAssumptions>(DEFAULT_ENGINE_ASSUMPTIONS);
+  /** Income-sleeve assumptions — loaded separately from model_assumptions where sleeve_type='income'. */
+  const [incomeAssumptions, setIncomeAssumptions] = useState<EngineAssumptions>(DEFAULT_ENGINE_ASSUMPTIONS);
   const [totalNAV, setTotalNAV] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,30 +56,41 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
   const loadData = useCallback(async () => {
     setLoading(true);
 
-    // Load assumptions
-    const { data: assumptionsRow } = await supabase
+    // Load per-sleeve assumptions (one row per sleeve_type since phase-1 migration).
+    const { data: assumptionRows } = await supabase
       .from("model_assumptions")
       .select("*")
       .eq("portfolio_id", portfolioId)
-      .maybeSingle();
+      .in("sleeve_type", ["main", "income"]);
 
-    const a: EngineAssumptions = assumptionsRow
-      ? {
-          retWeight3mo: Number(assumptionsRow.ret_weight_3mo),
-          retWeight6mo: Number(assumptionsRow.ret_weight_6mo),
-          retWeight1yr: Number(assumptionsRow.ret_weight_1yr),
-          retWeight3yr: Number(assumptionsRow.ret_weight_3yr),
-          retWeight5yr: Number(assumptionsRow.ret_weight_5yr),
-          scoreWeightExp: Number(assumptionsRow.score_weight_exp),
-          scoreWeightRet: Number(assumptionsRow.score_weight_ret),
-          scoreWeightDiv: Number(assumptionsRow.score_weight_div),
-          scoreWeightShp: Number(assumptionsRow.score_weight_shp),
-          incomeBudgetPct: Number(assumptionsRow.income_budget_pct),
-          volCapMultiplier: Number(assumptionsRow.vol_cap_multiplier),
-          themeCapPct: Number(assumptionsRow.theme_cap_pct),
-        }
-      : DEFAULT_ENGINE_ASSUMPTIONS;
+    function rowToAssumptions(row: Record<string, unknown>): EngineAssumptions {
+      return {
+        retWeight3mo: Number(row.ret_weight_3mo),
+        retWeight6mo: Number(row.ret_weight_6mo),
+        retWeight1yr: Number(row.ret_weight_1yr),
+        retWeight3yr: Number(row.ret_weight_3yr),
+        retWeight5yr: Number(row.ret_weight_5yr),
+        scoreWeightExp: Number(row.score_weight_exp),
+        scoreWeightRet: Number(row.score_weight_ret),
+        scoreWeightDiv: Number(row.score_weight_div),
+        scoreWeightShp: Number(row.score_weight_shp),
+        incomeBudgetPct: Number(row.income_budget_pct),
+        volCapMultiplier: Number(row.vol_cap_multiplier),
+        themeCapPct: Number(row.theme_cap_pct),
+      };
+    }
+
+    const mainRow = (assumptionRows ?? []).find(
+      (r: Record<string, unknown>) => r.sleeve_type === "main",
+    );
+    const incomeRow = (assumptionRows ?? []).find(
+      (r: Record<string, unknown>) => r.sleeve_type === "income",
+    );
+
+    const a: EngineAssumptions = mainRow ? rowToAssumptions(mainRow) : DEFAULT_ENGINE_ASSUMPTIONS;
+    const aIncome: EngineAssumptions = incomeRow ? rowToAssumptions(incomeRow) : DEFAULT_ENGINE_ASSUMPTIONS;
     setAssumptions(a);
+    setIncomeAssumptions(aIncome);
 
     // Load sleeves
     const { data: sleeveRows } = await supabase
@@ -153,7 +167,7 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
           divDollar: Number(h.div_dollar),
         }));
 
-        const incomeResult = computeIncomeSleeve(incomeInputs, a.incomeBudgetPct, nav || 1);
+        const incomeResult = computeIncomeSleeve(incomeInputs, aIncome.incomeBudgetPct, nav || 1);
         const sleeveValue = incomeResult.reduce((s, h) => s + h.value, 0);
         nav += sleeveValue;
 
@@ -281,22 +295,28 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
 
   async function handleSaveAssumptions(updated: EngineAssumptions) {
     setIsRecomputing(true);
-    await supabase.from("model_assumptions").upsert({
-      portfolio_id: portfolioId,
-      ret_weight_3mo: updated.retWeight3mo,
-      ret_weight_6mo: updated.retWeight6mo,
-      ret_weight_1yr: updated.retWeight1yr,
-      ret_weight_3yr: updated.retWeight3yr,
-      ret_weight_5yr: updated.retWeight5yr,
-      score_weight_exp: updated.scoreWeightExp,
-      score_weight_ret: updated.scoreWeightRet,
-      score_weight_div: updated.scoreWeightDiv,
-      score_weight_shp: updated.scoreWeightShp,
-      income_budget_pct: updated.incomeBudgetPct,
-      vol_cap_multiplier: updated.volCapMultiplier,
-      theme_cap_pct: updated.themeCapPct,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "portfolio_id" });
+    // Upsert main-sleeve assumptions. onConflict targets the (portfolio_id, sleeve_type)
+    // unique index added by the phase-1 migration.
+    await supabase.from("model_assumptions").upsert(
+      {
+        portfolio_id: portfolioId,
+        sleeve_type: "main",
+        ret_weight_3mo: updated.retWeight3mo,
+        ret_weight_6mo: updated.retWeight6mo,
+        ret_weight_1yr: updated.retWeight1yr,
+        ret_weight_3yr: updated.retWeight3yr,
+        ret_weight_5yr: updated.retWeight5yr,
+        score_weight_exp: updated.scoreWeightExp,
+        score_weight_ret: updated.scoreWeightRet,
+        score_weight_div: updated.scoreWeightDiv,
+        score_weight_shp: updated.scoreWeightShp,
+        income_budget_pct: updated.incomeBudgetPct,
+        vol_cap_multiplier: updated.volCapMultiplier,
+        theme_cap_pct: updated.themeCapPct,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "portfolio_id,sleeve_type" },
+    );
     setAssumptions(updated);
     await loadData();
     setIsRecomputing(false);

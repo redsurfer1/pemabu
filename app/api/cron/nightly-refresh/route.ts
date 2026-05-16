@@ -46,12 +46,8 @@ export async function GET(req: Request) {
 
     const allHoldings = (holdings ?? []) as Holding[];
 
-    const nonCashHoldings = allHoldings.filter(
-      (h) => h.asset_class !== "cash" && h.ticker !== "CASH",
-    );
-    const cashHoldings = allHoldings.filter(
-      (h) => h.asset_class === "cash" || h.ticker === "CASH",
-    );
+    const nonCashHoldings = allHoldings.filter((h) => h.asset_class !== "cash");
+    const cashHoldings = allHoldings.filter((h) => h.asset_class === "cash");
 
     const tickers = [...new Set(nonCashHoldings.map((h) => h.ticker))];
     log.push(`Refreshing ${tickers.length} unique tickers (${cashHoldings.length} cash skipped)`);

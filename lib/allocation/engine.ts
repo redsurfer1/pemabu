@@ -83,7 +83,7 @@ export function calculatePortfolioValue(
 ): number {
   const enrichedQuotes = new Map(quotes);
   for (const h of holdings) {
-    if (h.asset_class === "cash" || h.ticker === "CASH") {
+    if (h.asset_class === "cash") {
       enrichedQuotes.set(h.ticker, {
         ticker: h.ticker,
         price: 1.00,

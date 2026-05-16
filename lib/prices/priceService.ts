@@ -88,9 +88,17 @@ export async function getCurrentPrices(
   if (tickers.length === 0) return {};
   const date = todayStr();
   const results: Record<string, number> = {};
+
+  // CASH is always $1.00 — never hit market data for it
+  const marketTickers = tickers.filter((t) => {
+    if (t === "CASH") { results["CASH"] = 1.00; return false; }
+    return true;
+  });
+  if (marketTickers.length === 0) return results;
+
   const toFetch: string[] = [];
 
-  for (const ticker of tickers) {
+  for (const ticker of marketTickers) {
     const cached = await getCachedPrice(ticker, "current", date);
     if (cached !== null) {
       results[ticker] = cached;
