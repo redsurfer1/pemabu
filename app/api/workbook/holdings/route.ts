@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { enrichHoldingsWithLiveQuotes } from "@/lib/market-data/enrich-holdings";
 import { getPortfolioHoldings, getPortfolio, upsertHolding } from "@/lib/services/portfolio";
 import { z } from "zod";
 
@@ -26,7 +27,7 @@ export const GET = withAuth(async (req, user, _ctx) => {
   if (!portfolio || portfolio.user_id !== user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const holdings = await getPortfolioHoldings(portfolioId);
+  const holdings = await enrichHoldingsWithLiveQuotes(await getPortfolioHoldings(portfolioId));
   return NextResponse.json({ holdings });
 });
 

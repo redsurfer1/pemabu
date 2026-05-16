@@ -7,9 +7,10 @@ import { PortfolioSelector } from "@/components/workbook/PortfolioSelector";
 import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { useConsolidatedDashboard } from "@/hooks/usePortfolios";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { WORKSPACE_PORTFOLIO_STORAGE_KEY } from "@/lib/workspace/portfolio-selection";
 
 export const SERVICES_SIDEBAR_STORAGE_KEY = "pemabu.dashboard.servicesOpen";
-export const WORKSPACE_PORTFOLIO_STORAGE_KEY = "pemabu.workspace.portfolioId";
+export { WORKSPACE_PORTFOLIO_STORAGE_KEY };
 
 export type WorkspaceChromeProps = {
   userId: string;

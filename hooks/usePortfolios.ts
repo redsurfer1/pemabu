@@ -309,6 +309,10 @@ export function useUpsertHolding() {
       qc.invalidateQueries({ queryKey: portfolioKeys.holdings(variables.portfolio_id) });
       qc.invalidateQueries({ queryKey: ["consolidated"] });
       qc.refetchQueries({ queryKey: portfolioKeys.holdings(variables.portfolio_id) });
+      void fetch(`/api/portfolio/${encodeURIComponent(variables.portfolio_id)}/refresh`, {
+        method: "POST",
+        credentials: "same-origin",
+      }).catch(() => undefined);
     },
   });
 }

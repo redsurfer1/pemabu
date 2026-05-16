@@ -13,6 +13,7 @@ import {
 } from "@/lib/portfolio/formula-engine";
 import { usePortfolioEngine } from "@/lib/portfolio/use-portfolio-engine";
 import type { ComputedRow } from "@/lib/portfolio/use-portfolio-engine";
+import { resolveWorkspacePortfolioId } from "@/lib/workspace/portfolio-selection";
 
 type TabKey = "dashboard" | "signals" | "assumptions" | "audit";
 
@@ -114,9 +115,10 @@ function PortfolioEnginePageContent() {
 
   const { data: portfolios = [] } = usePortfolios();
   const portfolioParam = searchParams.get("portfolio");
-  const selected = portfolioParam && portfolios.some((p) => p.id === portfolioParam)
-    ? portfolioParam
-    : portfolios[0]?.id ?? "";
+  const selected = useMemo(
+    () => resolveWorkspacePortfolioId(portfolios, portfolioParam),
+    [portfolios, portfolioParam],
+  );
 
   useEffect(() => {
     if (!selected) return;
@@ -125,6 +127,19 @@ function PortfolioEnginePageContent() {
     params.set("portfolio", selected);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [pathname, portfolioParam, router, searchParams, selected]);
+
+  useEffect(() => {
+    const onPortfolioChange = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!id || !portfolios.some((p) => p.id === id)) return;
+      if (searchParams.get("portfolio") === id) return;
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("portfolio", id);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    };
+    window.addEventListener("pemabu-portfolio-change", onPortfolioChange);
+    return () => window.removeEventListener("pemabu-portfolio-change", onPortfolioChange);
+  }, [pathname, portfolios, router, searchParams]);
 
   const {
     computed,
