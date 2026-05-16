@@ -26,10 +26,15 @@ export function serviceHref(serviceKey: string): string {
 export function servicePriceLabel(serviceKey: string): string {
   const row = PEMABU_SERVICES.find((s) => s.service_key === serviceKey);
   if (!row) return "";
-  if (row.pricing_model === "one_time") return `$${row.price_usd}`;
-  if (row.pricing_model === "annual") return `$${row.price_usd}/yr`;
-  if (row.pricing_model === "per_event") return `$${row.price_usd}/ea`;
-  return `$${row.price_usd}`;
+  const price = row.price_usd;
+  switch (row.pricing_model) {
+    case "one_time":
+      return `$${price}`;
+    case "annual":
+      return `$${price}/yr`;
+    case "per_event":
+      return `$${price}/ea`;
+  }
 }
 
 export const SERVICE_CATEGORY_LABELS: Record<string, string> = {
