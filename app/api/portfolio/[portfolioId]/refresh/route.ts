@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { User } from "@supabase/supabase-js";
 import { withAuth, type RouteHandlerContext } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
-import { refreshPortfolioSignals } from "@/lib/allocation/engine";
+import { refreshPortfolioSignals } from "@/lib/allocation/refresh-portfolio-signals";
 import { normaliseWeights, type Assumptions } from "@/lib/portfolio/formula-engine";
 
 export const maxDuration = 60;

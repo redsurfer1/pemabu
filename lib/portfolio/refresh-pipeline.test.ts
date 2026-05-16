@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
-import { refreshPortfolioSignals } from "@/lib/allocation/engine";
+import { refreshPortfolioSignals } from "@/lib/allocation/refresh-portfolio-signals";
 import { DEFAULT_ASSUMPTIONS, colAB, colV, colW, colX, colY, colZ } from "@/lib/portfolio/formula-engine";
 
 const fetchMarketDataMock = vi.fn();

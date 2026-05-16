@@ -1,30 +1,23 @@
+import "server-only";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExchangeName } from "@/lib/execution/types";
 import { decryptUtf8, encryptUtf8, type EncryptedPayload } from "@/lib/security/encryption";
+import {
+  maskApiKey,
+  providerRequiresSecret,
+  type PortfolioApiCredentialSummary,
+  type PortfolioApiProvider,
+} from "@/lib/portfolio/api-credentials-shared";
 
-export const PORTFOLIO_API_PROVIDERS = [
-  "tiingo",
-  "alpaca",
-  "kraken",
-  "coinbase_advanced",
-] as const;
-
-export type PortfolioApiProvider = (typeof PORTFOLIO_API_PROVIDERS)[number];
-
-export const PORTFOLIO_API_PROVIDER_LABELS: Record<PortfolioApiProvider, string> = {
-  tiingo: "Tiingo (market data)",
-  alpaca: "Alpaca (execution)",
-  kraken: "Kraken (execution)",
-  coinbase_advanced: "Coinbase Advanced (execution)",
-};
-
-export function isPortfolioApiProvider(value: string): value is PortfolioApiProvider {
-  return (PORTFOLIO_API_PROVIDERS as readonly string[]).includes(value);
-}
-
-export function providerRequiresSecret(provider: PortfolioApiProvider): boolean {
-  return provider !== "tiingo";
-}
+export type { PortfolioApiCredentialSummary, PortfolioApiProvider } from "@/lib/portfolio/api-credentials-shared";
+export {
+  PORTFOLIO_API_PROVIDERS,
+  PORTFOLIO_API_PROVIDER_LABELS,
+  isPortfolioApiProvider,
+  providerRequiresSecret,
+  maskApiKey,
+} from "@/lib/portfolio/api-credentials-shared";
 
 export function exchangeNameFromProvider(provider: PortfolioApiProvider): ExchangeName | null {
   if (provider === "tiingo") return null;
@@ -43,19 +36,6 @@ type CredentialRow = {
   secret_auth_tag: string | null;
   updated_at: string;
 };
-
-export type PortfolioApiCredentialSummary = {
-  provider: PortfolioApiProvider;
-  apiKeyMasked: string;
-  hasSecret: boolean;
-  updatedAt: string;
-};
-
-export function maskApiKey(apiKey: string): string {
-  const trimmed = apiKey.trim();
-  if (trimmed.length <= 4) return "••••";
-  return `••••${trimmed.slice(-4)}`;
-}
 
 function rowToEncryptedKey(row: Pick<CredentialRow, "encrypted_api_key" | "iv" | "auth_tag">): EncryptedPayload {
   return {

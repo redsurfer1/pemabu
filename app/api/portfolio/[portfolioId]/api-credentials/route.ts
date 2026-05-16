@@ -3,11 +3,13 @@ import { z } from "zod";
 import { withAuth, type RouteHandlerContext } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
-  deletePortfolioApiCredential,
   isPortfolioApiProvider,
-  listPortfolioApiCredentialSummaries,
   PORTFOLIO_API_PROVIDERS,
   providerRequiresSecret,
+} from "@/lib/portfolio/api-credentials-shared";
+import {
+  deletePortfolioApiCredential,
+  listPortfolioApiCredentialSummaries,
   upsertPortfolioApiCredential,
 } from "@/lib/portfolio/api-credentials";
 

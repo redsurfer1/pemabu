@@ -8,7 +8,7 @@ import {
   providerRequiresSecret,
   type PortfolioApiCredentialSummary,
   type PortfolioApiProvider,
-} from "@/lib/portfolio/api-credentials";
+} from "@/lib/portfolio/api-credentials-shared";
 
 async function fetchCredentials(portfolioId: string): Promise<PortfolioApiCredentialSummary[]> {
   const res = await fetch(`/api/portfolio/${encodeURIComponent(portfolioId)}/api-credentials`, {

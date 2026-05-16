@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { maskApiKey, providerRequiresSecret } from "@/lib/portfolio/api-credentials";
+import { maskApiKey, providerRequiresSecret } from "@/lib/portfolio/api-credentials-shared";
 
 describe("portfolio api credentials", () => {
   test("maskApiKey shows last four characters", () => {

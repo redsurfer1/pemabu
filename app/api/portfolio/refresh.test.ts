@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: (...args: unknown[]) => createClientMock(...args),
 }));
 
-vi.mock("@/lib/allocation/engine", () => ({
+vi.mock("@/lib/allocation/refresh-portfolio-signals", () => ({
   refreshPortfolioSignals: (...args: unknown[]) => refreshPortfolioSignalsMock(...args),
 }));
 
