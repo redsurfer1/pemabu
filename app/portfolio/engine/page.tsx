@@ -402,7 +402,7 @@ function PortfolioEnginePageContent() {
                     <td className="px-2 py-1">{pct(r.change_7d)}</td>
                     <td className="px-2 py-1">{num(r.market_value)}</td>
                     <td className="px-2 py-1">{pct(r.current_weight)}</td>
-                    <td className="px-2 py-1">{num(r.target_parity_weight)}</td>
+                    <td className="px-2 py-1">{num(r.target_sleeve_pct, 4)}</td>
                     <td className="px-2 py-1">{pct(r.return_3mo)}</td>
                     <td className="px-2 py-1">{pct(r.return_6mo)}</td>
                     <td className="px-2 py-1">{pct(r.return_1yr)}</td>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Assumptions } from "@/lib/portfolio/formula-engine";
@@ -68,56 +68,86 @@ type HoldingInsert = {
 
 export type RealtimeConnectionStatus = "connecting" | "connected" | "disconnected";
 
+function pickNum(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 function mapHoldingToComputedRow(row: Record<string, unknown>): ComputedRow {
+  const symbol = String(row.ticker ?? row.symbol ?? "");
+  const quantity = Number(row.quantity ?? 0);
+  const isCash = symbol === "CASH" || row.asset_class === "cash";
+  const price_current =
+    pickNum(row.price_current) ?? pickNum(row.current_price) ?? (isCash ? 1 : null);
+  const market_value =
+    pickNum(row.market_value) ??
+    (price_current != null && quantity > 0 ? quantity * price_current : null);
+  const targetWt = pickNum(row.target_parity_weight) ?? pickNum(row.target_weight_pct);
+
   return {
     id: String(row.id),
     portfolio_id: String(row.portfolio_id),
     rowStatus: "Active",
-    symbol: String(row.ticker ?? row.symbol ?? ""),
-    name: String(row.name ?? row.ticker ?? ""),
-    quantity: Number(row.quantity ?? 0),
-    expense_ratio: (row.expense_ratio as number | null) ?? null,
-    dividend_dollars: (row.dividend_dollars as number | null) ?? null,
-    target_parity_weight: (row.target_parity_weight as number | null) ?? null,
-    price_current: (row.price_current as number | null) ?? null,
-    price_24h_basis: (row.price_24h_basis as number | null) ?? null,
-    price_7d_basis: (row.price_7d_basis as number | null) ?? null,
-    basis_price_3mo: (row.basis_price_3mo as number | null) ?? null,
-    basis_price_6mo: (row.basis_price_6mo as number | null) ?? null,
-    basis_price_1yr: (row.basis_price_1yr as number | null) ?? null,
-    basis_price_3yr: (row.basis_price_3yr as number | null) ?? null,
-    basis_price_5yr: (row.basis_price_5yr as number | null) ?? null,
-    volatility_3mo: (row.volatility_3mo as number | null) ?? null,
-    rsi_14: (row.rsi_14 as number | null) ?? null,
-    last_market_refresh: (row.last_market_refresh as string | null) ?? null,
-    market_value: (row.market_value as number | null) ?? null,
-    current_weight: (row.current_weight as number | null) ?? null,
-    div_apy: (row.div_apy as number | null) ?? null,
-    change_24h: (row.change_24h as number | null) ?? null,
-    change_7d: (row.change_7d as number | null) ?? null,
-    return_3mo: (row.return_3mo as number | null) ?? null,
-    return_6mo: (row.return_6mo as number | null) ?? null,
-    return_1yr: (row.return_1yr as number | null) ?? null,
-    return_3yr: (row.return_3yr as number | null) ?? null,
-    return_5yr: (row.return_5yr as number | null) ?? null,
-    return_avg: (row.return_avg as number | null) ?? null,
-    return_weighted_avg: (row.return_weighted_avg as number | null) ?? null,
-    volatility_abs: (row.volatility_abs as number | null) ?? null,
-    volatility_signed: (row.volatility_signed as number | null) ?? null,
-    sub_rank_current: (row.sub_rank_current as number | null) ?? null,
-    sub_rank_expense: (row.sub_rank_expense as number | null) ?? null,
-    sub_rank_weighted_ret: (row.sub_rank_weighted_ret as number | null) ?? null,
-    sub_rank_div_apy: (row.sub_rank_div_apy as number | null) ?? null,
-    sub_rank_volatility: (row.sub_rank_volatility as number | null) ?? null,
-    composite_score: (row.composite_score as number | null) ?? null,
-    rank_overall: (row.rank_overall as number | null) ?? null,
+    symbol,
+    name: String(row.name ?? symbol),
+    quantity,
+    expense_ratio: pickNum(row.expense_ratio),
+    dividend_dollars: pickNum(row.dividend_dollars),
+    target_parity_weight: targetWt,
+    price_current,
+    price_24h_basis: pickNum(row.price_24h_basis),
+    price_7d_basis: pickNum(row.price_7d_basis),
+    basis_price_3mo: pickNum(row.basis_price_3mo),
+    basis_price_6mo: pickNum(row.basis_price_6mo),
+    basis_price_1yr: pickNum(row.basis_price_1yr),
+    basis_price_3yr: pickNum(row.basis_price_3yr),
+    basis_price_5yr: pickNum(row.basis_price_5yr),
+    volatility_3mo: pickNum(row.volatility_3mo),
+    rsi_14: pickNum(row.rsi_14),
+    last_market_refresh:
+      (row.last_market_refresh as string | null) ??
+      (row.last_price_refreshed_at as string | null) ??
+      null,
+    market_value,
+    current_weight: pickNum(row.current_weight),
+    div_apy: pickNum(row.div_apy),
+    change_24h:
+      pickNum(row.change_24h) ??
+      (pickNum(row.last_change_pct) != null ? pickNum(row.last_change_pct)! / 100 : null),
+    change_7d: pickNum(row.change_7d),
+    return_3mo: pickNum(row.return_3mo),
+    return_6mo: pickNum(row.return_6mo),
+    return_1yr: pickNum(row.return_1yr),
+    return_3yr: pickNum(row.return_3yr),
+    return_5yr: pickNum(row.return_5yr),
+    return_avg: pickNum(row.return_avg),
+    return_weighted_avg: pickNum(row.return_weighted_avg),
+    volatility_abs: pickNum(row.volatility_abs) ?? pickNum(row.volatility_3mo),
+    volatility_signed: pickNum(row.volatility_signed),
+    sub_rank_current: pickNum(row.sub_rank_current),
+    sub_rank_expense: pickNum(row.sub_rank_expense),
+    sub_rank_weighted_ret: pickNum(row.sub_rank_weighted_ret),
+    sub_rank_div_apy: pickNum(row.sub_rank_div_apy),
+    sub_rank_volatility: pickNum(row.sub_rank_volatility),
+    composite_score: pickNum(row.composite_score),
+    rank_overall: pickNum(row.rank_overall),
     alert_primary: (row.alert_primary as string | null) ?? null,
     alert_secondary: (row.alert_secondary as string | null) ?? null,
-    target_sleeve_pct: (row.target_sleeve_pct as number | null) ?? null,
-    parity_dollars: (row.parity_dollars as number | null) ?? null,
-    parity_change_dollars: (row.parity_change_dollars as number | null) ?? null,
-    shares_delta: (row.shares_delta as number | null) ?? null,
+    target_sleeve_pct: pickNum(row.target_sleeve_pct) ?? targetWt,
+    parity_dollars: pickNum(row.parity_dollars),
+    parity_change_dollars: pickNum(row.parity_change_dollars),
+    shares_delta: pickNum(row.shares_delta),
   };
+}
+
+function needsEngineMetricsRefresh(rows: ComputedRow[]): boolean {
+  if (rows.length === 0) return false;
+  return rows.some(
+    (r) =>
+      r.last_market_refresh == null &&
+      (r.return_3mo == null || r.rsi_14 == null || r.rank_overall == null),
+  );
 }
 
 function computedRowToHoldingRecord(row: ComputedRow): Record<string, unknown> {
@@ -198,13 +228,58 @@ export function usePortfolioEngine(portfolioId: string) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/workbook/holdings?portfolioId=${encodeURIComponent(portfolioId)}`, {
-        credentials: "same-origin",
-      });
-      const body = (await res.json()) as { holdings?: Record<string, unknown>[]; error?: string };
-      if (!res.ok) throw new Error(body.error ?? "Failed to load holdings");
-      const rows = (body.holdings ?? []).map(mapHoldingToComputedRow);
+      const supabase = getSupabaseBrowserClient();
+      const [holdingsRes, assumptionsRes] = await Promise.all([
+        fetch(`/api/workbook/holdings?portfolioId=${encodeURIComponent(portfolioId)}`, {
+          credentials: "same-origin",
+        }),
+        supabase.from("portfolio_assumptions").select("*").eq("portfolio_id", portfolioId).maybeSingle(),
+      ]);
+
+      const body = (await holdingsRes.json()) as { holdings?: Record<string, unknown>[]; error?: string };
+      if (!holdingsRes.ok) throw new Error(body.error ?? "Failed to load holdings");
+
+      let rows = (body.holdings ?? []).map(mapHoldingToComputedRow);
+      const derivedTotalMv = rows.reduce((sum, r) => sum + (r.market_value ?? 0), 0);
+      if (derivedTotalMv > 0) {
+        rows = rows.map((r) => ({
+          ...r,
+          current_weight:
+            r.current_weight ??
+            (r.market_value != null ? r.market_value / derivedTotalMv : null),
+        }));
+      }
       setComputed(rows);
+
+      const assRow = assumptionsRes.data as {
+        weight_3mo?: number;
+        weight_6mo?: number;
+        weight_1yr?: number;
+        weight_3yr?: number;
+        weight_5yr?: number;
+        factor_expense?: number;
+        factor_pct_weight?: number;
+        factor_div_apy?: number;
+        factor_volatility?: number;
+      } | null;
+      if (assRow) {
+        setAssumptions({
+          return_weights: {
+            r3mo: Number(assRow.weight_3mo ?? DEFAULT_ASSUMPTIONS.return_weights.r3mo),
+            r6mo: Number(assRow.weight_6mo ?? DEFAULT_ASSUMPTIONS.return_weights.r6mo),
+            r1yr: Number(assRow.weight_1yr ?? DEFAULT_ASSUMPTIONS.return_weights.r1yr),
+            r3yr: Number(assRow.weight_3yr ?? DEFAULT_ASSUMPTIONS.return_weights.r3yr),
+            r5yr: Number(assRow.weight_5yr ?? DEFAULT_ASSUMPTIONS.return_weights.r5yr),
+          },
+          factor_weights: {
+            expense: Number(assRow.factor_expense ?? DEFAULT_ASSUMPTIONS.factor_weights.expense),
+            pctWeight: Number(assRow.factor_pct_weight ?? DEFAULT_ASSUMPTIONS.factor_weights.pctWeight),
+            divApy: Number(assRow.factor_div_apy ?? DEFAULT_ASSUMPTIONS.factor_weights.divApy),
+            volatility: Number(assRow.factor_volatility ?? DEFAULT_ASSUMPTIONS.factor_weights.volatility),
+          },
+        });
+      }
+
       const newest = rows
         .map((r) => r.last_market_refresh)
         .filter((v): v is string => !!v)
@@ -287,6 +362,8 @@ export function usePortfolioEngine(portfolioId: string) {
     };
   }, [portfolioId, fetchRows]);
 
+  const autoRefreshKeyRef = useRef<string | null>(null);
+
   const refreshSignals = useCallback(async () => {
     if (!portfolioId) return;
     setLoading(true);
@@ -306,6 +383,16 @@ export function usePortfolioEngine(portfolioId: string) {
       setLoading(false);
     }
   }, [fetchRows, portfolioId]);
+
+  useEffect(() => {
+    if (!portfolioId || loading) return;
+    if (computed.length === 0) return;
+    if (!needsEngineMetricsRefresh(computed)) return;
+    const key = `${portfolioId}:${computed.map((r) => r.id).join(",")}`;
+    if (autoRefreshKeyRef.current === key) return;
+    autoRefreshKeyRef.current = key;
+    void refreshSignals();
+  }, [portfolioId, computed, loading, refreshSignals]);
 
   const addHolding = useCallback(
     async (payload: HoldingInsert) => {

@@ -568,6 +568,7 @@ export async function refreshPortfolioSignals(
     quantity: row.quantity,
     target_parity_weight: row.target_parity_weight,
     price_current: row.price_current,
+    current_price: row.price_current,
     price_24h_basis: row.price_24h_basis,
     price_7d_basis: row.price_7d_basis,
     basis_price_3mo: row.basis_price_3mo,
