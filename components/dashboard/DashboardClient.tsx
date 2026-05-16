@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useConsolidatedDashboard } from "@/hooks/usePortfolios";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PortfolioCard } from "@/components/dashboard/PortfolioCard";
+import { ServicesSidebar } from "@/components/dashboard/ServicesSidebar";
 import { SignalFeed } from "@/components/dashboard/SignalFeed";
 import { HoldingsBuilder } from "@/components/workbook/HoldingsBuilder";
 import { PortfolioSelector } from "@/components/workbook/PortfolioSelector";
@@ -15,10 +16,34 @@ interface DashboardClientProps {
   userEmail: string;
 }
 
+const SERVICES_SIDEBAR_STORAGE_KEY = "pemabu.dashboard.servicesOpen";
+
 export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
+  const [servicesOpen, setServicesOpen] = useState(true);
 
   const { data, isPending, isError, error } = useConsolidatedDashboard(userId);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SERVICES_SIDEBAR_STORAGE_KEY);
+      if (stored !== null) setServicesOpen(stored === "true");
+    } catch {
+      /* private mode */
+    }
+  }, []);
+
+  const toggleServicesSidebar = () => {
+    setServicesOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SERVICES_SIDEBAR_STORAGE_KEY, String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const list = data?.portfolios;
@@ -125,6 +150,19 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
       <nav className="flex items-center justify-between border-b border-white/10 px-6 py-3">
         <div className="flex items-center gap-4">
           <span className="text-sm font-semibold tracking-widest text-white">PEMABU</span>
+          <button
+            type="button"
+            onClick={toggleServicesSidebar}
+            className={`rounded border px-3 py-1 text-xs transition-colors ${
+              servicesOpen
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                : "border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
+            }`}
+            aria-expanded={servicesOpen}
+            aria-controls="dashboard-services-sidebar"
+          >
+            {servicesOpen ? "Hide services" : "Show services"}
+          </button>
           <PortfolioSelector selectedId={selectedPortfolioId} onSelect={setSelectedPortfolioId} />
         </div>
         <div className="flex items-center gap-4">
@@ -169,11 +207,23 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
 
       <SystemSafetyBanner portfolioId={selectedPortfolioId} />
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="w-full px-4 py-8 lg:px-6 xl:px-8">
         {portfolios.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_1fr_280px]">
+          <div
+            className={`grid grid-cols-1 gap-6 lg:gap-5 ${
+              servicesOpen
+                ? "lg:grid-cols-[200px_220px_minmax(0,1fr)_minmax(0,200px)]"
+                : "lg:grid-cols-[220px_minmax(0,1fr)_minmax(0,200px)]"
+            }`}
+          >
+            {servicesOpen ? (
+              <div id="dashboard-services-sidebar" className="hidden lg:block">
+                <ServicesSidebar />
+              </div>
+            ) : null}
+
             <div className="space-y-4">
               <h2 className="text-xs font-medium uppercase tracking-wider text-gray-500">Your portfolios</h2>
               {portfolios.map((summary) => (
@@ -186,7 +236,7 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
               ))}
             </div>
 
-            <div>
+            <div className="min-w-0">
               <h2 className="mb-4 text-xs font-medium uppercase tracking-wider text-gray-500">
                 {selectedSummary?.portfolio.name ?? "Holdings"}
               </h2>
@@ -205,12 +255,18 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
               ) : null}
             </div>
 
-            <div>
-              <h2 className="mb-4 text-xs font-medium uppercase tracking-wider text-gray-500">Signals</h2>
-              {selectedPortfolioId ? <SignalFeed portfolioId={selectedPortfolioId} /> : null}
+            <div className="w-full max-w-[200px] justify-self-end lg:sticky lg:top-6 lg:self-start">
+              <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">Signals</h2>
+              {selectedPortfolioId ? <SignalFeed portfolioId={selectedPortfolioId} compact /> : null}
             </div>
           </div>
         )}
+
+        {servicesOpen ? (
+          <div className="mt-6 lg:hidden">
+            <ServicesSidebar />
+          </div>
+        ) : null}
       </div>
     </div>
   );
