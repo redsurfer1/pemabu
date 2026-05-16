@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withAuth } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
 
 type PeriodKey = "3mo" | "6mo" | "1yr" | "3yr" | "5yr";
@@ -21,7 +22,7 @@ function formatDateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request, _user, _ctx) => {
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get("tickers");
   const periodsParam = searchParams.get("periods");
@@ -100,4 +101,4 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(results);
-}
+});

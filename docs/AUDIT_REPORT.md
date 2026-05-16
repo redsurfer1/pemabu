@@ -400,3 +400,55 @@ Complete table inventory across all 50 migration files. Key tables:
 ---
 
 *This report was produced by read-only analysis. No files were modified.*
+
+---
+
+## Phase Completion Log
+
+### Phase 1 — Schema & Type Alignment ✅
+- Added `sleeve_type` column to `model_assumptions` with `(portfolio_id, sleeve_type)` unique index
+- Added `PriceResult` interface and `isPriceStale()` utility to `lib/market-data/types.ts`
+- Fixed `engine.test.ts` TypeScript errors (`finalTargetWt` guard)
+
+### Phase 2 — Allocation Engine Correctness ✅
+- Deleted dead code: `lib/allocation/asset-class-engine.ts`, `lib/allocation/allocation-intelligence-core.ts` (1,258 lines removed)
+- Fixed cash guard in `lib/allocation/engine.ts` — `asset_class === "cash"` only, no ticker check
+- Fixed double cash guards in `app/api/cron/nightly-refresh/route.ts`
+- Added CASH short-circuit to `lib/prices/priceService.ts`
+- Wired `ASSET_CLASS_COLORS` into `lib/dashboard/allocationData.ts` via `hex2rgba` helper
+- Implemented two-group model_assumptions load/save in `PortfolioDashboard.tsx`
+
+### Phase 3 — Market Data Hardening ✅
+- Unified `normalizeTicker` (exported from `yahoo-finance.ts`) across all three market data paths
+- Added auth gate (`withAuth`) to previously unauthenticated `/api/market-data/[ticker]` route (C4 fixed)
+- Added CASH guard to `google-finance.ts` provider — returns `{price: 1.00, source: "fixed"}` without hitting network
+- Fixed cash guards in `enrich-holdings.ts` — `asset_class === "cash"` only
+- Added `PriceResult` type and `isPriceStale()` to `lib/market-data/types.ts` and `index.ts`
+
+### Phase 4 — UI Completeness ✅
+- `HoldingsBuilder.tsx`: slimmed 12-column table to 8 columns (Ticker | Name | Qty | Value | Wt% | 1d% | Target/Δ | Actions)
+- Pre-computed `rowVal`/`rowWt` from canonical cash guard — eliminated repeated IIFEs
+- Added asset-class badge to Ticker cell; simplified Name cell
+- Collapsed edit form to full-width `colSpan={8}` grid (6 fields)
+- `AssumptionsPanel.tsx`: refactored into `SleeveForm` sub-component; added Main/Income sleeve tabs
+- `PortfolioDashboard.tsx`: added `handleSaveIncomeAssumptions`; wired `incomeAssumptions` + `onSaveIncome`
+- Deleted `XXmiddleware.ts` dev artifact
+
+### Phase 5 — AI Brief ✅
+- Migration `20260516000001_portfolio_briefs.sql`: append-only table with owner RLS (H1 fixed)
+- Added `PortfolioBrief` type to `lib/types/database.ts`
+- Improved `generatePortfolioBrief` prompt: mandatory disclaimer appended to every brief (H1 partial fixed)
+- Brief API: 24h cooldown enforced — returns cached brief + `nextAvailableMs` within window (H1 fixed)
+- Brief API: persists every new brief to `portfolio_briefs` (H1 fixed)
+- `PortfolioBriefPanel`: slide-over display with cached state and cooldown indicator
+
+### Phase 6 — Security Hardening & Build ✅
+- Added `withAuth` to `/api/prices/current` and `/api/prices/historical` — previously open Yahoo Finance proxies
+- `npm run build`: clean — 0 errors
+- `tsc --noEmit`: clean — 0 errors across all phases
+- Updated AUDIT_REPORT.md with completion log
+
+**Residual (deferred to pre-launch):**
+- C2: `google-finance.ts` naming misleading — replace with licensed Marketstack/Tiingo provider before launch
+- C1: Three Yahoo Finance paths remain; consolidation incomplete (tiingo.ts still unwired)
+- H6: Model ID validity — confirm `claude-opus-4-5` is a valid deployed model ID before launch

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { withAuth } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request, _user, _ctx) => {
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get("tickers");
 
@@ -55,4 +56,4 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(results);
-}
+});
