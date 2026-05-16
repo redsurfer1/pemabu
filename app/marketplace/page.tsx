@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { STALE } from "@/lib/constants/query-config";
 import { usePortfolios } from "@/hooks/usePortfolios";
@@ -138,13 +139,19 @@ export default function MarketplacePage() {
 
   const showPrivate = viewer.isIntelligence;
 
+  const navPortfolioId =
+    importPortfolioId && portfolios.some((p) => p.id === importPortfolioId)
+      ? importPortfolioId
+      : portfolios[0]?.id;
+
   return (
-    <div className="min-h-screen bg-[#0A1628] px-6 py-10 text-gray-200">
-      <div className="mx-auto max-w-3xl">
-        <Link href="/strategy-council" className="text-xs text-emerald-400/90 hover:text-emerald-300">
-          ← Strategy Council
-        </Link>
-        <h1 className="mt-3 font-serif text-2xl text-white">Strategy marketplace</h1>
+    <div className="min-h-screen bg-[#0A1628] text-gray-200">
+      <nav className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-3">
+        <span className="text-sm font-semibold tracking-widest text-white">PEMABU</span>
+        <WorkspaceNav portfolioId={navPortfolioId} />
+      </nav>
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="font-serif text-2xl text-white">Strategy marketplace</h1>
         <p className="mt-2 text-sm text-gray-400">
           Public leaderboard teaser — strategy names and aggregate scores only. No tickers, balances, or accounts
           revealed.

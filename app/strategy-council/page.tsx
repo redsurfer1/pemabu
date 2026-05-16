@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import { generateStrategyCouncilMemoAction } from "@/lib/actions/intelligence/generateStrategyCouncilMemo";
 import { exportSleeveStrategyAction } from "@/lib/actions/portfolio/exportSleeveStrategyAction";
@@ -121,13 +122,14 @@ export default function StrategyCouncilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A1628] px-6 py-10 text-gray-200">
-      <div className="mx-auto max-w-2xl space-y-8">
+    <div className="min-h-screen bg-[#0A1628] text-gray-200">
+      <nav className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-3">
+        <span className="text-sm font-semibold tracking-widest text-white">PEMABU</span>
+        <WorkspaceNav portfolioId={portfolioId || portfolios[0]?.id} />
+      </nav>
+      <div className="mx-auto max-w-2xl space-y-8 px-6 py-10">
         <div>
-          <Link href="/dashboard" className="text-xs text-emerald-400/90 hover:text-emerald-300">
-            ← Dashboard
-          </Link>
-          <h1 className="mt-3 font-serif text-2xl text-white">Strategy Council</h1>
+          <h1 className="font-serif text-2xl text-white">Strategy Council</h1>
           <p className="mt-2 text-sm text-gray-400">
             Institutional memory and portable sleeve blueprints. LLM memo runs only when you click generate — nothing
             is sent automatically.

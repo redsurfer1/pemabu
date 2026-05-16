@@ -10,6 +10,7 @@ import { SignalFeed } from "@/components/dashboard/SignalFeed";
 import { HoldingsBuilder } from "@/components/workbook/HoldingsBuilder";
 import { PortfolioSelector } from "@/components/workbook/PortfolioSelector";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
+import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 
 interface DashboardClientProps {
   userId: string;
@@ -165,25 +166,8 @@ export function DashboardClient({ userId, userEmail }: DashboardClientProps) {
           </button>
           <PortfolioSelector selectedId={selectedPortfolioId} onSelect={setSelectedPortfolioId} />
         </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href={`/portfolio/engine${selectedPortfolioId ? `?portfolio=${encodeURIComponent(selectedPortfolioId)}` : ""}`}
-            className="rounded border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
-          >
-            Engine
-          </Link>
-          <Link
-            href="/strategy-council"
-            className="rounded border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
-          >
-            Strategy Council
-          </Link>
-          <Link
-            href="/marketplace"
-            className="rounded border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
-          >
-            Marketplace
-          </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <WorkspaceNav portfolioId={selectedPortfolioId} />
           <span className="text-xs text-gray-500">
             Total Value:{" "}
             <span className="font-medium text-white">

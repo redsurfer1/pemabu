@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
+import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -224,21 +225,16 @@ function PortfolioEnginePageContent() {
       `}</style>
       <div className="border-b border-[#1a1a24] px-6 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="rounded border border-[#333340] px-3 py-1 text-xs text-[#888] hover:border-[#00c896] hover:text-[#00c896] transition-colors"
-            >
-              &larr; Dashboard
-            </Link>
-            <div>
-              <h1 className="font-['Space_Grotesk'] text-lg text-white">PEMABU /// Portfolio Engine</h1>
-              <p className="font-['DM_Mono'] text-xs text-[#888]">
-                Last refreshed: {lastRefreshed ?? "never"}
-              </p>
-            </div>
+          <div>
+            <span className="text-sm font-semibold tracking-widest text-white">PEMABU</span>
+            <h1 className="mt-1 font-['Space_Grotesk'] text-lg text-white">Portfolio Engine</h1>
+            <p className="font-['DM_Mono'] text-xs text-[#888]">
+              Last refreshed: {lastRefreshed ?? "never"}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <WorkspaceNav portfolioId={selected || null} />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             <select
               value={selected}
               onChange={(e) => {
@@ -307,7 +303,6 @@ function PortfolioEnginePageContent() {
               + ADD
             </button>
           </div>
-        </div>
         <div className="mt-3 flex gap-2">
           {tabs.map((t) => (
             <button
