@@ -3,12 +3,13 @@ import { withAuth } from "@/lib/api/auth";
 import { getPortfolio } from "@/lib/services/portfolio";
 import { explainHolding } from "@/lib/services/ai";
 import { z } from "zod";
+import { ASSET_CLASS_ENUM } from "@/lib/constants/asset-classes";
 
 const ExplainSchema = z.object({
   portfolioId: z.string().uuid(),
   ticker: z.string().min(1).max(20),
   name: z.string().optional(),
-  assetClass: z.string(),
+  assetClass: ASSET_CLASS_ENUM,
   currentPrice: z.number(),
   quantity: z.number(),
   currentValue: z.number(),

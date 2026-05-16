@@ -3,12 +3,13 @@ import { withAuth } from "@/lib/api/auth";
 import { enrichHoldingsWithLiveQuotes } from "@/lib/market-data/enrich-holdings";
 import { getPortfolioHoldings, getPortfolio, upsertHolding } from "@/lib/services/portfolio";
 import { z } from "zod";
+import { ASSET_CLASS_ENUM } from "@/lib/constants/asset-classes";
 
 const UpsertHoldingSchema = z.object({
   portfolio_id: z.string().uuid(),
   ticker: z.string().min(1).max(20).toUpperCase(),
   name: z.string().max(200).optional(),
-  asset_class: z.enum(["equity", "fixed_income", "alternatives", "cash", "crypto", "other"]),
+  asset_class: ASSET_CLASS_ENUM,
   quantity: z.number().positive(),
   cost_basis: z.number().positive().optional(),
   currency: z.enum(["USD", "GBP", "EUR", "CAD", "AUD"]).default("USD"),

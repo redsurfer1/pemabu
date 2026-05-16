@@ -3,10 +3,11 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { withAuth } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
+import { ASSET_CLASS_ENUM } from "@/lib/constants/asset-classes";
 
 const PatchHoldingSchema = z.object({
   name: z.string().max(200).nullable().optional(),
-  asset_class: z.enum(["equity", "fixed_income", "alternatives", "cash", "crypto", "other"]).optional(),
+  asset_class: ASSET_CLASS_ENUM.optional(),
   quantity: z.number().positive().optional(),
   cost_basis: z.number().nonnegative().nullable().optional(),
   currency: z.enum(["USD", "GBP", "EUR", "CAD", "AUD"]).optional(),

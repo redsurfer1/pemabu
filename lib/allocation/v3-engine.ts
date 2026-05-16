@@ -327,6 +327,10 @@ export function computeMainSleeve(
       equalWtBase: 0,
       volCapFlag: "N/A" as VolCapFlag,
       themeExposurePct: 0,
+      // Comparable holdings are display-only — no allocation target.
+      // Explicitly set finalTargetWt to 0 so callers never need to guard
+      // against undefined (the optional field is always defined in engine output).
+      finalTargetWt: 0,
       trendSignal: computeTrendSignal(blendedReturn),
     };
   });

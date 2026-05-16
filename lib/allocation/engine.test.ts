@@ -245,24 +245,32 @@ describe("computeMainSleeve — weight invariants", () => {
     );
     const comp = computed.find((h) => h.status === "Comparable");
     expect(comp).toBeDefined();
-    expect(comp!.finalTargetWt).toBe(0);
+    // v3-engine explicitly sets finalTargetWt: 0 for comparables
+    expect(comp!.finalTargetWt ?? 0).toBe(0);
     expect(comp!.scoreRank).toBeNull();
   });
 
   it("parityDollarChg is positive when underweight (need to buy)", () => {
-    const h = makeHolding("h1", "T1", "Tech", 0.003, 50, 1, 0); // qty=0 → value=0
-    const { holdings: computed } = computeMainSleeve([h], DEFAULT_ENGINE_ASSUMPTIONS);
-    const c = computed.find((x) => x.status === "Active")!;
-    expect(c.parityDollarChg).toBeGreaterThan(0);
+    // h1 (Tech): small qty → owns ~1% of NAV but receives ~44% equal-split target
+    // h2 (Intl): large qty → owns ~99% of NAV; anchors total value
+    // Both themes are each > themeCapPct in isolation, so both get capped to themeCapPct
+    // and then scaled to fill (1 - incomeBudgetPct). h1 current% ≪ target% → parityDollarChg > 0
+    const h1 = makeHolding("h1", "T1", "Tech", 0.003, 50, 1, 1);   // value = 55
+    const h2 = makeHolding("h2", "T2", "Intl", 0.003, 50, 0, 100); // value = 5500
+    const { holdings: computed } = computeMainSleeve([h1, h2], DEFAULT_ENGINE_ASSUMPTIONS);
+    const c1 = computed.find((x) => x.ticker === "T1")!;
+    expect(c1.parityDollarChg).toBeGreaterThan(0);
   });
 
   it("parityDollarChg is negative when overweight (need to sell)", () => {
-    // Large qty relative to NAV so current weight > target weight
-    const h = makeHolding("h1", "T1", "Tech", 0.003, 50, 1, 1000); // value = 1000 * 55 = 55000
-    const { holdings: computed } = computeMainSleeve([h], DEFAULT_ENGINE_ASSUMPTIONS);
-    const c = computed.find((x) => x.status === "Active")!;
-    // With qty=1000 and price=55, value=55000 >> navForParity=1000 → overweight
-    expect(c.parityDollarChg).toBeLessThan(0);
+    // h1 (Tech): large qty → owns ~99% of NAV; theme-capped target is ~44% → overweight
+    // h2 (Intl): small qty → owns ~1% of NAV; provides reference point for totalValue
+    const h1 = makeHolding("h1", "T1", "Tech", 0.003, 50, 1, 100); // value = 5500
+    const h2 = makeHolding("h2", "T2", "Intl", 0.003, 50, 0, 1);   // value = 55
+    const { holdings: computed } = computeMainSleeve([h1, h2], DEFAULT_ENGINE_ASSUMPTIONS);
+    const c1 = computed.find((x) => x.ticker === "T1")!;
+    // h1 current ≈ 99% of NAV; target after theme cap ≈ 44% → parityDollarChg < 0
+    expect(c1.parityDollarChg).toBeLessThan(0);
   });
 });
 

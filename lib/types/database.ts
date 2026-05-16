@@ -178,6 +178,34 @@ export interface UserGroupAssignment {
 }
 
 // ─────────────────────────────────────────────────
+// Allocation Intelligence v3.2 DB-layer types
+
+/** Which sleeve a model_assumptions row applies to. */
+export type SleeveType = "main" | "income";
+
+/** Row in model_assumptions (one per portfolio per sleeve_type). */
+export interface ModelAssumptions {
+  id: string;
+  portfolio_id: string;
+  /** Which sleeve these assumptions apply to. Added by phase-1 migration. */
+  sleeve_type: SleeveType;
+  ret_weight_3mo: number;
+  ret_weight_6mo: number;
+  ret_weight_1yr: number;
+  ret_weight_3yr: number;
+  ret_weight_5yr: number;
+  score_weight_exp: number;
+  score_weight_ret: number;
+  score_weight_div: number;
+  score_weight_shp: number;
+  income_budget_pct: number;
+  vol_cap_multiplier: number;
+  theme_cap_pct: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─────────────────────────────────────────────────
 // Derived / computed types used in the application layer
 
 export interface AllocationWeight {
