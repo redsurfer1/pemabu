@@ -1,0 +1,205 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ExchangeName } from "@/lib/execution/types";
+import { decryptUtf8, encryptUtf8, type EncryptedPayload } from "@/lib/security/encryption";
+
+export const PORTFOLIO_API_PROVIDERS = [
+  "tiingo",
+  "alpaca",
+  "kraken",
+  "coinbase_advanced",
+] as const;
+
+export type PortfolioApiProvider = (typeof PORTFOLIO_API_PROVIDERS)[number];
+
+export const PORTFOLIO_API_PROVIDER_LABELS: Record<PortfolioApiProvider, string> = {
+  tiingo: "Tiingo (market data)",
+  alpaca: "Alpaca (execution)",
+  kraken: "Kraken (execution)",
+  coinbase_advanced: "Coinbase Advanced (execution)",
+};
+
+export function isPortfolioApiProvider(value: string): value is PortfolioApiProvider {
+  return (PORTFOLIO_API_PROVIDERS as readonly string[]).includes(value);
+}
+
+export function providerRequiresSecret(provider: PortfolioApiProvider): boolean {
+  return provider !== "tiingo";
+}
+
+export function exchangeNameFromProvider(provider: PortfolioApiProvider): ExchangeName | null {
+  if (provider === "tiingo") return null;
+  return provider;
+}
+
+type CredentialRow = {
+  portfolio_id: string;
+  user_id: string;
+  provider: PortfolioApiProvider;
+  encrypted_api_key: string;
+  encrypted_secret: string | null;
+  iv: string;
+  auth_tag: string;
+  secret_iv: string | null;
+  secret_auth_tag: string | null;
+  updated_at: string;
+};
+
+export type PortfolioApiCredentialSummary = {
+  provider: PortfolioApiProvider;
+  apiKeyMasked: string;
+  hasSecret: boolean;
+  updatedAt: string;
+};
+
+export function maskApiKey(apiKey: string): string {
+  const trimmed = apiKey.trim();
+  if (trimmed.length <= 4) return "••••";
+  return `••••${trimmed.slice(-4)}`;
+}
+
+function rowToEncryptedKey(row: Pick<CredentialRow, "encrypted_api_key" | "iv" | "auth_tag">): EncryptedPayload {
+  return {
+    ciphertextB64: row.encrypted_api_key,
+    ivB64: row.iv,
+    authTagB64: row.auth_tag,
+  };
+}
+
+function rowToEncryptedSecret(
+  row: Pick<CredentialRow, "encrypted_secret" | "secret_iv" | "secret_auth_tag" | "iv" | "auth_tag">,
+): EncryptedPayload | null {
+  if (!row.encrypted_secret) return null;
+  return {
+    ciphertextB64: row.encrypted_secret,
+    ivB64: row.secret_iv ?? row.iv,
+    authTagB64: row.secret_auth_tag ?? row.auth_tag,
+  };
+}
+
+export async function listPortfolioApiCredentialSummaries(
+  supabase: SupabaseClient,
+  portfolioId: string,
+): Promise<PortfolioApiCredentialSummary[]> {
+  const { data, error } = await supabase
+    .from("portfolio_api_credentials")
+    .select("provider, encrypted_api_key, iv, auth_tag, encrypted_secret, updated_at")
+    .eq("portfolio_id", portfolioId)
+    .order("provider", { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    let masked = "••••";
+    try {
+      const plain = decryptUtf8(rowToEncryptedKey(row as CredentialRow));
+      masked = maskApiKey(plain);
+    } catch {
+      masked = "••••";
+    }
+    return {
+      provider: row.provider as PortfolioApiProvider,
+      apiKeyMasked: masked,
+      hasSecret: Boolean((row as CredentialRow).encrypted_secret),
+      updatedAt: String(row.updated_at),
+    };
+  });
+}
+
+export async function upsertPortfolioApiCredential(
+  supabase: SupabaseClient,
+  input: {
+    portfolioId: string;
+    userId: string;
+    provider: PortfolioApiProvider;
+    apiKey: string;
+    apiSecret?: string;
+  },
+): Promise<void> {
+  const encKey = encryptUtf8(input.apiKey.trim());
+  const needsSecret = providerRequiresSecret(input.provider);
+  const secretPlain = input.apiSecret?.trim() ?? "";
+  if (needsSecret && !secretPlain) {
+    throw new Error("API secret is required for this provider");
+  }
+
+  const encSecret = secretPlain ? encryptUtf8(secretPlain) : null;
+
+  const { error } = await supabase.from("portfolio_api_credentials").upsert(
+    {
+      portfolio_id: input.portfolioId,
+      user_id: input.userId,
+      provider: input.provider,
+      encrypted_api_key: encKey.ciphertextB64,
+      iv: encKey.ivB64,
+      auth_tag: encKey.authTagB64,
+      encrypted_secret: encSecret?.ciphertextB64 ?? null,
+      secret_iv: encSecret?.ivB64 ?? null,
+      secret_auth_tag: encSecret?.authTagB64 ?? null,
+    },
+    { onConflict: "portfolio_id,provider" },
+  );
+
+  if (error) throw error;
+}
+
+export async function deletePortfolioApiCredential(
+  supabase: SupabaseClient,
+  portfolioId: string,
+  provider: PortfolioApiProvider,
+): Promise<void> {
+  const { error } = await supabase
+    .from("portfolio_api_credentials")
+    .delete()
+    .eq("portfolio_id", portfolioId)
+    .eq("provider", provider);
+  if (error) throw error;
+}
+
+export async function getPortfolioTiingoToken(
+  supabase: SupabaseClient,
+  portfolioId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("portfolio_api_credentials")
+    .select("encrypted_api_key, iv, auth_tag")
+    .eq("portfolio_id", portfolioId)
+    .eq("provider", "tiingo")
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  try {
+    return decryptUtf8(rowToEncryptedKey(data as CredentialRow));
+  } catch {
+    return null;
+  }
+}
+
+export type DecryptedExchangeCredential = {
+  apiKey: string;
+  apiSecret: string;
+};
+
+export async function getPortfolioExchangeCredential(
+  supabase: SupabaseClient,
+  portfolioId: string,
+  exchange: ExchangeName,
+): Promise<DecryptedExchangeCredential | null> {
+  const { data, error } = await supabase
+    .from("portfolio_api_credentials")
+    .select("*")
+    .eq("portfolio_id", portfolioId)
+    .eq("provider", exchange)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  try {
+    const apiKey = decryptUtf8(rowToEncryptedKey(data as CredentialRow));
+    const secretPayload = rowToEncryptedSecret(data as CredentialRow);
+    const apiSecret = secretPayload ? decryptUtf8(secretPayload) : "";
+    return { apiKey, apiSecret };
+  } catch {
+    return null;
+  }
+}

@@ -82,7 +82,10 @@ function startDateFiveYearsAgo(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function fetchMarketDataTiingo(ticker: string): Promise<MarketDataResult> {
+export async function fetchMarketDataTiingo(
+  ticker: string,
+  options?: { token?: string | null },
+): Promise<MarketDataResult> {
   const upper = ticker.trim().toUpperCase();
   const nowIso = new Date().toISOString();
   const empty: MarketDataResult = {
@@ -102,7 +105,7 @@ export async function fetchMarketDataTiingo(ticker: string): Promise<MarketDataR
     fetchedAt: nowIso,
   };
 
-  const token = env.TIINGO_API_KEY;
+  const token = options?.token?.trim() || env.TIINGO_API_KEY;
   const headers: HeadersInit = {
     Authorization: `Token ${token}`,
     "Content-Type": "application/json",

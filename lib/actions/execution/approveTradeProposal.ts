@@ -26,6 +26,7 @@ import {
   insertExecutionOutcomeSupabase,
   insertExecutionOutcomeVault,
 } from "@/lib/execution/execution-outcomes";
+import { getPortfolioExchangeCredential } from "@/lib/portfolio/api-credentials";
 import {
   buildGuardrailContextVault,
   fetchExchangeCredentialsVault,
@@ -198,18 +199,26 @@ export async function approveTradeProposal(proposalId: string) {
     return { success: false, error: limits.code };
   }
 
-  const cred = vault
-    ? await fetchExchangeCredentialsVault(user.id, row.exchange_name)
-    : (
-        await supabase
-          .from("exchange_credentials")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("exchange_name", row.exchange_name)
-          .maybeSingle()
-      ).data;
+  const portfolioCred = await getPortfolioExchangeCredential(
+    supabase,
+    row.portfolio_id,
+    row.exchange_name as ExchangeName,
+  );
 
-  if (!cred) {
+  const userCred = portfolioCred
+    ? null
+    : vault
+      ? await fetchExchangeCredentialsVault(user.id, row.exchange_name)
+      : (
+          await supabase
+            .from("exchange_credentials")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("exchange_name", row.exchange_name)
+            .maybeSingle()
+        ).data;
+
+  if (!portfolioCred && !userCred) {
     await audit({
       userId: user.id,
       portfolioId: row.portfolio_id,
@@ -243,17 +252,23 @@ export async function approveTradeProposal(proposalId: string) {
   let apiKey = "";
   let apiSecret = "";
   try {
-    apiKey = decryptUtf8({
-      ciphertextB64: (cred as { encrypted_api_key: string }).encrypted_api_key,
-      ivB64: (cred as { iv: string }).iv,
-      authTagB64: (cred as { auth_tag: string }).auth_tag,
-    });
-    apiSecret = decryptUtf8({
-      ciphertextB64: (cred as { encrypted_secret: string }).encrypted_secret,
-      ivB64: (cred as { secret_iv: string | null }).secret_iv ?? (cred as { iv: string }).iv,
-      authTagB64:
-        (cred as { secret_auth_tag: string | null }).secret_auth_tag ?? (cred as { auth_tag: string }).auth_tag,
-    });
+    if (portfolioCred) {
+      apiKey = portfolioCred.apiKey;
+      apiSecret = portfolioCred.apiSecret;
+    } else {
+      apiKey = decryptUtf8({
+        ciphertextB64: (userCred as { encrypted_api_key: string }).encrypted_api_key,
+        ivB64: (userCred as { iv: string }).iv,
+        authTagB64: (userCred as { auth_tag: string }).auth_tag,
+      });
+      apiSecret = decryptUtf8({
+        ciphertextB64: (userCred as { encrypted_secret: string }).encrypted_secret,
+        ivB64: (userCred as { secret_iv: string | null }).secret_iv ?? (userCred as { iv: string }).iv,
+        authTagB64:
+          (userCred as { secret_auth_tag: string | null }).secret_auth_tag ??
+          (userCred as { auth_tag: string }).auth_tag,
+      });
+    }
   } catch (e) {
     apiKey = "";
     apiSecret = "";

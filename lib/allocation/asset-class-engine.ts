@@ -361,8 +361,13 @@ export async function refreshPortfolioSignals(
       }
     : DEFAULT_ASSUMPTIONS;
 
+  const { getPortfolioTiingoToken } = await import("@/lib/portfolio/api-credentials");
+  const tiingoToken = await getPortfolioTiingoToken(supabase, portfolioId);
+
   const nonCashHoldings = holdings.filter((h) => h.ticker !== "CASH");
-  const market = await Promise.all(nonCashHoldings.map((h) => fetchMarketDataWithFallback(h.ticker)));
+  const market = await Promise.all(
+    nonCashHoldings.map((h) => fetchMarketDataWithFallback(h.ticker, { tiingoToken })),
+  );
   const marketByTicker = new Map(market.map((m) => [m.ticker, m]));
 
   if (holdings.some((h) => h.ticker === "CASH")) {

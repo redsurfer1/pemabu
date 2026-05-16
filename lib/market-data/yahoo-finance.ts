@@ -201,8 +201,14 @@ function shouldFallbackToTiingo(yahooError: string): boolean {
   return false;
 }
 
+export type MarketDataFetchOptions = {
+  /** Portfolio-specific Tiingo token; falls back to TIINGO_API_KEY env. */
+  tiingoToken?: string | null;
+};
+
 export async function fetchMarketDataWithFallback(
   ticker: string,
+  options?: MarketDataFetchOptions,
 ): Promise<MarketDataResult & { provider: "yahoo" | "tiingo" }> {
   const yahooResult = await fetchMarketData(ticker);
   if (yahooResult.error == null) {
@@ -213,7 +219,7 @@ export async function fetchMarketDataWithFallback(
     return { ...yahooResult, provider: "yahoo" };
   }
   const { fetchMarketDataTiingo } = await import("./tiingo");
-  const tiingoResult = await fetchMarketDataTiingo(ticker);
+  const tiingoResult = await fetchMarketDataTiingo(ticker, { token: options?.tiingoToken });
   if (tiingoResult.error == null) {
     return { ...tiingoResult, provider: "tiingo" };
   }
@@ -230,13 +236,14 @@ const PRICE_CACHE_TTL_MS = 60 * 1000;
 
 export async function fetchMarketDataCached(
   ticker: string,
+  options?: MarketDataFetchOptions,
 ): Promise<MarketDataResult & { provider: "yahoo" | "tiingo" }> {
-  const key = ticker.trim().toUpperCase();
+  const key = `${ticker.trim().toUpperCase()}:${options?.tiingoToken ? "custom" : "default"}`;
   const cached = _priceCache.get(key);
   if (cached && Date.now() - cached.fetchedAt < PRICE_CACHE_TTL_MS) {
     return cached.result;
   }
-  const result = await fetchMarketDataWithFallback(ticker);
+  const result = await fetchMarketDataWithFallback(ticker, options);
   _priceCache.set(key, { result, fetchedAt: Date.now() });
   return result;
 }

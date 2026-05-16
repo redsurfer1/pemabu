@@ -13,6 +13,7 @@ import {
   calculateHoldingWeights,
   type Quote,
 } from "@/lib/allocation/engine";
+import { PortfolioApiSettings } from "@/components/workbook/PortfolioApiSettings";
 
 const ASSET_CLASSES: AssetClass[] = ["equity", "fixed_income", "alternatives", "cash", "crypto", "other"];
 
@@ -221,6 +222,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
 
   return (
     <div className="space-y-3">
+      <PortfolioApiSettings portfolioId={portfolioId} />
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-300">Holdings ({holdings.length})</h3>
         <button
