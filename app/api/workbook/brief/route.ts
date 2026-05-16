@@ -4,9 +4,12 @@ import { getPortfolio, getPortfolioHoldings, getPortfolioSignals } from "@/lib/s
 import { generatePortfolioBrief } from "@/lib/services/ai";
 import { getActiveProvider } from "@/lib/market-data";
 import { calculateAllocationWeights, calculatePortfolioValue, DEFAULT_TARGETS } from "@/lib/allocation/engine";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Quote as EngineQuote } from "@/lib/allocation/engine";
+
+const BRIEF_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const BriefSchema = z.object({
   portfolioId: z.string().uuid(),
@@ -43,6 +46,35 @@ export const POST = withAuth(async (req, user, _ctx) => {
   if (!portfolio || portfolio.user_id !== user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const supabase = await createClient();
+
+  // ── 24-hour cooldown check ──────────────────────────────────────────────────
+  const { data: lastBrief } = await supabase
+    .from("portfolio_briefs")
+    .select("generated_at, brief_text")
+    .eq("portfolio_id", parsed.data.portfolioId)
+    .order("generated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastBrief) {
+    const ageMs = Date.now() - new Date(lastBrief.generated_at).getTime();
+    if (ageMs < BRIEF_COOLDOWN_MS) {
+      const nextAvailableMs = BRIEF_COOLDOWN_MS - ageMs;
+      return NextResponse.json(
+        {
+          brief: lastBrief.brief_text,
+          cached: true,
+          nextAvailableMs,
+          message: "Brief generated within the last 24 hours. Returning cached version.",
+        },
+        { status: 200 },
+      );
+    }
+  }
+
+  // ── Generate fresh brief ────────────────────────────────────────────────────
   const holdings = await getPortfolioHoldings(parsed.data.portfolioId);
   const tickers = holdings.map((h) => h.ticker);
   let quotesMap = new Map<string, EngineQuote>();
@@ -57,6 +89,7 @@ export const POST = withAuth(async (req, user, _ctx) => {
     status: "unacknowledged",
     limit: 5,
   });
+
   const brief = await generatePortfolioBrief({
     portfolioName: portfolio.name,
     totalValue,
@@ -64,5 +97,18 @@ export const POST = withAuth(async (req, user, _ctx) => {
     weights,
     recentSignals,
   });
-  return NextResponse.json({ brief });
+
+  // ── Persist to portfolio_briefs ─────────────────────────────────────────────
+  const { error: insertError } = await supabase.from("portfolio_briefs").insert({
+    portfolio_id: parsed.data.portfolioId,
+    user_id: user.id,
+    brief_text: brief,
+  });
+
+  if (insertError) {
+    console.warn("portfolio_briefs insert failed:", insertError.message);
+    // Non-fatal: return brief even if persist fails
+  }
+
+  return NextResponse.json({ brief, cached: false });
 });

@@ -77,10 +77,13 @@ export async function generatePortfolioBrief(input: {
     `Current allocation:\n${allocationSummary}\n\n` +
     `Recent signals:\n${signalSummary}\n\n` +
     `Write a concise weekly portfolio brief in 3-4 sentences. ` +
-    `Summarize allocation status, note any significant drift, ` +
-    `and highlight the most important signal if any. ` +
-    `Plain English. No financial advice. ` +
-    `Address the portfolio owner directly.`;
+    `Summarize the current allocation status, note any asset classes with ` +
+    `significant drift from target, and highlight the most critical signal if any. ` +
+    `Use plain English. Do not include investment advice, buy/sell recommendations, ` +
+    `or predictions about future performance. ` +
+    `Address the portfolio owner directly (use "your portfolio"). ` +
+    `End with exactly this disclaimer on its own line: ` +
+    `"This brief is for informational purposes only and does not constitute financial advice."`;
 
   const message = await anthropic.messages.create({
     model: MODEL,

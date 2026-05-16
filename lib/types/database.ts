@@ -224,3 +224,13 @@ export interface PortfolioSummary {
   allocation: AllocationWeight[];
   last_snapshot_at: string | null;
 }
+
+/** Persisted AI-generated portfolio brief (portfolio_briefs table). */
+export interface PortfolioBrief {
+  id: string;
+  portfolio_id: string;
+  user_id: string;
+  brief_text: string;
+  generated_at: string;
+  created_at: string;
+}

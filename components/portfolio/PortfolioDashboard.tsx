@@ -5,6 +5,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SleeveManager } from "./SleeveManager";
 import type { SleeveDisplayData } from "./SleeveManager";
 import { AssumptionsPanel } from "./AssumptionsPanel";
+import { PortfolioBriefPanel } from "./PortfolioBriefPanel";
 import type { EngineAssumptions, SleevePurpose, ComputedHolding, HoldingInput } from "@/types/allocation";
 import { DEFAULT_ENGINE_ASSUMPTIONS } from "@/types/allocation";
 import { computeMainSleeve, computeIncomeSleeve } from "@/lib/allocation/v3-engine";
@@ -380,6 +381,7 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
       <div className="flex items-center justify-between">
         <h1 className="font-[Georgia,serif] text-xl text-white">{portfolioName}</h1>
         <div className="flex items-center gap-3">
+          <PortfolioBriefPanel portfolioId={portfolioId} />
           <AssumptionsPanel
             assumptions={assumptions}
             onSave={handleSaveAssumptions}
