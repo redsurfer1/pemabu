@@ -5,6 +5,7 @@ import { withAuth, type RouteHandlerContext } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
 import { refreshPortfolioSignals } from "@/lib/allocation/refresh-portfolio-signals";
 import { normaliseWeights, type Assumptions } from "@/lib/portfolio/formula-engine";
+import { normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
 
 export const maxDuration = 60;
 
@@ -94,6 +95,9 @@ async function executeRefresh(
             { error: "At least one factor weight must be non-zero" },
             { status: 400 },
           );
+        }
+        if (Math.abs(factorSum - 1) > 0.001 && assumptionsBody.factor_weights) {
+          assumptionsBody.factor_weights = normaliseFactorWeights(assumptionsBody.factor_weights);
         }
       }
     }

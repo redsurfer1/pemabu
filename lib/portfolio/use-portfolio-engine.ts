@@ -5,6 +5,7 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Assumptions } from "@/lib/portfolio/formula-engine";
 import { DEFAULT_ASSUMPTIONS, colAB, colAK, normaliseWeights } from "@/lib/portfolio/formula-engine";
+import { normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
 import type { AssetClass } from "@/lib/types/database";
 
 export interface ComputedRow {
@@ -47,6 +48,11 @@ export interface ComputedRow {
   sub_rank_weighted_ret: number | null;
   sub_rank_div_apy: number | null;
   sub_rank_volatility: number | null;
+  sub_rank_thirteen_f: number | null;
+  sub_rank_macro_intelligence: number | null;
+  sub_rank_governance_layer: number | null;
+  sub_rank_political_tracker: number | null;
+  sub_rank_token_quality: number | null;
   composite_score: number | null;
   rank_overall: number | null;
   alert_primary: string | null;
@@ -130,6 +136,11 @@ function mapHoldingToComputedRow(row: Record<string, unknown>): ComputedRow {
     sub_rank_weighted_ret: pickNum(row.sub_rank_weighted_ret),
     sub_rank_div_apy: pickNum(row.sub_rank_div_apy),
     sub_rank_volatility: pickNum(row.sub_rank_volatility),
+    sub_rank_thirteen_f: pickNum(row.sub_rank_thirteen_f),
+    sub_rank_macro_intelligence: pickNum(row.sub_rank_macro_intelligence),
+    sub_rank_governance_layer: pickNum(row.sub_rank_governance_layer),
+    sub_rank_political_tracker: pickNum(row.sub_rank_political_tracker),
+    sub_rank_token_quality: pickNum(row.sub_rank_token_quality),
     composite_score: pickNum(row.composite_score),
     rank_overall: pickNum(row.rank_overall),
     alert_primary: (row.alert_primary as string | null) ?? null,
@@ -190,6 +201,11 @@ function computedRowToHoldingRecord(row: ComputedRow): Record<string, unknown> {
     sub_rank_weighted_ret: row.sub_rank_weighted_ret,
     sub_rank_div_apy: row.sub_rank_div_apy,
     sub_rank_volatility: row.sub_rank_volatility,
+    sub_rank_thirteen_f: row.sub_rank_thirteen_f,
+    sub_rank_macro_intelligence: row.sub_rank_macro_intelligence,
+    sub_rank_governance_layer: row.sub_rank_governance_layer,
+    sub_rank_political_tracker: row.sub_rank_political_tracker,
+    sub_rank_token_quality: row.sub_rank_token_quality,
     composite_score: row.composite_score,
     rank_overall: row.rank_overall,
     alert_primary: row.alert_primary,
@@ -223,7 +239,9 @@ export function usePortfolioEngine(portfolioId: string) {
     [computed],
   );
 
-  const fetchRows = useCallback(async (): Promise<boolean> => {
+  const fetchGenerationRef = useRef(0);
+
+  const fetchRows = useCallback(async (generation: number): Promise<boolean> => {
     if (!portfolioId) return false;
     setLoading(true);
     setError(null);
@@ -233,11 +251,19 @@ export function usePortfolioEngine(portfolioId: string) {
         fetch(`/api/workbook/holdings?portfolioId=${encodeURIComponent(portfolioId)}`, {
           credentials: "same-origin",
         }),
-        supabase.from("portfolio_assumptions").select("*").eq("portfolio_id", portfolioId).maybeSingle(),
+        fetch(`/api/workbook/assumptions?portfolioId=${encodeURIComponent(portfolioId)}`, {
+          credentials: "same-origin",
+        }),
       ]);
 
       const body = (await holdingsRes.json()) as { holdings?: Record<string, unknown>[]; error?: string };
       if (!holdingsRes.ok) throw new Error(body.error ?? "Failed to load holdings");
+
+      const assumptionsBody = (await assumptionsRes.json()) as {
+        assumptions?: Assumptions;
+        error?: string;
+      };
+      if (!assumptionsRes.ok) throw new Error(assumptionsBody.error ?? "Failed to load assumptions");
 
       let rows = (body.holdings ?? []).map(mapHoldingToComputedRow);
       const derivedTotalMv = rows.reduce((sum, r) => sum + (r.market_value ?? 0), 0);
@@ -249,35 +275,11 @@ export function usePortfolioEngine(portfolioId: string) {
             (r.market_value != null ? r.market_value / derivedTotalMv : null),
         }));
       }
+      if (generation !== fetchGenerationRef.current) return false;
       setComputed(rows);
 
-      const assRow = assumptionsRes.data as {
-        weight_3mo?: number;
-        weight_6mo?: number;
-        weight_1yr?: number;
-        weight_3yr?: number;
-        weight_5yr?: number;
-        factor_expense?: number;
-        factor_pct_weight?: number;
-        factor_div_apy?: number;
-        factor_volatility?: number;
-      } | null;
-      if (assRow) {
-        setAssumptions({
-          return_weights: {
-            r3mo: Number(assRow.weight_3mo ?? DEFAULT_ASSUMPTIONS.return_weights.r3mo),
-            r6mo: Number(assRow.weight_6mo ?? DEFAULT_ASSUMPTIONS.return_weights.r6mo),
-            r1yr: Number(assRow.weight_1yr ?? DEFAULT_ASSUMPTIONS.return_weights.r1yr),
-            r3yr: Number(assRow.weight_3yr ?? DEFAULT_ASSUMPTIONS.return_weights.r3yr),
-            r5yr: Number(assRow.weight_5yr ?? DEFAULT_ASSUMPTIONS.return_weights.r5yr),
-          },
-          factor_weights: {
-            expense: Number(assRow.factor_expense ?? DEFAULT_ASSUMPTIONS.factor_weights.expense),
-            pctWeight: Number(assRow.factor_pct_weight ?? DEFAULT_ASSUMPTIONS.factor_weights.pctWeight),
-            divApy: Number(assRow.factor_div_apy ?? DEFAULT_ASSUMPTIONS.factor_weights.divApy),
-            volatility: Number(assRow.factor_volatility ?? DEFAULT_ASSUMPTIONS.factor_weights.volatility),
-          },
-        });
+      if (assumptionsBody.assumptions && generation === fetchGenerationRef.current) {
+        setAssumptions(assumptionsBody.assumptions);
       }
 
       const newest = rows
@@ -285,8 +287,10 @@ export function usePortfolioEngine(portfolioId: string) {
         .filter((v): v is string => !!v)
         .sort()
         .at(-1);
-      setLastRefreshed(newest ?? null);
-      return true;
+      if (generation === fetchGenerationRef.current) {
+        setLastRefreshed(newest ?? null);
+      }
+      return generation === fetchGenerationRef.current;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       return false;
@@ -329,9 +333,10 @@ export function usePortfolioEngine(portfolioId: string) {
       }
     };
 
+    const generation = ++fetchGenerationRef.current;
     void (async () => {
-      const ok = await fetchRows();
-      if (cancelled) return;
+      const ok = await fetchRows(generation);
+      if (cancelled || generation !== fetchGenerationRef.current) return;
       if (!ok) {
         setRealtimeStatus("disconnected");
         return;
@@ -376,7 +381,7 @@ export function usePortfolioEngine(portfolioId: string) {
       const body = (await res.json()) as { success?: boolean; refreshedAt?: string; error?: string };
       if (!res.ok) throw new Error(body.error ?? "Refresh failed");
       setLastRefreshed(body.refreshedAt ?? new Date().toISOString());
-      await fetchRows();
+      await fetchRows(++fetchGenerationRef.current);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -430,7 +435,7 @@ export function usePortfolioEngine(portfolioId: string) {
       });
       const body = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(body.error ?? "Delete failed");
-      await fetchRows();
+      await fetchRows(++fetchGenerationRef.current);
     },
     [fetchRows],
   );
@@ -440,25 +445,20 @@ export function usePortfolioEngine(portfolioId: string) {
       const appliedAssumptions: Assumptions = {
         ...a,
         return_weights: normaliseWeights(a.return_weights),
+        factor_weights: normaliseFactorWeights(a.factor_weights),
       };
-      const supabase = getSupabaseBrowserClient();
-      const { error: upsertErr } = await supabase.from("portfolio_assumptions").upsert(
-        {
-          portfolio_id: portfolioId,
-          weight_3mo: appliedAssumptions.return_weights.r3mo,
-          weight_6mo: appliedAssumptions.return_weights.r6mo,
-          weight_1yr: appliedAssumptions.return_weights.r1yr,
-          weight_3yr: appliedAssumptions.return_weights.r3yr,
-          weight_5yr: appliedAssumptions.return_weights.r5yr,
-          factor_expense: appliedAssumptions.factor_weights.expense,
-          factor_pct_weight: appliedAssumptions.factor_weights.pctWeight,
-          factor_div_apy: appliedAssumptions.factor_weights.divApy,
-          factor_volatility: appliedAssumptions.factor_weights.volatility,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "portfolio_id" },
-      );
-      if (upsertErr) throw upsertErr;
+      const res = await fetch("/api/workbook/assumptions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          portfolioId,
+          return_weights: appliedAssumptions.return_weights,
+          factor_weights: appliedAssumptions.factor_weights,
+        }),
+      });
+      const saveBody = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(saveBody.error ?? "Failed to save assumptions");
 
       setAssumptions(appliedAssumptions);
       setComputed((rows) =>
@@ -477,6 +477,14 @@ export function usePortfolioEngine(portfolioId: string) {
             Number(r.sub_rank_div_apy ?? 0),
             Number(r.sub_rank_volatility ?? 0),
             appliedAssumptions.factor_weights,
+            {
+              pctWeight: Number(r.sub_rank_current ?? 0),
+              thirteenF: Number(r.sub_rank_thirteen_f ?? 0),
+              macroIntelligence: Number(r.sub_rank_macro_intelligence ?? 0),
+              governanceLayer: Number(r.sub_rank_governance_layer ?? 0),
+              politicalTracker: Number(r.sub_rank_political_tracker ?? 0),
+              tokenQuality: Number(r.sub_rank_token_quality ?? 0),
+            },
           );
           return {
             ...r,

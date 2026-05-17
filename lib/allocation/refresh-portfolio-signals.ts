@@ -2,7 +2,6 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  DEFAULT_ASSUMPTIONS,
   colAA,
   colAB,
   colAC,
@@ -30,18 +29,6 @@ import {
 import { getPortfolioTiingoToken } from "@/lib/portfolio/api-credentials";
 import { clearPriceCache, fetchMarketDataCached } from "@/lib/market-data/yahoo-finance";
 
-type AssumptionRow = {
-  weight_3mo: number;
-  weight_6mo: number;
-  weight_1yr: number;
-  weight_3yr: number;
-  weight_5yr: number;
-  factor_expense: number;
-  factor_pct_weight: number;
-  factor_div_apy: number;
-  factor_volatility: number;
-};
-
 type RefreshRow = {
   id: string;
   portfolio_id: string;
@@ -51,6 +38,11 @@ type RefreshRow = {
   expense_ratio: number | null;
   dividend_dollars: number | null;
   target_parity_weight: number | null;
+  score_thirteen_f: number | null;
+  score_macro_intelligence: number | null;
+  score_governance_layer: number | null;
+  score_political_tracker: number | null;
+  score_token_quality: number | null;
 };
 
 type RankedWorkRow = {
@@ -65,11 +57,21 @@ type RankedWorkRow = {
   returnWeightedAvg: number | null;
   volatilityAbs: number | null;
   volatilitySigned: number | null;
+  thirteenFScore?: number | null;
+  macroIntelligenceScore?: number | null;
+  governanceLayerScore?: number | null;
+  politicalTrackerScore?: number | null;
+  tokenQualityScore?: number | null;
   subRankCurrent?: number | null;
   subRankExpense?: number | null;
   subRankWeightedRet?: number | null;
   subRankDivApy?: number | null;
   subRankVolatility?: number | null;
+  subRankThirteenF?: number | null;
+  subRankMacroIntelligence?: number | null;
+  subRankGovernanceLayer?: number | null;
+  subRankPoliticalTracker?: number | null;
+  subRankTokenQuality?: number | null;
   subRankVolSigned?: number | null;
   compositeScore?: number | null;
   market_value: number | null;
@@ -89,7 +91,7 @@ export async function refreshPortfolioSignals(
   const { data: rows, error: holdingsErr } = await supabase
     .from("portfolio_holdings")
     .select(
-      "id,portfolio_id,ticker,name,quantity,expense_ratio,dividend_dollars,target_parity_weight",
+      "id,portfolio_id,ticker,name,quantity,expense_ratio,dividend_dollars,target_parity_weight,score_thirteen_f,score_macro_intelligence,score_governance_layer,score_political_tracker,score_token_quality",
     )
     .eq("portfolio_id", portfolioId)
     .order("ticker", { ascending: true });
@@ -102,29 +104,8 @@ export async function refreshPortfolioSignals(
 
   clearPriceCache();
 
-  const { data: ass } = await supabase
-    .from("portfolio_assumptions")
-    .select("*")
-    .eq("portfolio_id", portfolioId)
-    .single();
-  const assumption = (ass as AssumptionRow | null) ?? null;
-  const assumptions = assumption
-    ? {
-        return_weights: {
-          r3mo: Number(assumption.weight_3mo),
-          r6mo: Number(assumption.weight_6mo),
-          r1yr: Number(assumption.weight_1yr),
-          r3yr: Number(assumption.weight_3yr),
-          r5yr: Number(assumption.weight_5yr),
-        },
-        factor_weights: {
-          expense: Number(assumption.factor_expense),
-          pctWeight: Number(assumption.factor_pct_weight),
-          divApy: Number(assumption.factor_div_apy),
-          volatility: Number(assumption.factor_volatility),
-        },
-      }
-    : DEFAULT_ASSUMPTIONS;
+  const { getPortfolioAssumptions } = await import("@/lib/portfolio/portfolio-assumptions-store");
+  const assumptions = await getPortfolioAssumptions(portfolioId);
 
   const { getPortfolioTiingoToken } = await import("@/lib/portfolio/api-credentials");
   const tiingoToken = await getPortfolioTiingoToken(supabase, portfolioId);
@@ -207,6 +188,11 @@ export async function refreshPortfolioSignals(
         sub_rank_weighted_ret: null as number | null,
         sub_rank_div_apy: null as number | null,
         sub_rank_volatility: null as number | null,
+        sub_rank_thirteen_f: null as number | null,
+        sub_rank_macro_intelligence: null as number | null,
+        sub_rank_governance_layer: null as number | null,
+        sub_rank_political_tracker: null as number | null,
+        sub_rank_token_quality: null as number | null,
         sub_rank_vol_signed: null as number | null,
       };
     }
@@ -244,6 +230,14 @@ export async function refreshPortfolioSignals(
       returnWeightedAvg: return_weighted_avg,
       volatilityAbs,
       volatilitySigned,
+      thirteenFScore: h.score_thirteen_f != null ? Number(h.score_thirteen_f) : null,
+      macroIntelligenceScore:
+        h.score_macro_intelligence != null ? Number(h.score_macro_intelligence) : null,
+      governanceLayerScore:
+        h.score_governance_layer != null ? Number(h.score_governance_layer) : null,
+      politicalTrackerScore:
+        h.score_political_tracker != null ? Number(h.score_political_tracker) : null,
+      tokenQualityScore: h.score_token_quality != null ? Number(h.score_token_quality) : null,
       market_value,
       price_current: price1,
       price_24h_basis: price2,
@@ -280,6 +274,11 @@ export async function refreshPortfolioSignals(
       sub_rank_weighted_ret: null as number | null,
       sub_rank_div_apy: null as number | null,
       sub_rank_volatility: null as number | null,
+      sub_rank_thirteen_f: null as number | null,
+      sub_rank_macro_intelligence: null as number | null,
+      sub_rank_governance_layer: null as number | null,
+      sub_rank_political_tracker: null as number | null,
+      sub_rank_token_quality: null as number | null,
       sub_rank_vol_signed: null as number | null,
     };
   });
@@ -310,6 +309,11 @@ export async function refreshPortfolioSignals(
       row.sub_rank_weighted_ret = null;
       row.sub_rank_div_apy = null;
       row.sub_rank_volatility = null;
+      row.sub_rank_thirteen_f = null;
+      row.sub_rank_macro_intelligence = null;
+      row.sub_rank_governance_layer = null;
+      row.sub_rank_political_tracker = null;
+      row.sub_rank_token_quality = null;
       row.sub_rank_vol_signed = null;
       continue;
     }
@@ -327,6 +331,11 @@ export async function refreshPortfolioSignals(
     row.sub_rank_weighted_ret = row.subRankWeightedRet ?? null;
     row.sub_rank_div_apy = row.subRankDivApy ?? null;
     row.sub_rank_volatility = row.subRankVolatility ?? null;
+    row.sub_rank_thirteen_f = row.subRankThirteenF ?? null;
+    row.sub_rank_macro_intelligence = row.subRankMacroIntelligence ?? null;
+    row.sub_rank_governance_layer = row.subRankGovernanceLayer ?? null;
+    row.sub_rank_political_tracker = row.subRankPoliticalTracker ?? null;
+    row.sub_rank_token_quality = row.subRankTokenQuality ?? null;
     row.sub_rank_vol_signed = row.subRankVolSigned ?? null;
   }
 
@@ -366,6 +375,11 @@ export async function refreshPortfolioSignals(
     sub_rank_weighted_ret: row.sub_rank_weighted_ret,
     sub_rank_div_apy: row.sub_rank_div_apy,
     sub_rank_volatility: row.sub_rank_volatility,
+    sub_rank_thirteen_f: row.sub_rank_thirteen_f,
+    sub_rank_macro_intelligence: row.sub_rank_macro_intelligence,
+    sub_rank_governance_layer: row.sub_rank_governance_layer,
+    sub_rank_political_tracker: row.sub_rank_political_tracker,
+    sub_rank_token_quality: row.sub_rank_token_quality,
     sub_rank_vol_signed: row.sub_rank_vol_signed,
     composite_score: row.composite_score,
     rank_overall: row.rank_overall,

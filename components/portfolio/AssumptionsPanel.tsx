@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import type { EngineAssumptions } from "@/types/allocation";
+import {
+  FACTOR_LABELS,
+  FACTOR_WEIGHT_KEYS,
+  type FactorWeightKey,
+} from "@/lib/portfolio/portfolio-factors";
 
 interface AssumptionsPanelProps {
   assumptions: EngineAssumptions;
   onSave: (updated: EngineAssumptions) => void;
   isRecomputing?: boolean;
-  /** Income-sleeve assumptions. When provided, a second tab is shown. */
   incomeAssumptions?: EngineAssumptions;
-  /** Called when income-sleeve assumptions are saved. Required if incomeAssumptions is provided. */
   onSaveIncome?: (updated: EngineAssumptions) => void;
 }
 
@@ -26,17 +29,25 @@ function SleeveForm({
   isRecomputing?: boolean;
   onSave: () => void;
 }) {
-  const retSum = local.retWeight3mo + local.retWeight6mo + local.retWeight1yr + local.retWeight3yr + local.retWeight5yr;
-  const scoreSum = local.scoreWeightExp + local.scoreWeightRet + local.scoreWeightDiv + local.scoreWeightShp;
+  const retSum =
+    local.retWeight3mo + local.retWeight6mo + local.retWeight1yr + local.retWeight3yr + local.retWeight5yr;
+  const factorSum = FACTOR_WEIGHT_KEYS.reduce((s, k) => s + local.factorWeights[k], 0);
   const retValid = Math.abs(retSum - 1) < 0.001;
-  const scoreValid = Math.abs(scoreSum - 1) < 0.001;
+  const factorValid = Math.abs(factorSum - 1) < 0.001;
 
-  const inputClass = "w-16 rounded border border-white/20 bg-white/5 px-2 py-1 text-xs text-white outline-none text-right focus:border-[#C9A84C]/50";
+  const inputClass =
+    "w-16 rounded border border-white/20 bg-white/5 px-2 py-1 text-xs text-white outline-none text-right focus:border-[#C9A84C]/50";
   const labelClass = "text-xs text-gray-400 w-32";
+
+  function setFactor(key: FactorWeightKey, value: number) {
+    setLocal({
+      ...local,
+      factorWeights: { ...local.factorWeights, [key]: value },
+    });
+  }
 
   return (
     <>
-      {/* Return Period Weights */}
       <div className="mb-5">
         <p className="mb-2 text-[10px] font-medium uppercase tracking-widest text-gray-500">
           Return Period Weights
@@ -45,13 +56,15 @@ function SleeveForm({
           Sum: {(retSum * 100).toFixed(1)}% {retValid ? "✓" : "- must equal 100%"}
         </p>
         <div className="space-y-2">
-          {([
-            ["retWeight3mo", "3 Month", local.retWeight3mo],
-            ["retWeight6mo", "6 Month", local.retWeight6mo],
-            ["retWeight1yr", "1 Year", local.retWeight1yr],
-            ["retWeight3yr", "3 Year", local.retWeight3yr],
-            ["retWeight5yr", "5 Year", local.retWeight5yr],
-          ] as const).map(([key, label, val]) => (
+          {(
+            [
+              ["retWeight3mo", "3 Month", local.retWeight3mo],
+              ["retWeight6mo", "6 Month", local.retWeight6mo],
+              ["retWeight1yr", "1 Year", local.retWeight1yr],
+              ["retWeight3yr", "3 Year", local.retWeight3yr],
+              ["retWeight5yr", "5 Year", local.retWeight5yr],
+            ] as const
+          ).map(([key, label, val]) => (
             <div key={key} className="flex items-center justify-between">
               <span className={labelClass}>{label}</span>
               <input
@@ -66,28 +79,24 @@ function SleeveForm({
         </div>
       </div>
 
-      {/* Composite Scoring Weights */}
       <div className="mb-5">
         <p className="mb-2 text-[10px] font-medium uppercase tracking-widest text-gray-500">
-          Composite Scoring Weights
+          Portfolio Factor Weights (10)
         </p>
-        <p className={`mb-2 text-[10px] ${scoreValid ? "text-emerald-400" : "text-red-400"}`}>
-          Sum: {(scoreSum * 100).toFixed(1)}% {scoreValid ? "✓" : "- must equal 100%"}
+        <p className={`mb-2 text-[10px] ${factorValid ? "text-emerald-400" : "text-red-400"}`}>
+          Sum: {(factorSum * 100).toFixed(1)}% {factorValid ? "✓" : "- must equal 100%"}
         </p>
-        <div className="space-y-2">
-          {([
-            ["scoreWeightExp", "Expense Ratio", local.scoreWeightExp],
-            ["scoreWeightRet", "Blended Return", local.scoreWeightRet],
-            ["scoreWeightDiv", "Dividend APY", local.scoreWeightDiv],
-            ["scoreWeightShp", "Sharpe Proxy", local.scoreWeightShp],
-          ] as const).map(([key, label, val]) => (
-            <div key={key} className="flex items-center justify-between">
-              <span className={labelClass}>{label}</span>
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+          {FACTOR_WEIGHT_KEYS.map((k) => (
+            <div key={k} className="flex items-center justify-between gap-2">
+              <span className={`${labelClass} flex-1`}>{FACTOR_LABELS[k]}</span>
               <input
                 type="number"
                 step="0.01"
-                value={val}
-                onChange={(e) => setLocal({ ...local, [key]: Number(e.target.value) })}
+                min={0}
+                max={1}
+                value={local.factorWeights[k]}
+                onChange={(e) => setFactor(k, Number(e.target.value))}
                 className={inputClass}
               />
             </div>
@@ -95,7 +104,6 @@ function SleeveForm({
         </div>
       </div>
 
-      {/* Allocation Controls */}
       <div className="mb-5">
         <p className="mb-2 text-[10px] font-medium uppercase tracking-widest text-gray-500">
           Allocation Controls
@@ -137,7 +145,7 @@ function SleeveForm({
       <button
         type="button"
         onClick={onSave}
-        disabled={!retValid || !scoreValid || isRecomputing}
+        disabled={!retValid || !factorValid || isRecomputing}
         className="w-full rounded bg-[#C9A84C] px-4 py-2 text-xs font-medium text-[#0D1B2A] transition-colors hover:bg-[#C9A84C]/80 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isRecomputing ? "Recomputing..." : "Save & Recompute"}
@@ -193,7 +201,6 @@ export function AssumptionsPanel({
         </div>
       )}
 
-      {/* Sleeve tabs — only shown when income sleeve is available */}
       {hasIncome && (
         <div className="mb-5 flex rounded border border-white/10 overflow-hidden">
           {(["main", "income"] as SleeveTab[]).map((tab) => (

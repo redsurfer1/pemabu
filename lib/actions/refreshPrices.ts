@@ -55,29 +55,8 @@ async function fetchHistoricalPrices(
 export async function refreshPrices(portfolioId: string) {
   const supabase = await createClient();
 
-  // Load assumptions
-  const { data: assumptionsRow } = await supabase
-    .from("model_assumptions")
-    .select("*")
-    .eq("portfolio_id", portfolioId)
-    .maybeSingle();
-
-  const assumptions: EngineAssumptions = assumptionsRow
-    ? {
-        retWeight3mo: Number(assumptionsRow.ret_weight_3mo),
-        retWeight6mo: Number(assumptionsRow.ret_weight_6mo),
-        retWeight1yr: Number(assumptionsRow.ret_weight_1yr),
-        retWeight3yr: Number(assumptionsRow.ret_weight_3yr),
-        retWeight5yr: Number(assumptionsRow.ret_weight_5yr),
-        scoreWeightExp: Number(assumptionsRow.score_weight_exp),
-        scoreWeightRet: Number(assumptionsRow.score_weight_ret),
-        scoreWeightDiv: Number(assumptionsRow.score_weight_div),
-        scoreWeightShp: Number(assumptionsRow.score_weight_shp),
-        incomeBudgetPct: Number(assumptionsRow.income_budget_pct),
-        volCapMultiplier: Number(assumptionsRow.vol_cap_multiplier),
-        themeCapPct: Number(assumptionsRow.theme_cap_pct),
-      }
-    : DEFAULT_ENGINE_ASSUMPTIONS;
+  const { getModelAssumptionsForPortfolio } = await import("@/lib/portfolio/model-assumptions-store");
+  const assumptions = (await getModelAssumptionsForPortfolio(portfolioId)).main;
 
   // Load sleeves
   const { data: sleeves } = await supabase

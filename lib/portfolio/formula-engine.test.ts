@@ -98,14 +98,20 @@ describe("formula-engine", () => {
   });
 
   test("colAK", () => {
-    expect(
-      colAK(2, 18, 5, 72, {
-        expense: 0.3,
-        pctWeight: 0.3,
-        divApy: 0.15,
-        volatility: 0.25,
-      }),
-    ).toBe(24.75);
+    const legacyWeights = {
+      ...DEFAULT_ASSUMPTIONS.factor_weights,
+      expense: 0.3,
+      pctWeight: 0,
+      weightedReturn: 0.3,
+      divApy: 0.15,
+      volatility: 0.25,
+      thirteenF: 0,
+      macroIntelligence: 0,
+      governanceLayer: 0,
+      politicalTracker: 0,
+      tokenQuality: 0,
+    };
+    expect(colAK(2, 18, 5, 72, legacyWeights)).toBe(24.75);
   });
 
   test("colAL", () => {

@@ -57,39 +57,16 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
   const loadData = useCallback(async () => {
     setLoading(true);
 
-    // Load per-sleeve assumptions (one row per sleeve_type since phase-1 migration).
-    const { data: assumptionRows } = await supabase
-      .from("model_assumptions")
-      .select("*")
-      .eq("portfolio_id", portfolioId)
-      .in("sleeve_type", ["main", "income"]);
-
-    function rowToAssumptions(row: Record<string, unknown>): EngineAssumptions {
-      return {
-        retWeight3mo: Number(row.ret_weight_3mo),
-        retWeight6mo: Number(row.ret_weight_6mo),
-        retWeight1yr: Number(row.ret_weight_1yr),
-        retWeight3yr: Number(row.ret_weight_3yr),
-        retWeight5yr: Number(row.ret_weight_5yr),
-        scoreWeightExp: Number(row.score_weight_exp),
-        scoreWeightRet: Number(row.score_weight_ret),
-        scoreWeightDiv: Number(row.score_weight_div),
-        scoreWeightShp: Number(row.score_weight_shp),
-        incomeBudgetPct: Number(row.income_budget_pct),
-        volCapMultiplier: Number(row.vol_cap_multiplier),
-        themeCapPct: Number(row.theme_cap_pct),
-      };
-    }
-
-    const mainRow = (assumptionRows ?? []).find(
-      (r: Record<string, unknown>) => r.sleeve_type === "main",
+    const assumptionsRes = await fetch(
+      `/api/portfolio/${encodeURIComponent(portfolioId)}/model-assumptions`,
+      { credentials: "same-origin" },
     );
-    const incomeRow = (assumptionRows ?? []).find(
-      (r: Record<string, unknown>) => r.sleeve_type === "income",
-    );
-
-    const a: EngineAssumptions = mainRow ? rowToAssumptions(mainRow) : DEFAULT_ENGINE_ASSUMPTIONS;
-    const aIncome: EngineAssumptions = incomeRow ? rowToAssumptions(incomeRow) : DEFAULT_ENGINE_ASSUMPTIONS;
+    const assumptionsJson = (await assumptionsRes.json()) as {
+      assumptions?: { main: EngineAssumptions; income: EngineAssumptions };
+      error?: string;
+    };
+    const a = assumptionsJson.assumptions?.main ?? DEFAULT_ENGINE_ASSUMPTIONS;
+    const aIncome = assumptionsJson.assumptions?.income ?? DEFAULT_ENGINE_ASSUMPTIONS;
     setAssumptions(a);
     setIncomeAssumptions(aIncome);
 
@@ -294,30 +271,20 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
     await loadData();
   }
 
+  async function saveModelAssumptions(sleeveType: "main" | "income", updated: EngineAssumptions) {
+    const res = await fetch(`/api/portfolio/${encodeURIComponent(portfolioId)}/model-assumptions`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ sleeveType, assumptions: updated }),
+    });
+    const body = (await res.json()) as { error?: string };
+    if (!res.ok) throw new Error(body.error ?? "Failed to save assumptions");
+  }
+
   async function handleSaveAssumptions(updated: EngineAssumptions) {
     setIsRecomputing(true);
-    // Upsert main-sleeve assumptions. onConflict targets the (portfolio_id, sleeve_type)
-    // unique index added by the phase-1 migration.
-    await supabase.from("model_assumptions").upsert(
-      {
-        portfolio_id: portfolioId,
-        sleeve_type: "main",
-        ret_weight_3mo: updated.retWeight3mo,
-        ret_weight_6mo: updated.retWeight6mo,
-        ret_weight_1yr: updated.retWeight1yr,
-        ret_weight_3yr: updated.retWeight3yr,
-        ret_weight_5yr: updated.retWeight5yr,
-        score_weight_exp: updated.scoreWeightExp,
-        score_weight_ret: updated.scoreWeightRet,
-        score_weight_div: updated.scoreWeightDiv,
-        score_weight_shp: updated.scoreWeightShp,
-        income_budget_pct: updated.incomeBudgetPct,
-        vol_cap_multiplier: updated.volCapMultiplier,
-        theme_cap_pct: updated.themeCapPct,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "portfolio_id,sleeve_type" },
-    );
+    await saveModelAssumptions("main", updated);
     setAssumptions(updated);
     await loadData();
     setIsRecomputing(false);
@@ -325,27 +292,7 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
 
   async function handleSaveIncomeAssumptions(updated: EngineAssumptions) {
     setIsRecomputing(true);
-    // Upsert income-sleeve assumptions.
-    await supabase.from("model_assumptions").upsert(
-      {
-        portfolio_id: portfolioId,
-        sleeve_type: "income",
-        ret_weight_3mo: updated.retWeight3mo,
-        ret_weight_6mo: updated.retWeight6mo,
-        ret_weight_1yr: updated.retWeight1yr,
-        ret_weight_3yr: updated.retWeight3yr,
-        ret_weight_5yr: updated.retWeight5yr,
-        score_weight_exp: updated.scoreWeightExp,
-        score_weight_ret: updated.scoreWeightRet,
-        score_weight_div: updated.scoreWeightDiv,
-        score_weight_shp: updated.scoreWeightShp,
-        income_budget_pct: updated.incomeBudgetPct,
-        vol_cap_multiplier: updated.volCapMultiplier,
-        theme_cap_pct: updated.themeCapPct,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "portfolio_id,sleeve_type" },
-    );
+    await saveModelAssumptions("income", updated);
     setIncomeAssumptions(updated);
     await loadData();
     setIsRecomputing(false);

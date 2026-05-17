@@ -33,7 +33,12 @@ vi.mock("@/lib/supabase/client", () => ({
   getSupabaseBrowserClient: (...args: unknown[]) => getSupabaseBrowserClientMock(...args),
 }));
 
-function makeHoldingRow(id: string, ticker: string, marketValue: number, refreshedAt: string | null = null) {
+function makeHoldingRow(
+  id: string,
+  ticker: string,
+  marketValue: number,
+  refreshedAt: string | null = "2025-01-01T00:00:00.000Z",
+) {
   return {
     id,
     portfolio_id: "p1",
@@ -53,6 +58,8 @@ function makeHoldingRow(id: string, ticker: string, marketValue: number, refresh
     sub_rank_weighted_ret: 2,
     sub_rank_div_apy: 2,
     sub_rank_volatility: 2,
+    rsi_14: 50,
+    rank_overall: 2,
     last_market_refresh: refreshedAt,
   };
 }
@@ -77,9 +84,7 @@ describe("usePortfolioEngine", () => {
 
     upsertMock.mockResolvedValue({ error: null });
     getSupabaseBrowserClientMock.mockReturnValue({
-      from: vi.fn(() => ({
-        upsert: upsertMock,
-      })),
+      from: vi.fn(() => ({ upsert: upsertMock })),
       channel: vi.fn(() => channelMock),
       removeChannel: removeChannelMock,
     });
@@ -90,6 +95,14 @@ describe("usePortfolioEngine", () => {
 
       if (url.startsWith("/api/workbook/holdings?portfolioId=") && method === "GET") {
         return new Response(JSON.stringify({ holdings: holdingsData }), { status: 200 });
+      }
+
+      if (url.startsWith("/api/workbook/assumptions?portfolioId=") && method === "GET") {
+        return new Response(JSON.stringify({ assumptions: DEFAULT_ASSUMPTIONS }), { status: 200 });
+      }
+
+      if (url === "/api/workbook/assumptions" && method === "PUT") {
+        return new Response(JSON.stringify({ assumptions: DEFAULT_ASSUMPTIONS }), { status: 200 });
       }
 
       if (url.startsWith("/api/portfolio/p1/refresh") && method === "POST") {
@@ -128,12 +141,17 @@ describe("usePortfolioEngine", () => {
       await result.current.updateAssumptions(input);
     });
 
-    const payload = upsertMock.mock.calls[0]?.[0] as Record<string, number>;
-    expect(payload.weight_3mo).toBeCloseTo(0.2, 6);
-    expect(payload.weight_6mo).toBeCloseTo(0.2, 6);
-    expect(payload.weight_1yr).toBeCloseTo(0.2, 6);
-    expect(payload.weight_3yr).toBeCloseTo(0.2, 6);
-    expect(payload.weight_5yr).toBeCloseTo(0.2, 6);
+    const putCall = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/workbook/assumptions" && (c[1] as RequestInit)?.method === "PUT",
+    );
+    const payload = JSON.parse(String((putCall?.[1] as RequestInit)?.body)) as {
+      return_weights: Assumptions["return_weights"];
+    };
+    expect(payload.return_weights.r3mo).toBeCloseTo(0.2, 6);
+    expect(payload.return_weights.r6mo).toBeCloseTo(0.2, 6);
+    expect(payload.return_weights.r1yr).toBeCloseTo(0.2, 6);
+    expect(payload.return_weights.r3yr).toBeCloseTo(0.2, 6);
+    expect(payload.return_weights.r5yr).toBeCloseTo(0.2, 6);
 
     expect(result.current.assumptions.return_weights.r3mo).toBeCloseTo(0.2, 6);
     expect(result.current.assumptions.return_weights.r6mo).toBeCloseTo(0.2, 6);
@@ -151,12 +169,17 @@ describe("usePortfolioEngine", () => {
       await result.current.updateAssumptions(DEFAULT_ASSUMPTIONS);
     });
 
-    const payload = upsertMock.mock.calls[0]?.[0] as Record<string, number>;
-    expect(payload.weight_3mo).toBe(DEFAULT_ASSUMPTIONS.return_weights.r3mo);
-    expect(payload.weight_6mo).toBe(DEFAULT_ASSUMPTIONS.return_weights.r6mo);
-    expect(payload.weight_1yr).toBe(DEFAULT_ASSUMPTIONS.return_weights.r1yr);
-    expect(payload.weight_3yr).toBe(DEFAULT_ASSUMPTIONS.return_weights.r3yr);
-    expect(payload.weight_5yr).toBe(DEFAULT_ASSUMPTIONS.return_weights.r5yr);
+    const putCall = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/workbook/assumptions" && (c[1] as RequestInit)?.method === "PUT",
+    );
+    const payload = JSON.parse(String((putCall?.[1] as RequestInit)?.body)) as {
+      return_weights: Assumptions["return_weights"];
+    };
+    expect(payload.return_weights.r3mo).toBe(DEFAULT_ASSUMPTIONS.return_weights.r3mo);
+    expect(payload.return_weights.r6mo).toBe(DEFAULT_ASSUMPTIONS.return_weights.r6mo);
+    expect(payload.return_weights.r1yr).toBe(DEFAULT_ASSUMPTIONS.return_weights.r1yr);
+    expect(payload.return_weights.r3yr).toBe(DEFAULT_ASSUMPTIONS.return_weights.r3yr);
+    expect(payload.return_weights.r5yr).toBe(DEFAULT_ASSUMPTIONS.return_weights.r5yr);
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
@@ -186,6 +209,9 @@ describe("usePortfolioEngine", () => {
       const method = init?.method ?? "GET";
       if (url.startsWith("/api/workbook/holdings?portfolioId=") && method === "GET") {
         return new Response(JSON.stringify({ holdings: holdingsData }), { status: 200 });
+      }
+      if (url.startsWith("/api/workbook/assumptions?portfolioId=") && method === "GET") {
+        return new Response(JSON.stringify({ assumptions: DEFAULT_ASSUMPTIONS }), { status: 200 });
       }
       if (url.startsWith("/api/portfolio/p1/refresh") && method === "POST") {
         return new Response(JSON.stringify({ error: "DB connection lost" }), { status: 500 });
@@ -293,8 +319,10 @@ describe("usePortfolioEngine", () => {
     await act(async () => {
       lastRealtimeHandler?.({ eventType: "DELETE", old: { id: "h1" } });
     });
-    expect(result.current.computed).toHaveLength(1);
-    expect(result.current.computed[0]?.id).toBe("h2");
+    await waitFor(() => {
+      expect(result.current.computed).toHaveLength(1);
+      expect(result.current.computed[0]?.id).toBe("h2");
+    });
   });
 
   test("channel is removed on unmount", async () => {

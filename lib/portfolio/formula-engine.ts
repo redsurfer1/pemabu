@@ -1,11 +1,21 @@
+import {
+  DEFAULT_FACTOR_WEIGHTS,
+  type FactorSubRanks,
+  type FactorWeights,
+  normaliseFactorWeights,
+} from "@/lib/portfolio/portfolio-factors";
+
+export type { FactorWeights, FactorWeightKey, FactorSubRanks } from "@/lib/portfolio/portfolio-factors";
+export { DEFAULT_FACTOR_WEIGHTS, FACTOR_LABELS, normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
+
 export interface Assumptions {
   return_weights: { r3mo: number; r6mo: number; r1yr: number; r3yr: number; r5yr: number };
-  factor_weights: { expense: number; pctWeight: number; divApy: number; volatility: number };
+  factor_weights: FactorWeights;
 }
 
 export const DEFAULT_ASSUMPTIONS: Assumptions = {
   return_weights: { r3mo: 0.4, r6mo: 0.25, r1yr: 0.2, r3yr: 0.1, r5yr: 0.05 },
-  factor_weights: { expense: 0.3, pctWeight: 0.3, divApy: 0.15, volatility: 0.25 },
+  factor_weights: { ...DEFAULT_FACTOR_WEIGHTS },
 };
 
 function safeDiv(n: number, d: number): number {
@@ -86,20 +96,36 @@ export function colAD(return3mo: number): number {
   return round(return3mo / 90);
 }
 
+export function colAKComposite(subRanks: FactorSubRanks, weights: FactorWeights): number {
+  let sum = 0;
+  for (const k of Object.keys(weights) as (keyof FactorWeights)[]) {
+    sum += subRanks[k] * weights[k];
+  }
+  return round(sum, 4);
+}
+
+/** Weighted composite score from factor sub-ranks (legacy 4-arg + optional sovereign ranks). */
 export function colAK(
   subRankExpense: number,
   subRankWeightedRet: number,
   subRankDivApy: number,
   subRankVolatility: number,
-  weights: Assumptions["factor_weights"],
+  weights: FactorWeights,
+  extra?: Partial<FactorSubRanks>,
 ): number {
-  return round(
-    subRankExpense * weights.expense +
-      subRankWeightedRet * weights.pctWeight +
-      subRankDivApy * weights.divApy +
-      subRankVolatility * weights.volatility,
-    4,
-  );
+  const sub: FactorSubRanks = {
+    expense: subRankExpense,
+    pctWeight: extra?.pctWeight ?? 0,
+    weightedReturn: subRankWeightedRet,
+    divApy: subRankDivApy,
+    volatility: subRankVolatility,
+    thirteenF: extra?.thirteenF ?? 0,
+    macroIntelligence: extra?.macroIntelligence ?? 0,
+    governanceLayer: extra?.governanceLayer ?? 0,
+    politicalTracker: extra?.politicalTracker ?? 0,
+    tokenQuality: extra?.tokenQuality ?? 0,
+  };
+  return colAKComposite(sub, weights);
 }
 
 export function colAL(returnWeightedAvg: number): "Consider Entry" | "Consider Exit" | "Hold" {
@@ -170,11 +196,21 @@ export function computePortfolioRanks<
     divApy?: number | null;
     volatilityAbs?: number | null;
     volatilitySigned?: number | null;
+    thirteenFScore?: number | null;
+    macroIntelligenceScore?: number | null;
+    governanceLayerScore?: number | null;
+    politicalTrackerScore?: number | null;
+    tokenQualityScore?: number | null;
     subRankCurrent?: number | null;
     subRankExpense?: number | null;
     subRankWeightedRet?: number | null;
     subRankDivApy?: number | null;
     subRankVolatility?: number | null;
+    subRankThirteenF?: number | null;
+    subRankMacroIntelligence?: number | null;
+    subRankGovernanceLayer?: number | null;
+    subRankPoliticalTracker?: number | null;
+    subRankTokenQuality?: number | null;
     subRankVolSigned?: number | null;
     compositeScore?: number | null;
   },
@@ -186,6 +222,11 @@ export function computePortfolioRanks<
   const divRank = denseRank(active.map((x) => x.r.divApy ?? null), false);
   const volRank = denseRank(active.map((x) => x.r.volatilityAbs ?? null), true);
   const volSignedRank = denseRank(active.map((x) => x.r.volatilitySigned ?? null), false);
+  const thirteenFRank = denseRank(active.map((x) => x.r.thirteenFScore ?? null), false);
+  const macroRank = denseRank(active.map((x) => x.r.macroIntelligenceScore ?? null), false);
+  const governanceRank = denseRank(active.map((x) => x.r.governanceLayerScore ?? null), false);
+  const politicalRank = denseRank(active.map((x) => x.r.politicalTrackerScore ?? null), true);
+  const tokenQualityRank = denseRank(active.map((x) => x.r.tokenQualityScore ?? null), false);
 
   const out = rows.map((r) => ({ ...r }));
   active.forEach(({ r, idx }) => {
@@ -196,16 +237,37 @@ export function computePortfolioRanks<
     const srVol = r.volatilityAbs != null ? (volRank.get(r.volatilityAbs) ?? null) : null;
     const srVolSigned =
       r.volatilitySigned != null ? (volSignedRank.get(r.volatilitySigned) ?? null) : null;
-    const composite =
-      srExpense != null && srWRet != null && srDiv != null && srVol != null
-        ? colAK(srExpense, srWRet, srDiv, srVol, assumptions.factor_weights)
-        : null;
+    const coreReady = srExpense != null && srWRet != null && srDiv != null && srVol != null;
+    const sr13 = r.thirteenFScore != null ? (thirteenFRank.get(r.thirteenFScore) ?? null) : null;
+    const srMacro =
+      r.macroIntelligenceScore != null ? (macroRank.get(r.macroIntelligenceScore) ?? null) : null;
+    const srGov =
+      r.governanceLayerScore != null ? (governanceRank.get(r.governanceLayerScore) ?? null) : null;
+    const srPol =
+      r.politicalTrackerScore != null ? (politicalRank.get(r.politicalTrackerScore) ?? null) : null;
+    const srTok =
+      r.tokenQualityScore != null ? (tokenQualityRank.get(r.tokenQualityScore) ?? null) : null;
+    const composite = coreReady
+      ? colAK(srExpense, srWRet, srDiv, srVol, assumptions.factor_weights, {
+          pctWeight: srCurrent ?? 0,
+          thirteenF: sr13 ?? 0,
+          macroIntelligence: srMacro ?? 0,
+          governanceLayer: srGov ?? 0,
+          politicalTracker: srPol ?? 0,
+          tokenQuality: srTok ?? 0,
+        })
+      : null;
     Object.assign(out[idx]!, {
       subRankCurrent: srCurrent,
       subRankExpense: srExpense,
       subRankWeightedRet: srWRet,
       subRankDivApy: srDiv,
       subRankVolatility: srVol,
+      subRankThirteenF: sr13,
+      subRankMacroIntelligence: srMacro,
+      subRankGovernanceLayer: srGov,
+      subRankPoliticalTracker: srPol,
+      subRankTokenQuality: srTok,
       subRankVolSigned: srVolSigned,
       compositeScore: composite,
     });

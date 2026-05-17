@@ -313,10 +313,29 @@ describe("computeIncomeSleeve", () => {
 // ── compositeScore with known inputs ───────────────────────────────
 
 describe("computeCompositeScore", () => {
-  it("computes weighted sum correctly", () => {
-    const score = computeCompositeScore(0.8, 0.6, 0.4, 0.7, DEFAULT_ENGINE_ASSUMPTIONS);
+  it("computes weighted sum across ten factor sub-ranks", () => {
+    const w = DEFAULT_ENGINE_ASSUMPTIONS.factorWeights;
+    const score = computeCompositeScore(
+      {
+        expense: 0.8,
+        pctWeight: 0.5,
+        weightedReturn: 0.6,
+        divApy: 0.4,
+        volatility: 0.7,
+        thirteenF: 0,
+        macroIntelligence: 0,
+        governanceLayer: 0,
+        politicalTracker: 0,
+        tokenQuality: 0,
+      },
+      DEFAULT_ENGINE_ASSUMPTIONS,
+    );
     const expected =
-      0.8 * 0.30 + 0.6 * 0.30 + 0.4 * 0.15 + 0.7 * 0.25;
+      0.8 * w.expense +
+      0.5 * w.pctWeight +
+      0.6 * w.weightedReturn +
+      0.4 * w.divApy +
+      0.7 * w.volatility;
     expect(score).toBeCloseTo(expected, 8);
   });
 });

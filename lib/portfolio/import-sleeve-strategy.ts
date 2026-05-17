@@ -29,6 +29,12 @@ const BlueprintSchema = z.object({
       sort_order: z.number().int(),
     }),
   ),
+  factor_metadata: z
+    .object({
+      factor_weights: z.record(z.string(), z.number()),
+      factor_schema_version: z.literal(1),
+    })
+    .optional(),
 });
 
 function parseBlueprint(token: string): z.infer<typeof BlueprintSchema> | null {

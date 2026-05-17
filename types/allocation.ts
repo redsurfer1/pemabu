@@ -143,6 +143,11 @@ export interface HoldingInput {
   price3yr: number;
   price5yr: number;
   manualTargetWt?: number;
+  thirteenFScore?: number | null;
+  macroIntelligenceScore?: number | null;
+  governanceLayerScore?: number | null;
+  politicalTrackerScore?: number | null;
+  tokenQualityScore?: number | null;
 }
 
 export interface CurrentPrices {
@@ -176,34 +181,33 @@ export interface IncomeHoldingInput {
   expenseRatio?: number;
 }
 
+import {
+  DEFAULT_FACTOR_WEIGHTS,
+  type FactorWeights,
+} from "@/lib/portfolio/portfolio-factors";
+
 export interface EngineAssumptions {
   retWeight3mo: number;
   retWeight6mo: number;
   retWeight1yr: number;
   retWeight3yr: number;
   retWeight5yr: number;
-  scoreWeightExp: number;
-  scoreWeightRet: number;
-  scoreWeightDiv: number;
-  scoreWeightShp: number;
+  factorWeights: FactorWeights;
   incomeBudgetPct: number;
   volCapMultiplier: number;
   themeCapPct: number;
 }
 
 export const DEFAULT_ENGINE_ASSUMPTIONS: EngineAssumptions = {
-  retWeight3mo: 0.40,
+  retWeight3mo: 0.4,
   retWeight6mo: 0.25,
-  retWeight1yr: 0.20,
-  retWeight3yr: 0.10,
+  retWeight1yr: 0.2,
+  retWeight3yr: 0.1,
   retWeight5yr: 0.05,
-  scoreWeightExp: 0.30,
-  scoreWeightRet: 0.30,
-  scoreWeightDiv: 0.15,
-  scoreWeightShp: 0.25,
+  factorWeights: { ...DEFAULT_FACTOR_WEIGHTS },
   incomeBudgetPct: 0.12,
   volCapMultiplier: 3.0,
-  themeCapPct: 0.10,
+  themeCapPct: 0.1,
 };
 
 export interface HistoricalPrices {

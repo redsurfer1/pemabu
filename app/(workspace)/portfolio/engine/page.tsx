@@ -9,8 +9,10 @@ import { STALE } from "@/lib/constants/query-config";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import {
   DEFAULT_ASSUMPTIONS,
+  FACTOR_LABELS,
   type Assumptions,
 } from "@/lib/portfolio/formula-engine";
+import { FACTOR_WEIGHT_KEYS, normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
 import { usePortfolioEngine } from "@/lib/portfolio/use-portfolio-engine";
 import type { ComputedRow } from "@/lib/portfolio/use-portfolio-engine";
 import { resolveWorkspacePortfolioId } from "@/lib/workspace/portfolio-selection";
@@ -504,8 +506,13 @@ function PortfolioEnginePageContent() {
             onChange={setLocalAssumptions}
             onSave={() => {
               void (async () => {
-                await updateAssumptions(localAssumptions);
-                setSavedAssumptions(localAssumptions);
+                const normalized = {
+                  ...localAssumptions,
+                  factor_weights: normaliseFactorWeights(localAssumptions.factor_weights),
+                };
+                await updateAssumptions(normalized);
+                setLocalAssumptions(normalized);
+                setSavedAssumptions(normalized);
               })();
             }}
             onCancel={() => setLocalAssumptions(savedAssumptions)}
@@ -657,11 +664,10 @@ function AssumptionEditor({
       ? `Sum: ${(returnSum * 100).toFixed(1)}% \u2014 invalid`
       : `Sum: ${(returnSum * 100).toFixed(1)}% \u2014 will be normalised on save`;
 
-  const factorSum =
-    assumptions.factor_weights.expense +
-    assumptions.factor_weights.pctWeight +
-    assumptions.factor_weights.divApy +
-    assumptions.factor_weights.volatility;
+  const factorSum = FACTOR_WEIGHT_KEYS.reduce(
+    (s, k) => s + assumptions.factor_weights[k],
+    0,
+  );
   const factorNearOne = Math.abs(factorSum - 1) <= 0.001;
   const factorInRange = factorSum > 0.9 && factorSum < 1.1;
   const factorIsRed = !factorNearOne && !factorInRange;
@@ -730,16 +736,12 @@ function AssumptionEditor({
         </p>
         <p style={{ color: factorSumColor }}>{factorSumLabel}</p>
       </div>
-      {(
-        [
-          ["expense", "Expense"],
-          ["pctWeight", "PctWeight"],
-          ["divApy", "DivAPY"],
-          ["volatility", "Volatility"],
-        ] as const
-      ).map(([k, label]) => (
+      <p className="mb-2 text-[10px] text-[#666]">
+        Standard and sovereign primitives — weights persist to portfolio_assumptions.
+      </p>
+      {FACTOR_WEIGHT_KEYS.map((k) => (
         <div key={k} className="flex items-center gap-2">
-          <label className="w-24">{label}</label>
+          <label className="w-40 shrink-0 text-[#aaa]">{FACTOR_LABELS[k]}</label>
           <input
             type="range"
             min={0}

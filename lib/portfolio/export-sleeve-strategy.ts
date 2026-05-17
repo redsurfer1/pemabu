@@ -3,6 +3,11 @@ import { d } from "@/lib/portfolio/precision-money";
 import { createClient } from "@/lib/supabase/server";
 import { getVaultPool } from "@/lib/db";
 import { isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
+import {
+  type FactorWeights,
+  type SleeveFactorMetadata,
+  factorWeightsFromDbRow,
+} from "@/lib/portfolio/portfolio-factors";
 
 export const WATCHER_DEFAULT_DRIFT_THRESHOLD_PCT = "5";
 
@@ -29,7 +34,31 @@ export type SleeveBlueprintV1 = {
   aggregate_signal_quality: {
     target_weighted_rsi: string | null;
   };
+  /** Relative factor weights only — no NAV, quantities, or dollar totals. */
+  factor_metadata?: SleeveFactorMetadata;
 };
+
+async function loadPortfolioFactorWeights(
+  portfolioId: string,
+  vault: boolean,
+): Promise<FactorWeights> {
+  if (vault) {
+    const pool = getVaultPool();
+    const { rows } = await pool.query<Record<string, unknown>>(
+      `SELECT * FROM portfolio_assumptions WHERE portfolio_id = $1::uuid`,
+      [portfolioId],
+    );
+    if (rows[0]) return factorWeightsFromDbRow(rows[0]);
+    return factorWeightsFromDbRow({});
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("portfolio_assumptions")
+    .select("*")
+    .eq("portfolio_id", portfolioId)
+    .maybeSingle();
+  return factorWeightsFromDbRow((data as Record<string, unknown>) ?? {});
+}
 
 function targetWeightedRsi(
   rows: ReadonlyArray<{ target_wt_pct: string; rsi_14: string | null }>,
@@ -71,8 +100,9 @@ export async function exportSleeveStrategy(userId: string, sleeveId: string): Pr
       weighting_method: string;
       budget_pct: string;
       purpose: string;
+      portfolio_id: string;
     }>(
-      `SELECT weighting_method, budget_pct::text, purpose
+      `SELECT weighting_method, budget_pct::text, purpose, portfolio_id::text
        FROM sleeves WHERE id = $1::uuid`,
       [sleeveId],
     );
@@ -95,6 +125,7 @@ export async function exportSleeveStrategy(userId: string, sleeveId: string): Pr
     );
 
     const rsi = targetWeightedRsi(hrows);
+    const factorWeights = await loadPortfolioFactorWeights(s.portfolio_id, true);
     const blueprint: SleeveBlueprintV1 = {
       version: 1,
       schema: "pemabu.sleeve_blueprint.v1",
@@ -117,6 +148,10 @@ export async function exportSleeveStrategy(userId: string, sleeveId: string): Pr
       })),
       aggregate_signal_quality: {
         target_weighted_rsi: rsi ? rsi.toFixed(8) : null,
+      },
+      factor_metadata: {
+        factor_schema_version: 1,
+        factor_weights: factorWeights,
       },
     };
 
@@ -167,6 +202,7 @@ export async function exportSleeveStrategy(userId: string, sleeveId: string): Pr
   });
 
   const rsi = targetWeightedRsi(hrows);
+  const factorWeights = await loadPortfolioFactorWeights(row.portfolio_id, false);
   const blueprint: SleeveBlueprintV1 = {
     version: 1,
     schema: "pemabu.sleeve_blueprint.v1",
@@ -189,6 +225,10 @@ export async function exportSleeveStrategy(userId: string, sleeveId: string): Pr
     })),
     aggregate_signal_quality: {
       target_weighted_rsi: rsi ? rsi.toFixed(8) : null,
+    },
+    factor_metadata: {
+      factor_schema_version: 1,
+      factor_weights: factorWeights,
     },
   };
 

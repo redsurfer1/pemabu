@@ -15,6 +15,7 @@ import type {
   VolCapFlag,
   HoldingStatus,
 } from "@/types/allocation";
+import { colAKComposite, type FactorSubRanks } from "@/lib/portfolio/formula-engine";
 
 export type { IncomeHoldingInput } from "@/types/allocation";
 
@@ -76,19 +77,8 @@ export function percentRank(values: number[], target: number): number {
 
 // ── Step 5: Composite Score ─────────────────────────────────────
 
-export function computeCompositeScore(
-  prExpense: number,
-  prReturn: number,
-  prDiv: number,
-  prSharpe: number,
-  assumptions: EngineAssumptions,
-): number {
-  return (
-    prExpense * assumptions.scoreWeightExp +
-    prReturn * assumptions.scoreWeightRet +
-    prDiv * assumptions.scoreWeightDiv +
-    prSharpe * assumptions.scoreWeightShp
-  );
+export function computeCompositeScore(subRanks: FactorSubRanks, assumptions: EngineAssumptions): number {
+  return colAKComposite(subRanks, assumptions.factorWeights);
 }
 
 // ── Step 6: Score-Proportional Allocation ───────────────────────
@@ -172,29 +162,57 @@ export function computeMainSleeve(
     return { input: h, returns, blendedReturn, vol, sharpe, value, divAPY };
   });
 
-  // Step 4: PERCENTRANK — computed across ALL active holdings simultaneously
+  const totalValuePreview = activeData.reduce((s, d) => s + d.value, 0);
   const allExpenses = activeData.map((d) => d.input.expenseRatio);
   const allBlended = activeData.map((d) => d.blendedReturn);
   const allDivAPY = activeData.map((d) => d.divAPY);
-  const allSharpe = activeData.map((d) => d.sharpe);
+  const allVol = activeData.map((d) => d.vol);
+  const allCurrentWt = activeData.map((d) =>
+    totalValuePreview > 0 ? d.value / totalValuePreview : 0,
+  );
+  const all13F = activeData.map((d) => d.input.thirteenFScore ?? null);
+  const allMacro = activeData.map((d) => d.input.macroIntelligenceScore ?? null);
+  const allGov = activeData.map((d) => d.input.governanceLayerScore ?? null);
+  const allPol = activeData.map((d) => d.input.politicalTrackerScore ?? null);
+  const allTok = activeData.map((d) => d.input.tokenQualityScore ?? null);
+
+  const rankOptional = (values: (number | null)[], target: number | null, invert = false): number => {
+    if (target == null || !Number.isFinite(target)) return 0;
+    const nums = values.filter((v): v is number => v != null && Number.isFinite(v));
+    if (nums.length === 0) return 0;
+    const pr = percentRank(nums, target);
+    return invert ? 1 - pr : pr;
+  };
 
   const activeWithScores = activeData.map((d) => {
-    // For expense: lower is better, so use 1 - percentRank
     const prExpense = 1 - percentRank(allExpenses, d.input.expenseRatio);
     const prReturn = percentRank(allBlended, d.blendedReturn);
     const prDivAPY = percentRank(allDivAPY, d.divAPY);
-    const prSharpe = percentRank(allSharpe, d.sharpe);
+    const prVol = 1 - percentRank(allVol, d.vol);
+    const prCurrentWt =
+      totalValuePreview > 0 ? percentRank(allCurrentWt, d.value / totalValuePreview) : 0;
+    const subRanks: FactorSubRanks = {
+      expense: prExpense,
+      pctWeight: prCurrentWt,
+      weightedReturn: prReturn,
+      divApy: prDivAPY,
+      volatility: prVol,
+      thirteenF: rankOptional(all13F, d.input.thirteenFScore ?? null),
+      macroIntelligence: rankOptional(allMacro, d.input.macroIntelligenceScore ?? null),
+      governanceLayer: rankOptional(allGov, d.input.governanceLayerScore ?? null),
+      politicalTracker: rankOptional(allPol, d.input.politicalTrackerScore ?? null, true),
+      tokenQuality: rankOptional(allTok, d.input.tokenQualityScore ?? null),
+    };
+    const compositeScore = computeCompositeScore(subRanks, assumptions);
 
-    // Step 5: Composite score
-    const compositeScore = computeCompositeScore(
+    return {
+      ...d,
       prExpense,
       prReturn,
       prDivAPY,
-      prSharpe,
-      assumptions,
-    );
-
-    return { ...d, prExpense, prReturn, prDivAPY, prSharpe, compositeScore };
+      prSharpe: prVol,
+      compositeScore,
+    };
   });
 
   // Step 5b: Rank by composite score (1 = highest)
