@@ -99,6 +99,16 @@ export function factorWeightsToDbPayload(weights: FactorWeights): Record<string,
   };
 }
 
+/** Pre–10-factor migration columns only (Supabase / vault before 20260626 expand). */
+export function factorWeightsToLegacyDbPayload(weights: FactorWeights): Record<string, number> {
+  return {
+    factor_expense: weights.expense,
+    factor_pct_weight: weights.weightedReturn,
+    factor_div_apy: weights.divApy,
+    factor_volatility: weights.volatility,
+  };
+}
+
 /** Marketplace-safe factor metadata (weights only — no NAV or dollar amounts). */
 export type SleeveFactorMetadata = {
   factor_weights: FactorWeights;

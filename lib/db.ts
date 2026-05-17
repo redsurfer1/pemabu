@@ -52,6 +52,12 @@ export function assertLocalVaultDatabaseUrl(connectionString: string): void {
  * Primary connection string for the sovereign Postgres vault (Docker `db` service).
  * Defaults to `LOCAL_DB_URL`, then `DATABASE_URL` for tooling compatibility.
  */
+/** True when USE_LOCAL_VAULT is set and a Postgres URL is configured. */
+export function isVaultDatabaseConfigured(): boolean {
+  if (process.env.USE_LOCAL_VAULT !== "true") return false;
+  return Boolean(process.env.LOCAL_DB_URL ?? process.env.DATABASE_URL);
+}
+
 export function getVaultConnectionString(): string {
   const url = process.env.LOCAL_DB_URL ?? process.env.DATABASE_URL ?? "";
   if (!url) {

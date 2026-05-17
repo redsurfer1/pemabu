@@ -2,8 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { getVaultPool } from "@/lib/db";
-import { isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
+import { getVaultPool, isVaultDatabaseConfigured } from "@/lib/db";
 import {
   engineAssumptionsFromModelRow,
   modelAssumptionsToDbRow,
@@ -32,7 +31,7 @@ function mapRows(rows: Record<string, unknown>[]): ModelAssumptionsBySleeve {
 export async function getModelAssumptionsForPortfolio(
   portfolioId: string,
 ): Promise<ModelAssumptionsBySleeve> {
-  if (isLocalVaultExecutionPlane()) {
+  if (isVaultDatabaseConfigured()) {
     const { rows } = await getVaultPool().query<Record<string, unknown>>(
       `SELECT * FROM model_assumptions WHERE portfolio_id = $1::uuid AND sleeve_type = ANY($2::text[])`,
       [portfolioId, SLEEVE_TYPES],
@@ -58,7 +57,7 @@ export async function upsertModelAssumptions(
 ): Promise<void> {
   const payload = modelAssumptionsToDbRow(portfolioId, sleeveType, assumptions);
 
-  if (isLocalVaultExecutionPlane()) {
+  if (isVaultDatabaseConfigured()) {
     await getVaultPool().query(
       `INSERT INTO model_assumptions (
          portfolio_id, sleeve_type,

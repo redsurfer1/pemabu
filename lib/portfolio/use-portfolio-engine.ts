@@ -263,7 +263,15 @@ export function usePortfolioEngine(portfolioId: string) {
         assumptions?: Assumptions;
         error?: string;
       };
-      if (!assumptionsRes.ok) throw new Error(assumptionsBody.error ?? "Failed to load assumptions");
+      const loadedAssumptions = assumptionsRes.ok
+        ? assumptionsBody.assumptions
+        : undefined;
+      if (!assumptionsRes.ok) {
+        console.warn(
+          "Assumptions API unavailable, using defaults:",
+          assumptionsBody.error ?? assumptionsRes.status,
+        );
+      }
 
       let rows = (body.holdings ?? []).map(mapHoldingToComputedRow);
       const derivedTotalMv = rows.reduce((sum, r) => sum + (r.market_value ?? 0), 0);
@@ -278,8 +286,8 @@ export function usePortfolioEngine(portfolioId: string) {
       if (generation !== fetchGenerationRef.current) return false;
       setComputed(rows);
 
-      if (assumptionsBody.assumptions && generation === fetchGenerationRef.current) {
-        setAssumptions(assumptionsBody.assumptions);
+      if (loadedAssumptions && generation === fetchGenerationRef.current) {
+        setAssumptions(loadedAssumptions);
       }
 
       const newest = rows

@@ -18,15 +18,21 @@ const AssumptionsBodySchema = z.object({
 });
 
 export const GET = withAuth(async (req, user) => {
-  const portfolioId = new URL(req.url).searchParams.get("portfolioId");
-  if (!portfolioId) {
-    return NextResponse.json({ error: "portfolioId required" }, { status: 400 });
+  try {
+    const portfolioId = new URL(req.url).searchParams.get("portfolioId");
+    if (!portfolioId) {
+      return NextResponse.json({ error: "portfolioId required" }, { status: 400 });
+    }
+    if (!(await assertPortfolioOwnedByUser(portfolioId, user.id))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const assumptions = await getPortfolioAssumptions(portfolioId);
+    return NextResponse.json({ assumptions });
+  } catch (err) {
+    console.error("GET /api/workbook/assumptions:", err);
+    const message = err instanceof Error ? err.message : "Failed to load assumptions";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  if (!(await assertPortfolioOwnedByUser(portfolioId, user.id))) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  const assumptions = await getPortfolioAssumptions(portfolioId);
-  return NextResponse.json({ assumptions });
 });
 
 export const PUT = withAuth(async (req, user) => {
