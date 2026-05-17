@@ -7,6 +7,26 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { enforceImportEntitlement, ImportEntitlementError } from "@/lib/marketplace/import-gate";
 import { spendImportToken } from "@/lib/marketplace/import-token-service";
 
+// ── In-process rate limiter ───────────────────────────────────────────────────
+// 5 imports per user per minute. Resets on cold start (Vercel serverless).
+// For production scale: replace with Redis / Upstash rate limiting.
+const importAttempts = new Map<string, { count: number; windowStart: number }>();
+
+function checkImportRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const windowMs = 60_000; // 1 minute
+  const maxPerWindow = 5;
+
+  const entry = importAttempts.get(userId);
+  if (!entry || now - entry.windowStart > windowMs) {
+    importAttempts.set(userId, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= maxPerWindow) return false;
+  entry.count++;
+  return true;
+}
+
 export const POST = withAuth(async (req, user, _ctx) => {
   let body: { portfolioId?: string; sleeveToken?: string };
   try {
@@ -18,6 +38,14 @@ export const POST = withAuth(async (req, user, _ctx) => {
   const sleeveToken = body.sleeveToken?.trim();
   if (!portfolioId || !sleeveToken) {
     return NextResponse.json({ error: "portfolioId and sleeveToken required" }, { status: 400 });
+  }
+
+  // Rate limit: 5 imports per user per minute (in-process; resets on cold start)
+  if (!checkImportRateLimit(user.id)) {
+    return NextResponse.json(
+      { error: "Too many import requests. Please wait a moment.", code: "RATE_LIMITED" },
+      { status: 429 },
+    );
   }
 
   const keys = await getActiveServiceKeysForUser(user.id);

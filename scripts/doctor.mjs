@@ -60,10 +60,38 @@ if (liveMode === "true") {
 const useVault = env.USE_LOCAL_VAULT;
 if (useVault === "true") {
   pass("USE_LOCAL_VAULT=true — sovereign vault mode active");
+  // Check 1: USE_LOCAL_VAULT=true requires LOCAL_DB_URL
+  if (!env.LOCAL_DB_URL) {
+    fail(
+      "USE_LOCAL_VAULT=true but LOCAL_DB_URL is not set. " +
+      "This will cause the vault data plane to crash silently at runtime. " +
+      "Either set LOCAL_DB_URL or remove USE_LOCAL_VAULT=true.",
+    );
+  } else {
+    pass("LOCAL_DB_URL set — vault database URL configured");
+  }
 } else {
   warn(
     "USE_LOCAL_VAULT is not set — running in cloud/hybrid mode. Exchange credentials will NOT be saved (sovereign boundary enforced in saveExchangeCredentials).",
   );
+}
+
+// Check 2: MARKETPLACE_USE_IMPORT_LEDGER backfill warning
+if (env.MARKETPLACE_USE_IMPORT_LEDGER === "true") {
+  warn(
+    "MARKETPLACE_USE_IMPORT_LEDGER=true. Ensure the backfill migration " +
+    "(20260620000002_backfill_existing_unlocks_to_ledger.sql) has been applied " +
+    "before deploying. Existing buyers will lose token access otherwise.",
+  );
+} else {
+  pass("MARKETPLACE_USE_IMPORT_LEDGER=false — legacy unlock path active (safe)");
+}
+
+// Check 3: ANTHROPIC_API_KEY (not checked in the block above)
+if (!env.ANTHROPIC_API_KEY) {
+  fail("Missing required environment variable: ANTHROPIC_API_KEY (needed for Strategy Council)");
+} else {
+  pass("ANTHROPIC_API_KEY set");
 }
 
 section("Docker");

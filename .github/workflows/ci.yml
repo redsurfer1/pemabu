@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    name: TypeScript + Build
+  typecheck:
+    name: TypeScript check
     runs-on: ubuntu-latest
 
     steps:
@@ -25,8 +25,88 @@ jobs:
         run: npm ci
 
       - name: TypeScript check
-        id: ts
         run: npx tsc --noEmit
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: typecheck
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npx vitest run
+        env:
+          # Tests that need these use mocks — safe placeholder values for CI
+          ANTHROPIC_API_KEY: test-key-not-real
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role
+          USE_LOCAL_VAULT: "false"
+          MARKETPLACE_USE_IMPORT_LEDGER: "false"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: typecheck
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Environment doctor check
+        run: node scripts/doctor.mjs
+        env:
+          # CI env — deliberately no vault, no local DB
+          USE_LOCAL_VAULT: "false"
+          MARKETPLACE_USE_IMPORT_LEDGER: "false"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Verify marketplace migrations present
+        run: |
+          node -e "
+            const fs = require('fs');
+            const migrations = fs.readdirSync('supabase/migrations');
+            const checks = [
+              { name: 'marketplace_unlocks', found: migrations.some(f => f.includes('marketplace_unlocks')) },
+              { name: 'marketplace_import_tokens', found: migrations.some(f => f.includes('marketplace_import_tokens')) },
+              { name: 'import_token_spend_rpc', found: migrations.some(f => f.includes('import_token_spend_rpc')) },
+            ];
+            let failed = false;
+            for (const c of checks) {
+              if (!c.found) {
+                console.error('Missing required migration file for:', c.name);
+                failed = true;
+              } else {
+                console.log('Migration present:', c.name, '✓');
+              }
+            }
+            if (failed) process.exit(1);
+            console.log('All marketplace migrations present ✓');
+          "
 
       - name: Build
         id: build
@@ -37,9 +117,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NEXT_PUBLIC_APP_URL: "http://localhost:3000"
           EXECUTION_LIVE_MODE: "false"
+          MARKETPLACE_USE_IMPORT_LEDGER: "false"
 
       - name: Report
         if: always()
-        run: |
-          echo "TypeScript check: ${{ steps.ts.outcome }}"
-          echo "Build: ${{ steps.build.outcome }}"
+        run: echo "Build: ${{ steps.build.outcome }}"
