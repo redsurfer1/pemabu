@@ -56,5 +56,24 @@ export const PUT = withAuth(async (req, user) => {
   };
 
   const applied = await upsertPortfolioAssumptions(portfolioId, merged);
+
+  // Fire-and-forget: trigger a signals refresh so composite ranks update
+  // immediately after the user changes weights. Uses service-role auth to
+  // bypass ownership gate. scope=signals_only skips the >15-holdings 202 gate.
+  // Failures are non-fatal and must not delay the response.
+  void (async () => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      await fetch(`${baseUrl}/api/portfolio/${portfolioId}/refresh?scope=signals_only`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""}`,
+        },
+      });
+    } catch (e) {
+      console.warn("[assumptions PUT] fire-and-forget refresh failed (non-fatal):", e);
+    }
+  })();
+
   return NextResponse.json({ assumptions: applied });
 });

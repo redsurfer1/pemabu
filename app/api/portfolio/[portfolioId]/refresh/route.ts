@@ -48,7 +48,10 @@ async function executeRefresh(
   }
   const count = holdingCount ?? 0;
   const forceRefresh = req.headers.get("x-pemabu-force-refresh") === "true";
-  if (count > 15 && !forceRefresh) {
+  // scope=signals_only: fired by the assumptions PUT to refresh ranks after
+  // weight changes. Bypass the 202 gate so even large portfolios get updated.
+  const signalsOnly = new URL(req.url).searchParams.get("scope") === "signals_only";
+  if (count > 15 && !forceRefresh && !signalsOnly) {
     return NextResponse.json(
       {
         queued: true,
