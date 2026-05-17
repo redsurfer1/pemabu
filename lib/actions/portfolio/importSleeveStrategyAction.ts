@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { resolveEffectiveTier, tierMeetsMinimum, type PemabuTier } from "@/lib/security/tier-guard";
 import { enforceImportEntitlement, ImportEntitlementError } from "@/lib/marketplace/import-gate";
+import { spendImportToken } from "@/lib/marketplace/import-token-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function importSleeveStrategyAction(portfolioId: string, sleeveToken: string) {
@@ -41,6 +42,22 @@ export async function importSleeveStrategyAction(portfolioId: string, sleeveToke
 
   const out = await importSleeveStrategy(user.id, portfolioId, sleeveToken);
   if (!out.ok) return { success: false as const, error: out.error };
+
+  // Spend one import token after a successful import (ledger path only).
+  if (process.env.MARKETPLACE_USE_IMPORT_LEDGER === "true") {
+    const idempotencyKey = `${user.id}:${sleeveToken.slice(0, 32)}:${Math.floor(Date.now() / 60_000)}`;
+    try {
+      await spendImportToken({
+        userId: user.id,
+        strategyId: null,
+        strategySlug: out.sleeveId,
+        portfolioId,
+        idempotencyKey,
+      });
+    } catch (e) {
+      console.error("[importSleeveStrategyAction] Token spend failed after successful import:", e);
+    }
+  }
 
   // Fire-and-forget leaderboard refresh — does not block import response (Task Group I)
   void (async () => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { MARKETPLACE_UNLOCK_PRICE_CENTS, splitUnlockSale } from "@/lib/marketplace/unlock-pricing";
+import { creditTokensFromStripe } from "@/lib/marketplace/import-token-service";
 
 export const runtime = "nodejs";
 
@@ -84,6 +85,25 @@ async function handleMarketplaceUnlock(session: Stripe.Checkout.Session): Promis
       { error: "Unlock recorded but creator accrual failed" },
       { status: 500 },
     );
+  }
+
+  // Ledger credit — only active when MARKETPLACE_USE_IMPORT_LEDGER=true.
+  // Both the unlock row (above) AND the ledger credit are written during the
+  // transition period. Once the flag is permanently true and the backfill has
+  // run, the unlock insert can be removed in a follow-up migration.
+  if (process.env.MARKETPLACE_USE_IMPORT_LEDGER === "true") {
+    try {
+      await creditTokensFromStripe({
+        userId,
+        stripeSessionId: sessionId,
+        quantity: 1,
+        amountUsdCents: amountCents,
+      });
+    } catch (e) {
+      // Non-fatal for the webhook response — the unlock row was already written.
+      // Log for monitoring; the backfill migration can heal any missed credits.
+      console.error("import-token ledger credit failed (non-fatal):", e);
+    }
   }
 
   return null;
