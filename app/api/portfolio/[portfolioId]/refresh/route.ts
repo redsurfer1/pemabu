@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { refreshPortfolioSignals } from "@/lib/allocation/refresh-portfolio-signals";
 import { normaliseWeights, type Assumptions } from "@/lib/portfolio/formula-engine";
 import { normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
+import { runSovereignScorePipeline } from "@/lib/portfolio/sovereign-score-pipeline";
 
 export const maxDuration = 60;
 
@@ -104,6 +105,27 @@ async function executeRefresh(
 
     // TODO: move to Supabase Edge Function cron for > 20 holdings
     await refreshPortfolioSignals(portfolioId, supabase);
+
+    // Sovereign score pipeline — populates score_token_quality for crypto holdings.
+    // Fire-and-forget: TTF scoring is best-effort and must not block the refresh response.
+    // Failures are logged inside runSovereignScorePipeline and are non-fatal.
+    void (async () => {
+      try {
+        const { data: holdingRows } = await supabase
+          .from("portfolio_holdings")
+          .select("id, ticker, asset_class")
+          .eq("portfolio_id", portfolioId);
+        if (holdingRows && holdingRows.length > 0) {
+          await runSovereignScorePipeline(
+            portfolioId,
+            holdingRows as Array<{ id: string; ticker: string; asset_class: string }>,
+          );
+        }
+      } catch (e) {
+        console.warn("[refresh] Sovereign score pipeline failed (non-fatal):", e);
+      }
+    })();
+
     return NextResponse.json({ success: true, refreshedAt: new Date().toISOString() });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

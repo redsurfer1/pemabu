@@ -11,6 +11,27 @@ vi.mock("@/lib/allocation/refresh-portfolio-signals", () => ({
   refreshPortfolioSignals: (...args: unknown[]) => refreshPortfolioSignalsMock(...args),
 }));
 
+// Dynamic imports inside executeRefresh — must be mocked so tests don't
+// hit supabaseAdmin (which requires NEXT_PUBLIC_SUPABASE_URL in env).
+vi.mock("@/lib/services/user-entitlements", () => ({
+  getActiveServiceKeysForUser: () => Promise.resolve(["intelligence_annual"]),
+}));
+
+vi.mock("@/lib/entitlements/tier-capabilities", () => ({
+  canUseExchangePriceSync: () => true,
+}));
+
+vi.mock("@/lib/security/tier-guard", () => ({
+  tierForbiddenResponse: () =>
+    new Response(JSON.stringify({ error: "tier forbidden" }), { status: 403 }),
+}));
+
+// Sovereign score pipeline — fire-and-forget; no-op in tests so we don't
+// need CoinGecko / supabaseAdmin reachable.
+vi.mock("@/lib/portfolio/sovereign-score-pipeline", () => ({
+  runSovereignScorePipeline: () => Promise.resolve(),
+}));
+
 import { POST } from "./[portfolioId]/refresh/route";
 
 type MockSetup = {
