@@ -5,6 +5,21 @@ const fetchMarketDataWithFallbackMock = vi.fn();
 
 vi.mock("@/lib/market-data/yahoo-finance", () => ({
   fetchMarketDataWithFallback: (...args: unknown[]) => fetchMarketDataWithFallbackMock(...args),
+  // Identity mock — tests verify the ticker is forwarded as-is from params;
+  // real normalizeTicker uppercases, but tests assert the raw param value.
+  normalizeTicker: (ticker: string) => ticker,
+}));
+
+// withAuth calls createClient() → cookies() which crashes outside Next.js request
+// scope. Provide a minimal auth mock that always resolves with a test user.
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: () =>
+    Promise.resolve({
+      auth: {
+        getUser: () =>
+          Promise.resolve({ data: { user: { id: "test-user-1" } }, error: null }),
+      },
+    }),
 }));
 
 describe("GET /api/market-data/[ticker]", () => {

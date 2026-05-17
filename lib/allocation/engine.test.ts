@@ -151,38 +151,51 @@ function makeHolding(
 
 describe("computeMainSleeve — vol cap", () => {
   it("caps positions exceeding volCapMultiplier × equalWeight", () => {
-    // 60 holdings (matches the real 60-ETF universe).
-    // equalWtBase = 1/60 ≈ 0.01667. volCap = 3 × 0.01667 ≈ 0.05.
+    // 60 holdings. equalWtBase = 1/60 ≈ 0.01667. volCap = 3 × 0.01667 ≈ 0.05.
     //
-    // Holding 0: price3mo=1 → 99× 3-month return → blendedReturn ≫ 0 → prReturn=1, prSharpe=1.
-    //            divDollar=100, value=100 → divAPY=1.0 → prDivAPY=1.
-    //            All same expenseRatio → prExpense=1 for all.
-    //            compositeScore ≈ 1.0
+    // Uses a custom assumption set where only weightedReturn counts (weight=1.0,
+    // all other factors=0). This makes compositeScore = prReturn exclusively,
+    // giving deterministic results regardless of expense / divApy / vol factor changes.
     //
-    // Others (59): price3mo=price (0% return) → blendedReturn=0 → prReturn=0, prSharpe=0.
-    //              divDollar=0 → prDivAPY=0.
-    //              compositeScore = prExpense×0.30 = 1×0.30 = 0.30
+    // h0: price3mo=1, price=100  → ret3mo = (100-1)/1 = 99 → prReturn=1.0 → compositeScore=1.0
+    // h1-h59: price3mo=price → ret3mo=0 → prReturn=0.0 → compositeScore=0.0
     //
-    // rawScoreWt for h0 = 1.0 / (1.0 + 59×0.30) = 1.0/18.7 ≈ 0.0535 > volCap=0.05 → CAPPED
-    const mkInput = (id: string, price3mo: number, divDollar: number): HoldingInput => ({
+    // rawScoreWt for h0 = 1.0 / 1.0 = 1.0 >> volCap=0.05 → CAPPED ✓
+    const returnOnlyAssumptions = {
+      ...DEFAULT_ENGINE_ASSUMPTIONS,
+      factorWeights: {
+        expense: 0,
+        pctWeight: 0,
+        weightedReturn: 1.0,
+        divApy: 0,
+        volatility: 0,
+        thirteenF: 0,
+        macroIntelligence: 0,
+        governanceLayer: 0,
+        politicalTracker: 0,
+        tokenQuality: 0,
+      },
+    };
+
+    const mkInput = (id: string, price3mo: number): HoldingInput => ({
       id, ticker: id, name: id, status: "Active", theme: "Tech",
-      qty: 1, price: 100, expenseRatio: 0.0001, divDollar,
+      qty: 1, price: 100, expenseRatio: 0.0001, divDollar: 0,
       price3mo, price6mo: price3mo, price1yr: price3mo, price3yr: price3mo, price5yr: price3mo,
     });
 
     const holdings: HoldingInput[] = [
-      mkInput("h0", 1, 100),
-      ...Array.from({ length: 59 }, (_, i) => mkInput(`h${i + 1}`, 100, 0)),
+      mkInput("h0", 1),
+      ...Array.from({ length: 59 }, (_, i) => mkInput(`h${i + 1}`, 100)),
     ];
 
-    const { holdings: computed } = computeMainSleeve(holdings, DEFAULT_ENGINE_ASSUMPTIONS);
+    const { holdings: computed } = computeMainSleeve(holdings, returnOnlyAssumptions);
     const active = computed.filter((h) => h.status === "Active");
     const capped = active.filter((h) => h.volCapFlag === "CAPPED");
     expect(capped.length).toBeGreaterThan(0);
     capped.forEach((h) => {
       // Every CAPPED holding must have rawScoreWt > volCapMultiplier × equalWtBase
       expect(h.rawScoreWt).toBeGreaterThan(
-        DEFAULT_ENGINE_ASSUMPTIONS.volCapMultiplier * h.equalWtBase,
+        returnOnlyAssumptions.volCapMultiplier * h.equalWtBase,
       );
     });
   });

@@ -85,7 +85,9 @@ describe("fetchMarketDataWithFallback", () => {
     const result = await fetchMarketDataWithFallback("VEA");
 
     expect(tiingoMock).toHaveBeenCalledTimes(1);
-    expect(tiingoMock).toHaveBeenCalledWith("VEA");
+    // fetchMarketDataTiingo now accepts (ticker, options?) — token is undefined
+    // when no tiingoToken is passed to fetchMarketDataWithFallback.
+    expect(tiingoMock).toHaveBeenCalledWith("VEA", { token: undefined });
     expect(result.provider).toBe("tiingo");
     expect(result.price1).toBe(99);
   });

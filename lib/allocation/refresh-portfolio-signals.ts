@@ -25,6 +25,7 @@ import {
   computePortfolioRanks,
   computeRSI,
   denseRank,
+  DEFAULT_ASSUMPTIONS,
 } from "@/lib/portfolio/formula-engine";
 import { getPortfolioTiingoToken } from "@/lib/portfolio/api-credentials";
 import { clearPriceCache, fetchMarketDataCached } from "@/lib/market-data/yahoo-finance";
@@ -105,7 +106,7 @@ export async function refreshPortfolioSignals(
   clearPriceCache();
 
   const { getPortfolioAssumptions } = await import("@/lib/portfolio/portfolio-assumptions-store");
-  const assumptions = await getPortfolioAssumptions(portfolioId);
+  const assumptions = (await getPortfolioAssumptions(portfolioId)) ?? DEFAULT_ASSUMPTIONS;
 
   const { getPortfolioTiingoToken } = await import("@/lib/portfolio/api-credentials");
   const tiingoToken = await getPortfolioTiingoToken(supabase, portfolioId);

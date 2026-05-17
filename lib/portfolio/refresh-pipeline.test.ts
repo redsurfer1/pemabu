@@ -1,4 +1,33 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
+
+// refresh-portfolio-signals.ts starts with `import "server-only"` which is a
+// Next.js build-time guard that has no runtime implementation in the vitest
+// node environment. Mock the package so the test can import the module.
+vi.mock("server-only", () => ({}));
+
+// refreshPortfolioSignals dynamically imports portfolio-assumptions-store,
+// which calls createClient() → cookies() (crashes outside request scope).
+// Mock it to return null so the fallback to DEFAULT_ASSUMPTIONS triggers,
+// which is the exact scenario all tests in this file exercise.
+vi.mock("@/lib/portfolio/portfolio-assumptions-store", () => ({
+  getPortfolioAssumptions: () => Promise.resolve(null),
+}));
+
+// getPortfolioTiingoToken queries portfolio_api_credentials — no custom
+// token in tests; returning null causes the global env token to be used.
+vi.mock("@/lib/portfolio/api-credentials", () => ({
+  getPortfolioTiingoToken: () => Promise.resolve(null),
+}));
+
+// Prevent createClient from calling cookies() if imported by any other path.
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: () =>
+    Promise.resolve({
+      auth: { getUser: () => Promise.resolve({ data: { user: null }, error: null }) },
+      from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }) }),
+    }),
+}));
+
 import { refreshPortfolioSignals } from "@/lib/allocation/refresh-portfolio-signals";
 import { DEFAULT_ASSUMPTIONS, colAB, colV, colW, colX, colY, colZ } from "@/lib/portfolio/formula-engine";
 
@@ -7,6 +36,11 @@ const fetchMarketDataMock = vi.fn();
 vi.mock("@/lib/market-data/yahoo-finance", () => ({
   fetchMarketData: (...args: unknown[]) => fetchMarketDataMock(...args),
   fetchMarketDataWithFallback: (...args: unknown[]) => fetchMarketDataMock(...args),
+  // fetchMarketDataCached is the call site used in refresh-portfolio-signals.ts.
+  // Forward to the same mock so tests can configure it per test case.
+  fetchMarketDataCached: (...args: unknown[]) => fetchMarketDataMock(...args),
+  // clearPriceCache is called at the start of refreshPortfolioSignals; no-op in tests.
+  clearPriceCache: () => {},
 }));
 
 type MockHolding = {

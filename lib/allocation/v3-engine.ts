@@ -72,7 +72,8 @@ export function percentRank(values: number[], target: number): number {
   const sorted = [...values].sort((a, b) => a - b);
   const below = sorted.filter((v) => v < target).length;
   const total = sorted.length - 1;
-  return total > 0 ? below / total : 0;
+  // Clamp to [0, 1]: below/total can exceed 1 when target > max of values.
+  return total > 0 ? Math.min(1, below / total) : 0;
 }
 
 // ── Step 5: Composite Score ─────────────────────────────────────
