@@ -1,3 +1,7 @@
+// $4.99 per import token / per blueprint unlock
+// Updated: previously $9.99 during alpha — all production transactions use 499¢
+// Stripe price_data uses this constant directly — do not change without
+// updating Stripe product prices and any active subscriptions
 /** Marketplace blueprint unlock — integer cents only ($4.99 = 499). */
 export const MARKETPLACE_UNLOCK_PRICE_CENTS = 499;
 /** Developer royalty share of gross (70%). */

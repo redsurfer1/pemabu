@@ -1,4 +1,4 @@
--- Marketplace import unlock ($9.99) + creator royalty ledger (cents-based).
+-- Marketplace import unlock ($4.99) + creator royalty ledger (cents-based).
 
 CREATE TABLE IF NOT EXISTS public.creator_stats (
   creator_user_id uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
