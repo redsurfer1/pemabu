@@ -4,7 +4,7 @@ import { importSleeveStrategy } from "@/lib/portfolio/import-sleeve-strategy";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { resolveEffectiveTier, tierMeetsMinimum, type PemabuTier } from "@/lib/security/tier-guard";
-import { assertMarketplaceImportUnlock } from "@/lib/marketplace/assert-import-unlock";
+import { enforceImportEntitlement, ImportEntitlementError } from "@/lib/marketplace/import-gate";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function importSleeveStrategyAction(portfolioId: string, sleeveToken: string) {
@@ -26,27 +26,29 @@ export async function importSleeveStrategyAction(portfolioId: string, sleeveToke
     };
   }
 
-  let gate: Awaited<ReturnType<typeof assertMarketplaceImportUnlock>>;
   try {
-    gate = await assertMarketplaceImportUnlock(user.id, sleeveToken);
-  } catch {
+    await enforceImportEntitlement(user.id, sleeveToken);
+  } catch (err) {
+    if (err instanceof ImportEntitlementError) {
+      return {
+        success: false as const,
+        error: err.message,
+        code: "PAYMENT_REQUIRED" as const,
+      };
+    }
     return { success: false as const, error: "Marketplace lookup failed" };
-  }
-  if (!gate.ok) {
-    return {
-      success: false as const,
-      error: gate.message,
-      code: "PAYMENT_REQUIRED" as const,
-    };
   }
 
   const out = await importSleeveStrategy(user.id, portfolioId, sleeveToken);
   if (!out.ok) return { success: false as const, error: out.error };
 
-  const { error: refreshErr } = await supabaseAdmin.rpc("refresh_leaderboard_scores");
-  if (refreshErr) {
-    console.error("refresh_leaderboard_scores:", refreshErr.message);
-  }
+  // Fire-and-forget leaderboard refresh — does not block import response (Task Group I)
+  void (async () => {
+    const { error: refreshErr } = await supabaseAdmin.rpc("refresh_leaderboard_scores");
+    if (refreshErr) {
+      console.error("refresh_leaderboard_scores (non-fatal):", refreshErr.message);
+    }
+  })();
 
   return { success: true as const, sleeveId: out.sleeveId };
 }
