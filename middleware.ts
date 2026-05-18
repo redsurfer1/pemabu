@@ -12,6 +12,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/",           // exact home — checked separately via === below
   "/about",
   "/pricing",
+  "/founding-publishers",
+  "/creator/",
   "/crypto",
   "/request-access",
   "/demo",

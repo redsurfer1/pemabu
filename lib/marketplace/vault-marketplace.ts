@@ -9,7 +9,50 @@ export type LeaderboardRow = {
   blueprint_adherence_score: string;
   vw_rsi_performance_score: string;
   published_at: string;
+  is_founding_publisher?: boolean;
+  /** Server-side only — hash before exposing to clients */
+  publisher_user_id?: string | null;
 };
+
+function sortLeaderboardRows(rows: LeaderboardRow[]): LeaderboardRow[] {
+  return [...rows].sort((a, b) => {
+    const af = a.is_founding_publisher ? 1 : 0;
+    const bf = b.is_founding_publisher ? 1 : 0;
+    if (bf !== af) return bf - af;
+    const gradeDiff = Number(b.strategy_grade) - Number(a.strategy_grade);
+    if (gradeDiff !== 0) return gradeDiff;
+    return new Date(a.published_at).getTime() - new Date(b.published_at).getTime();
+  });
+}
+
+async function enrichLeaderboardFlags(
+  supabase: SupabaseClient,
+  rows: LeaderboardRow[],
+): Promise<LeaderboardRow[]> {
+  if (rows.length === 0) return rows;
+  const ids = rows.map((r) => r.id);
+  const { data: flags } = await supabase
+    .from("marketplace_strategies")
+    .select("id, is_founding_publisher, publisher_user_id")
+    .in("id", ids);
+  const map = new Map(
+    (flags ?? []).map((f) => [
+      String((f as { id: string }).id),
+      {
+        is_founding_publisher: Boolean((f as { is_founding_publisher?: boolean }).is_founding_publisher),
+        publisher_user_id: (f as { publisher_user_id: string | null }).publisher_user_id,
+      },
+    ]),
+  );
+  return rows.map((r) => {
+    const extra = map.get(r.id);
+    return {
+      ...r,
+      is_founding_publisher: extra?.is_founding_publisher ?? false,
+      publisher_user_id: extra?.publisher_user_id ?? null,
+    };
+  });
+}
 
 /** Public teaser: no adherence column (privacy / product positioning). */
 export type PublicLeaderboardTeaserRow = {
@@ -60,11 +103,12 @@ export async function listMarketplaceLeaderboardTeaserVault(limit: number): Prom
 }
 
 export async function listMarketplaceLeaderboardSupabase(supabase: SupabaseClient, limit: number): Promise<LeaderboardRow[]> {
+  const fetchLimit = Math.min(100, Math.max(limit * 2, limit));
   const primary = await supabase
     .from("marketplace_leaderboard_scores")
     .select("id, display_name, strategy_grade, blueprint_adherence_score, vw_rsi_performance_score, published_at")
     .order("strategy_grade", { ascending: false })
-    .limit(limit);
+    .limit(fetchLimit);
   const source =
     primary.error == null
       ? primary
@@ -72,9 +116,9 @@ export async function listMarketplaceLeaderboardSupabase(supabase: SupabaseClien
           .from("marketplace_leaderboard_public")
           .select("id, display_name, strategy_grade, blueprint_adherence_score, vw_rsi_performance_score, published_at")
           .order("strategy_grade", { ascending: false })
-          .limit(limit);
+          .limit(fetchLimit);
   if (source.error) throw new Error(source.error.message);
-  return (source.data ?? []).map((r) => ({
+  const base = (source.data ?? []).map((r) => ({
     id: String((r as { id: string }).id),
     display_name: String((r as { display_name: string }).display_name),
     strategy_grade: String((r as { strategy_grade: number }).strategy_grade),
@@ -82,6 +126,8 @@ export async function listMarketplaceLeaderboardSupabase(supabase: SupabaseClien
     vw_rsi_performance_score: String((r as { vw_rsi_performance_score: number }).vw_rsi_performance_score),
     published_at: String((r as { published_at: string }).published_at),
   }));
+  const enriched = await enrichLeaderboardFlags(supabase, base);
+  return sortLeaderboardRows(enriched).slice(0, limit);
 }
 
 export async function listMarketplaceLeaderboardVault(limit: number): Promise<LeaderboardRow[]> {

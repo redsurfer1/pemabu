@@ -40,6 +40,12 @@ export default function MarketingNav({ onSignIn }: MarketingNavProps) {
             Pricing
           </Link>
           <Link
+            href="/founding-publishers"
+            className="cursor-pointer text-[13px] font-normal tracking-wide text-slate-500 no-underline hover:text-slate-300"
+          >
+            Founding Publishers
+          </Link>
+          <Link
             href="/disclaimer"
             className="cursor-pointer text-[13px] font-normal tracking-wide text-slate-500 no-underline hover:text-slate-300"
           >

@@ -65,6 +65,15 @@ describe("marketplace unlock pricing", () => {
     expect(platformFeeCents).toBe(499 - creatorPayoutCents);
   });
 
+  test("80/20 founding publisher split on $4.99", () => {
+    const { creatorPayoutCents, platformFeeCents, creatorRoyaltyPct } = splitUnlockSale(499, {
+      isFoundingPublisher: true,
+    });
+    expect(creatorRoyaltyPct).toBe(0.8);
+    expect(creatorPayoutCents).toBe(Math.floor((499 * 80) / 100));
+    expect(platformFeeCents).toBe(499 - creatorPayoutCents);
+  });
+
   test("stripe webhook idempotency key is session id (documented contract)", () => {
     const webhookSrc = fs.readFileSync(
       path.join(process.cwd(), "app/api/stripe/webhook/route.ts"),
