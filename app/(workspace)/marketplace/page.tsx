@@ -9,11 +9,16 @@ import { importSleeveStrategyAction } from "@/lib/actions/portfolio/importSleeve
 
 import { PemabuDisclaimer } from "@/components/ui/PemabuDisclaimer";
 import { StrategyPerformanceCell } from "@/components/marketplace/StrategyPerformanceCell";
+import { FoundingPublisherBadge } from "@/components/marketplace/FoundingPublisherBadge";
+import { TokenBundleSelector, type BundleSize } from "@/components/marketplace/TokenBundleSelector";
+import { ReferralCodeDisplay } from "@/components/marketplace/ReferralCodeDisplay";
+import { ShareCreatorProfileButton } from "@/components/marketplace/ShareCreatorProfileButton";
 
 type TeaserRow = {
   display_name: string;
   strategy_grade: string;
   vw_rsi_performance_score: string;
+  is_founding_publisher?: boolean;
 };
 
 type FullRow = TeaserRow & {
@@ -21,9 +26,11 @@ type FullRow = TeaserRow & {
   blueprint_adherence_score: string;
   published_at: string;
   publisher_pseudonym: string;
+  creator_public_id: string | null;
+  is_own_publisher?: boolean;
 };
 
-type Viewer = { isIntelligence: boolean; authenticated: boolean };
+type Viewer = { isIntelligence: boolean; authenticated: boolean; userId?: string | null };
 
 function rowKey(r: TeaserRow | FullRow, i: number): string {
   return "id" in r && r.id ? r.id : `${r.display_name}-${i}`;
@@ -43,7 +50,11 @@ export default function MarketplacePage() {
   });
 
   const rows = leaderboardQuery.data?.strategies ?? [];
-  const viewer = leaderboardQuery.data?.viewer ?? { isIntelligence: false, authenticated: false };
+  const viewer = leaderboardQuery.data?.viewer ?? {
+    isIntelligence: false,
+    authenticated: false,
+    userId: null,
+  };
   const err = leaderboardQuery.isError ? "Leaderboard unavailable." : null;
   const [sleeveToken, setSleeveToken] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -53,6 +64,11 @@ export default function MarketplacePage() {
   const [importToken, setImportToken] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [selectedBundle, setSelectedBundle] = useState<BundleSize>("single");
+  const [referralInput, setReferralInput] = useState("");
+  const ownsPublishedStrategy = rows.some(
+    (r) => "is_own_publisher" in r && (r as FullRow).is_own_publisher,
+  );
 
   useEffect(() => {
     if (!portfolios.length) return;
@@ -106,6 +122,34 @@ export default function MarketplacePage() {
       }
       setImportMsg(`Imported new sleeve (target protocol only). Sleeve id: ${r.sleeveId}`);
       setImportToken("");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function startTokenBundleCheckout() {
+    setImportMsg(null);
+    setImportBusy(true);
+    try {
+      const res = await fetch("/api/stripe/create-import-token-checkout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bundleSize: selectedBundle,
+          ...(referralInput.trim() ? { referralCode: referralInput.trim() } : {}),
+        }),
+      });
+      const j = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) {
+        setImportMsg(j.error ?? "Could not start checkout");
+        return;
+      }
+      if (j.url) {
+        window.location.assign(j.url);
+        return;
+      }
+      setImportMsg("Checkout did not return a redirect URL");
     } finally {
       setImportBusy(false);
     }
@@ -172,7 +216,20 @@ export default function MarketplacePage() {
                   {showPrivate && "publisher_pseudonym" in r ? (
                     <td className="px-3 py-2 font-mono text-gray-400">{(r as FullRow).publisher_pseudonym}</td>
                   ) : null}
-                  <td className="px-3 py-2 text-white">{r.display_name}</td>
+                  <td className="px-3 py-2 text-white">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{r.display_name}</span>
+                      {r.is_founding_publisher ? <FoundingPublisherBadge /> : null}
+                    </div>
+                    {"creator_public_id" in r && (r as FullRow).creator_public_id ? (
+                      <Link
+                        href={`/creator/${(r as FullRow).creator_public_id}`}
+                        className="mt-0.5 block text-[10px] text-gray-500 hover:text-gray-300"
+                      >
+                        View creator profile →
+                      </Link>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 font-mono text-emerald-200/90">{r.strategy_grade}</td>
                   <td className="px-3 py-2 font-mono text-gray-300">{r.vw_rsi_performance_score}</td>
                   {showPrivate && "blueprint_adherence_score" in r && "id" in r ? (
@@ -237,6 +294,20 @@ export default function MarketplacePage() {
                 value={importToken}
                 onChange={(e) => setImportToken(e.target.value)}
               />
+              <div className="mt-4">
+                <TokenBundleSelector selectedBundle={selectedBundle} onSelect={setSelectedBundle} />
+              </div>
+              <label className="mt-3 block text-xs text-gray-500">Referral code (optional)</label>
+              <input
+                className="mt-1 w-full rounded border border-white/10 bg-[#0d1524] px-3 py-2 text-sm text-white"
+                placeholder="PEMABU-XXXX99"
+                value={referralInput}
+                onChange={(e) => setReferralInput(e.target.value)}
+              />
+              <div className="mt-3">
+                <p className="text-xs text-gray-500">Your referral code — share to earn tokens</p>
+                <ReferralCodeDisplay />
+              </div>
               <button
                 type="button"
                 disabled={importBusy || !importPortfolioId || !importToken.trim()}
@@ -247,11 +318,19 @@ export default function MarketplacePage() {
               </button>
               <button
                 type="button"
-                disabled={importBusy || !importToken.trim()}
-                onClick={() => void startUnlockCheckout()}
+                disabled={importBusy}
+                onClick={() => void startTokenBundleCheckout()}
                 className="ml-2 mt-3 rounded border border-emerald-500/40 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-950/40 disabled:opacity-40"
               >
-                Buy import token — $4.99 (Stripe)
+                Buy token pack (Stripe)
+              </button>
+              <button
+                type="button"
+                disabled={importBusy || !importToken.trim()}
+                onClick={() => void startUnlockCheckout()}
+                className="ml-2 mt-3 rounded border border-white/20 bg-black/30 px-4 py-2 text-sm text-gray-300 hover:bg-black/50 disabled:opacity-40"
+              >
+                Unlock this blueprint ($4.99)
               </button>
               {importMsg ? <p className="mt-2 text-xs text-gray-400">{importMsg}</p> : null}
             </>
@@ -297,6 +376,11 @@ export default function MarketplacePage() {
                 Publish to vault leaderboard
               </button>
               {pubMsg ? <p className="mt-2 text-xs text-gray-400">{pubMsg}</p> : null}
+              {ownsPublishedStrategy && viewer.userId ? (
+                <p className="mt-3">
+                  <ShareCreatorProfileButton userId={viewer.userId} />
+                </p>
+              ) : null}
             </>
           )}
         </section>
