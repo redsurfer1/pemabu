@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { checkAccess } from "@/lib/access/checkAccess";
+import { LEGAL_ROUTES } from "@/lib/constants/compliance";
 
 /**
  * Public paths that do NOT require authentication.
@@ -14,6 +15,9 @@ const PUBLIC_PATH_PREFIXES = [
   "/crypto",
   "/request-access",
   "/demo",
+  LEGAL_ROUTES.terms,
+  LEGAL_ROUTES.privacy,
+  LEGAL_ROUTES.disclaimer,
   "/auth/",
   "/api/stripe/",  // Stripe webhooks and public Stripe-facing endpoints
   "/api/public/",  // explicitly public API surface

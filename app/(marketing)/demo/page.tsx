@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import MarketingNav from "@/components/home/MarketingNav";
-import { SiteLegalFooter } from "@/components/legal/SiteLegalFooter";
 import { AllocationRing } from "@/components/allocation/AllocationRing";
 import type { AllocationWeight } from "@/lib/types/database";
 import AuthModal from "@/components/AuthModal";
@@ -30,11 +28,10 @@ export default function DemoPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A1628] text-slate-200">
+    <>
       {showAuth ? <AuthModal onClose={() => setShowAuth(false)} /> : null}
-      <MarketingNav onSignIn={() => setShowAuth(true)} />
 
-      <main className="mx-auto max-w-4xl px-6 pb-20 pt-28">
+      <main className="mx-auto max-w-4xl px-6 pb-12 pt-10">
         <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-400">Live product demo</p>
         <h1 className="text-3xl font-light tracking-wide text-white">{data?.name ?? "Allocation demo"}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-400">
@@ -89,10 +86,6 @@ export default function DemoPage() {
           </div>
         )}
       </main>
-
-      <footer className="border-t border-[#1a2f4e] px-6 py-8">
-        <SiteLegalFooter />
-      </footer>
-    </div>
+    </>
   );
 }
