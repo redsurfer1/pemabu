@@ -14,24 +14,25 @@ function stripeClient(): Stripe {
 
 // ── Marketplace unlock ────────────────────────────────────────────────────────
 
-async function accrueCreatorRoyalty(creatorUserId: string, deltaCents: number): Promise<void> {
+/**
+ * Atomically increments creator_stats.accrued_royalties_cents via the
+ * accrue_creator_royalty() Postgres RPC (migration 20260630000001).
+ *
+ * The RPC uses INSERT … ON CONFLICT DO NOTHING on creator_royalty_ledger
+ * (keyed by stripe_session_id) before applying the atomic increment, so
+ * concurrent webhook redeliveries for the same session are idempotent.
+ */
+async function accrueCreatorRoyalty(
+  creatorUserId: string,
+  deltaCents: number,
+  stripeSessionId: string,
+): Promise<void> {
   if (deltaCents <= 0) return;
-  const { data: row } = await supabaseAdmin
-    .from("creator_stats")
-    .select("accrued_royalties_cents")
-    .eq("creator_user_id", creatorUserId)
-    .maybeSingle();
-  const prev = Number(
-    (row as { accrued_royalties_cents?: number } | null)?.accrued_royalties_cents ?? 0,
-  );
-  const { error } = await supabaseAdmin.from("creator_stats").upsert(
-    {
-      creator_user_id: creatorUserId,
-      accrued_royalties_cents: prev + deltaCents,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "creator_user_id" },
-  );
+  const { error } = await supabaseAdmin.rpc("accrue_creator_royalty", {
+    p_creator_user_id: creatorUserId,
+    p_delta_cents: deltaCents,
+    p_stripe_session_id: stripeSessionId,
+  });
   if (error) throw new Error(error.message);
 }
 
@@ -78,7 +79,7 @@ async function handleMarketplaceUnlock(session: Stripe.Checkout.Session): Promis
   }
 
   try {
-    await accrueCreatorRoyalty(creatorId, creatorPayoutCents);
+    await accrueCreatorRoyalty(creatorId, creatorPayoutCents, sessionId);
   } catch (e) {
     console.error("creator_stats accrual failed:", e);
     return NextResponse.json(
