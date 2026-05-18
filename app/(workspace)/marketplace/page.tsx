@@ -8,6 +8,7 @@ import { usePortfolios } from "@/hooks/usePortfolios";
 import { importSleeveStrategyAction } from "@/lib/actions/portfolio/importSleeveStrategyAction";
 
 import { PemabuDisclaimer } from "@/components/ui/PemabuDisclaimer";
+import { StrategyPerformanceCell } from "@/components/marketplace/StrategyPerformanceCell";
 
 type TeaserRow = {
   display_name: string;
@@ -159,6 +160,7 @@ export default function MarketplacePage() {
                 {showPrivate ? (
                   <>
                     <th className="px-3 py-2">Protocol adherence</th>
+                    <th className="px-3 py-2">Track record</th>
                     <th className="px-3 py-2">Published</th>
                   </>
                 ) : null}
@@ -173,9 +175,16 @@ export default function MarketplacePage() {
                   <td className="px-3 py-2 text-white">{r.display_name}</td>
                   <td className="px-3 py-2 font-mono text-emerald-200/90">{r.strategy_grade}</td>
                   <td className="px-3 py-2 font-mono text-gray-300">{r.vw_rsi_performance_score}</td>
-                  {showPrivate && "blueprint_adherence_score" in r ? (
+                  {showPrivate && "blueprint_adherence_score" in r && "id" in r ? (
                     <>
                       <td className="px-3 py-2 font-mono text-gray-300">{(r as FullRow).blueprint_adherence_score}</td>
+                      <td className="px-3 py-2">
+                        <StrategyPerformanceCell
+                          strategyId={(r as FullRow).id}
+                          strategyName={r.display_name}
+                          showPrivate={showPrivate}
+                        />
+                      </td>
                       <td className="px-3 py-2 text-gray-500">{(r as FullRow).published_at.slice(0, 10)}</td>
                     </>
                   ) : null}

@@ -65,7 +65,10 @@ export const POST = withAuth(async (req, user, _ctx) => {
       strategy_grade: grades.strategy_grade,
       blueprint_adherence_score: grades.blueprint_adherence_score,
       vw_rsi_performance_score: grades.vw_rsi_performance_score,
-      metadata: body.metadata ?? {},
+      metadata: {
+        ...(body.metadata ?? {}),
+        ...(src ? { sourceSleeveId: src } : {}),
+      },
     });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
