@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { enrichDisclosuresWithSentiment } from "@/lib/political-tracker/disclosure-sentiment";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// Returns the 50 most recent congressional disclosures, optionally filtered by ticker.
-// Requires addon_political_tracker OR intelligence_annual / autonomous_annual.
+const HISTORY_DAYS = 365;
+
 export const GET = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, "addon_political_tracker");
 
@@ -12,11 +13,16 @@ export const GET = withAuth(async (req, user) => {
   const ticker = url.searchParams.get("ticker")?.toUpperCase().trim() ?? null;
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
 
+  const historySince = new Date();
+  historySince.setDate(historySince.getDate() - HISTORY_DAYS);
+  const historySinceStr = historySince.toISOString().split("T")[0]!;
+
   let query = supabaseAdmin
     .from("congressional_disclosures")
     .select("*")
+    .gte("transaction_date", historySinceStr)
     .order("transaction_date", { ascending: false })
-    .limit(limit);
+    .limit(500);
 
   if (ticker) {
     query = query.eq("ticker", ticker);
@@ -28,5 +34,9 @@ export const GET = withAuth(async (req, user) => {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ disclosures: data ?? [] });
+  const all = data ?? [];
+  const display = all.slice(0, limit);
+  const disclosures = enrichDisclosuresWithSentiment(all, display);
+
+  return NextResponse.json({ disclosures });
 });

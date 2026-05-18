@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PemabuLogoCompact } from "@/components/brand/PemabuLogo";
 import { PortfolioSelector } from "@/components/workbook/PortfolioSelector";
 import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { useConsolidatedDashboard } from "@/hooks/usePortfolios";
@@ -116,8 +117,13 @@ export function WorkspaceChrome({
     <div className="min-h-screen bg-[#0A1628]">
       <nav className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#0A1628] px-6 py-3">
         <div className="flex flex-wrap items-center gap-4">
-          <Link href="/dashboard" className="text-sm font-semibold tracking-widest text-white hover:text-emerald-100">
-            PEMABU
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2.5 no-underline transition-opacity hover:opacity-90"
+            aria-label="PEMABU dashboard home"
+          >
+            <PemabuLogoCompact size={30} />
+            <span className="text-[15px] font-semibold tracking-wide text-slate-100">PEMABU</span>
           </Link>
           {servicesToggle && onServicesToggle ? (
             <button

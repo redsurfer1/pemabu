@@ -2,11 +2,26 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+  PositionSentimentBadge,
+  PositionSentimentSummary,
+} from "@/components/intelligence/PositionSentimentBadge";
+import type { ThirteenFSentiment } from "@/lib/intelligence/thirteen-f-edgar";
+import type { PositionSentiment } from "@/lib/intelligence/position-sentiment";
 
 interface Filing {
   period: string | null;
   filer: string | null;
   filed: string | null;
+  cik: string | null;
+  shares: number | null;
+  priorShares: number | null;
+  sentiment: ThirteenFSentiment;
+}
+
+function formatShares(shares: number | null): string {
+  if (shares == null) return "—";
+  return shares.toLocaleString();
 }
 
 async function fetch13F(ticker: string): Promise<{ ticker: string; filings: Filing[]; error?: string }> {
@@ -40,6 +55,25 @@ export function ThirteenFOverlayClient({
   }
 
   const filings = query.data?.filings ?? [];
+
+  const latestByFiler = new Map<string, Filing>();
+  for (const f of filings) {
+    const key = f.cik ?? f.filer ?? "";
+    if (!key) continue;
+    const existing = latestByFiler.get(key);
+    if (!existing || (f.period ?? "") > (existing.period ?? "")) {
+      latestByFiler.set(key, f);
+    }
+  }
+  const summary: Record<PositionSentiment, number> = {
+    accumulating: 0,
+    holding: 0,
+    decreasing: 0,
+    no_position: 0,
+  };
+  for (const f of latestByFiler.values()) {
+    summary[f.sentiment]++;
+  }
 
   return (
     <div className="space-y-6">
@@ -85,7 +119,9 @@ export function ThirteenFOverlayClient({
         </div>
       )}
 
-      {query.isLoading ? <p className="text-sm text-gray-500">Loading 13F filings…</p> : null}
+      {query.isLoading ? (
+        <p className="text-sm text-gray-500">Loading 13F filings and position sentiment…</p>
+      ) : null}
       {query.error ? (
         <p className="text-sm text-red-400">{query.error instanceof Error ? query.error.message : "Request failed"}</p>
       ) : null}
@@ -95,26 +131,55 @@ export function ThirteenFOverlayClient({
         <p className="text-sm text-gray-500">No 13F-HR filings found for {ticker} in the recent window.</p>
       ) : null}
 
+      {latestByFiler.size > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(summary) as PositionSentiment[]).map((key) =>
+            summary[key] > 0 ? (
+              <span key={key} className="text-xs text-gray-500">
+                <PositionSentimentBadge sentiment={key} />{" "}
+                <span className="text-gray-400">{summary[key]} filer{summary[key] === 1 ? "" : "s"}</span>
+              </span>
+            ) : null,
+          )}
+        </div>
+      ) : null}
+
       {filings.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-white/10">
-          <table className="w-full min-w-[480px] text-left text-sm">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-3">Filer</th>
                 <th className="px-4 py-3">Period</th>
                 <th className="px-4 py-3">Filed</th>
+                <th className="px-4 py-3">Shares</th>
+                <th className="px-4 py-3">Sentiment</th>
               </tr>
             </thead>
             <tbody>
               {filings.map((f, i) => (
-                <tr key={`${f.filer}-${f.filed}-${i}`} className="border-b border-white/5 hover:bg-white/5">
+                <tr key={`${f.cik}-${f.period}-${i}`} className="border-b border-white/5 hover:bg-white/5">
                   <td className="px-4 py-3 text-gray-200">{f.filer ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-400">{f.period ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-400">{f.filed ?? "—"}</td>
+                  <td className="px-4 py-3 font-mono text-gray-300">
+                    {formatShares(f.shares)}
+                    {f.priorShares != null && f.priorShares > 0 ? (
+                      <span className="ml-1 text-[10px] text-gray-600">
+                        (was {formatShares(f.priorShares)})
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    <PositionSentimentBadge sentiment={f.sentiment} />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="border-t border-white/10 px-4 py-2 text-[11px] text-gray-600">
+            Sentiment compares share count vs the filer&apos;s prior reporting period (SEC 13F information table).
+          </p>
         </div>
       ) : null}
     </div>

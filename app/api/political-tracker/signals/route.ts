@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { getPortfolioTickersForUser } from "@/lib/portfolio/portfolio-tickers";
+import { enrichDisclosuresWithSentiment } from "@/lib/political-tracker/disclosure-sentiment";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+const DISPLAY_DAYS = 90;
+const HISTORY_DAYS = 365;
+
 // Returns congressional disclosures that overlap with the user's portfolio holdings.
-// Requires addon_political_tracker OR intelligence_annual / autonomous_annual.
 export const GET = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, "addon_political_tracker");
 
@@ -15,7 +18,6 @@ export const GET = withAuth(async (req, user) => {
     return NextResponse.json({ error: "portfolio_id is required" }, { status: 400 });
   }
 
-  // Verify the user owns this portfolio.
   const { data: portfolio } = await supabaseAdmin
     .from("portfolios")
     .select("id")
@@ -33,22 +35,34 @@ export const GET = withAuth(async (req, user) => {
     return NextResponse.json({ signals: [] });
   }
 
-  // Find disclosures in the last 90 days for those tickers.
-  const since = new Date();
-  since.setDate(since.getDate() - 90);
+  const displaySince = new Date();
+  displaySince.setDate(displaySince.getDate() - DISPLAY_DAYS);
+  const displaySinceStr = displaySince.toISOString().split("T")[0]!;
 
-  const { data, error } = await supabaseAdmin
+  const historySince = new Date();
+  historySince.setDate(historySince.getDate() - HISTORY_DAYS);
+  const historySinceStr = historySince.toISOString().split("T")[0]!;
+
+  const { data: history, error } = await supabaseAdmin
     .from("congressional_disclosures")
     .select("*")
     .in("ticker", tickers)
-    .gte("transaction_date", since.toISOString().split("T")[0])
+    .gte("transaction_date", historySinceStr)
     .order("transaction_date", { ascending: false })
-    .limit(100);
+    .limit(500);
 
   if (error) {
     console.error("political-tracker/signals:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ signals: data ?? [], portfolio_id: portfolioId, tickers });
+  const all = history ?? [];
+  const recent = all.filter((r) => String(r.transaction_date) >= displaySinceStr).slice(0, 100);
+  const signals = enrichDisclosuresWithSentiment(all, recent);
+
+  return NextResponse.json({
+    signals,
+    portfolio_id: portfolioId,
+    tickers,
+  });
 });

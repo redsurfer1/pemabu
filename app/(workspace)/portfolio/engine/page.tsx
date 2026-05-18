@@ -17,6 +17,7 @@ import { usePortfolioEngine } from "@/lib/portfolio/use-portfolio-engine";
 import type { ComputedRow } from "@/lib/portfolio/use-portfolio-engine";
 import { resolveWorkspacePortfolioId } from "@/lib/workspace/portfolio-selection";
 import { PortfolioWatchlistPanel } from "@/components/portfolio/PortfolioWatchlistPanel";
+import { getErrorMessage } from "@/lib/api/error-message";
 import { ROW_STATUS } from "@/lib/portfolio/fiat-watchlist";
 
 type TabKey = "dashboard" | "signals" | "assumptions" | "audit" | "watchlist";
@@ -339,7 +340,9 @@ function PortfolioEnginePageContent() {
             </button>
           ))}
         </div>
-        {error ? <p className="mt-2 text-xs text-[#ff6b6b]">{error}</p> : null}
+        {error ? (
+          <p className="mt-2 text-xs text-[#ff6b6b]">{getErrorMessage(error)}</p>
+        ) : null}
       </div>
 
       {tab === "dashboard" && (

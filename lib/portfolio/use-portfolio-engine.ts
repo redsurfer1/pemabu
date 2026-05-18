@@ -7,6 +7,7 @@ import type { Assumptions } from "@/lib/portfolio/formula-engine";
 import { DEFAULT_ASSUMPTIONS, colAB, colAK, normaliseWeights } from "@/lib/portfolio/formula-engine";
 import { normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
 import type { AssetClass } from "@/lib/types/database";
+import { errorMessageFromResponseBody, getErrorMessage } from "@/lib/api/error-message";
 import { parseRowStatus, ROW_STATUS, type RowStatus } from "@/lib/portfolio/fiat-watchlist";
 
 export interface ComputedRow {
@@ -257,8 +258,10 @@ export function usePortfolioEngine(portfolioId: string) {
         }),
       ]);
 
-      const body = (await holdingsRes.json()) as { holdings?: Record<string, unknown>[]; error?: string };
-      if (!holdingsRes.ok) throw new Error(body.error ?? "Failed to load holdings");
+      const body = (await holdingsRes.json()) as { holdings?: Record<string, unknown>[]; error?: unknown };
+      if (!holdingsRes.ok) {
+        throw new Error(errorMessageFromResponseBody(body, "Failed to load holdings"));
+      }
 
       const assumptionsBody = (await assumptionsRes.json()) as {
         assumptions?: Assumptions;
@@ -387,12 +390,27 @@ export function usePortfolioEngine(portfolioId: string) {
         method: "POST",
         credentials: "same-origin",
       });
-      const body = (await res.json()) as { success?: boolean; refreshedAt?: string; error?: string };
-      if (!res.ok) throw new Error(body.error ?? "Refresh failed");
+      const body = (await res.json()) as {
+        success?: boolean;
+        refreshedAt?: string;
+        queued?: boolean;
+        reason?: string;
+        error?: unknown;
+      };
+
+      if (res.status === 202 && body.queued) {
+        await fetchRows(++fetchGenerationRef.current);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(errorMessageFromResponseBody(body, "Refresh failed"));
+      }
+
       setLastRefreshed(body.refreshedAt ?? new Date().toISOString());
       await fetchRows(++fetchGenerationRef.current);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(getErrorMessage(e, "Refresh failed"));
     } finally {
       setLoading(false);
     }

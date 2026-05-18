@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { User } from "@supabase/supabase-js";
 import { withAuth, type RouteHandlerContext } from "@/lib/api/auth";
+import { getErrorMessage } from "@/lib/api/error-message";
 import { createClient } from "@/lib/supabase/server";
 import { refreshPortfolioSignals } from "@/lib/allocation/refresh-portfolio-signals";
 import { normaliseWeights, type Assumptions } from "@/lib/portfolio/formula-engine";
@@ -131,8 +132,7 @@ async function executeRefresh(
 
     return NextResponse.json({ success: true, refreshedAt: new Date().toISOString() });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(e, "Refresh failed") }, { status: 500 });
   }
 }
 

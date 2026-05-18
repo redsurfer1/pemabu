@@ -1,39 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+  PositionSentimentBadge,
+  PositionSentimentSummary,
+} from "@/components/intelligence/PositionSentimentBadge";
+import type { PositionSentiment } from "@/lib/intelligence/position-sentiment";
+import type { EnrichedCongressionalDisclosure } from "@/lib/political-tracker/disclosure-sentiment";
 
-interface Disclosure {
-  id: string;
-  representative: string;
-  party: string | null;
-  state: string | null;
-  ticker: string;
-  asset_description: string | null;
-  transaction_type: string | null;
-  amount_range: string | null;
-  transaction_date: string;
-  filed_at_date: string | null;
-}
-
-async function fetchSignals(portfolioId: string): Promise<Disclosure[]> {
+async function fetchSignals(portfolioId: string): Promise<EnrichedCongressionalDisclosure[]> {
   const res = await fetch(`/api/political-tracker/signals?portfolio_id=${encodeURIComponent(portfolioId)}`);
   if (!res.ok) throw new Error(await res.text());
-  const data = await res.json() as { signals: Disclosure[] };
+  const data = await res.json() as { signals: EnrichedCongressionalDisclosure[] };
   return data.signals;
 }
 
-async function fetchRecent(ticker: string): Promise<Disclosure[]> {
+async function fetchRecent(ticker: string): Promise<EnrichedCongressionalDisclosure[]> {
   const params = ticker ? `?ticker=${encodeURIComponent(ticker)}&limit=50` : "?limit=50";
   const res = await fetch(`/api/political-tracker/recent${params}`);
   if (!res.ok) throw new Error(await res.text());
-  const data = await res.json() as { disclosures: Disclosure[] };
+  const data = await res.json() as { disclosures: EnrichedCongressionalDisclosure[] };
   return data.disclosures;
 }
 
 const PARTY_COLOR: Record<string, string> = { D: "text-blue-400", R: "text-red-400" };
 
-function DisclosureRow({ d }: { d: Disclosure }) {
+function formatExposure(value: number | null): string {
+  if (value == null || value <= 0) return "—";
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
+  return `$${Math.round(value)}`;
+}
+
+function DisclosureRow({ d }: { d: EnrichedCongressionalDisclosure }) {
   const partyColor = d.party ? (PARTY_COLOR[d.party] ?? "text-gray-400") : "text-gray-400";
   return (
     <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -43,6 +43,15 @@ function DisclosureRow({ d }: { d: Disclosure }) {
       <td className="px-4 py-3 text-sm text-gray-300 capitalize">{d.transaction_type ?? "—"}</td>
       <td className="px-4 py-3 text-sm text-gray-400">{d.amount_range ?? "—"}</td>
       <td className="px-4 py-3 text-sm text-gray-400">{d.transaction_date}</td>
+      <td className="px-4 py-3 font-mono text-xs text-gray-400">
+        {formatExposure(d.exposure)}
+        {d.priorExposure != null && d.priorExposure > 0 ? (
+          <span className="ml-1 text-[10px] text-gray-600">(was {formatExposure(d.priorExposure)})</span>
+        ) : null}
+      </td>
+      <td className="px-4 py-3">
+        <PositionSentimentBadge sentiment={d.sentiment} />
+      </td>
     </tr>
   );
 }
@@ -68,6 +77,19 @@ export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string })
   const rows = view === "signals" ? (signalsQuery.data ?? []) : (recentQuery.data ?? []);
   const isLoading = view === "signals" ? signalsQuery.isLoading : recentQuery.isLoading;
   const error = view === "signals" ? signalsQuery.error : recentQuery.error;
+
+  const sentimentCounts = useMemo(() => {
+    const counts: Record<PositionSentiment, number> = {
+      accumulating: 0,
+      holding: 0,
+      decreasing: 0,
+      no_position: 0,
+    };
+    for (const row of rows) {
+      counts[row.sentiment]++;
+    }
+    return counts;
+  }, [rows]);
 
   return (
     <div className="space-y-6">
@@ -113,9 +135,7 @@ export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string })
       )}
 
       {isLoading && (
-        <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        </div>
+        <p className="text-sm text-gray-500 text-center py-12">Loading disclosures and position sentiment…</p>
       )}
 
       {error && (
@@ -132,9 +152,11 @@ export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string })
         </div>
       )}
 
+      {rows.length > 0 ? <PositionSentimentSummary counts={sentimentCounts} /> : null}
+
       {!isLoading && rows.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-white/10">
-          <table className="w-full">
+          <table className="w-full min-w-[720px]">
             <thead>
               <tr className="bg-white/5">
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Representative</th>
@@ -143,6 +165,8 @@ export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string })
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Est. exposure</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Sentiment</th>
               </tr>
             </thead>
             <tbody>
@@ -151,6 +175,10 @@ export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string })
               ))}
             </tbody>
           </table>
+          <p className="border-t border-white/10 px-4 py-2 text-[11px] text-gray-600">
+            Sentiment compares estimated net exposure after this trade vs the same representative&apos;s prior
+            position in that ticker (from disclosure amount ranges).
+          </p>
         </div>
       )}
 
