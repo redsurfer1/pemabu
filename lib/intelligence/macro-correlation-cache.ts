@@ -1,32 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchTiingoDailyCloses } from "@/lib/market-data/tiingo-daily-closes";
 import { pearsonCorrelation } from "@/lib/intelligence/macro-regime";
-
-type YahooChartPayload = {
-  chart?: {
-    result?: Array<{
-      timestamp?: number[];
-      indicators?: { quote?: Array<{ close?: Array<number | null> }> };
-    }>;
-  };
-};
-
-async function fetchDailyCloses(ticker: string): Promise<number[]> {
-  const url =
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
-    `?interval=1d&range=1y`;
-  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) return [];
-  const payload = (await res.json()) as YahooChartPayload;
-  const result = payload.chart?.result?.[0];
-  const timestamps = result?.timestamp ?? [];
-  const closesRaw = result?.indicators?.quote?.[0]?.close ?? [];
-  const closes: number[] = [];
-  for (let i = 0; i < timestamps.length; i++) {
-    const c = closesRaw[i];
-    if (c != null && Number.isFinite(c)) closes.push(c);
-  }
-  return closes;
-}
 
 function logReturns(closes: number[]): number[] {
   const r: number[] = [];
@@ -47,14 +21,14 @@ function alignReturns(a: number[], b: number[]): { ax: number[]; by: number[] } 
 const PROXY_TICKERS = ["SPY", "AGG", "BTC-USD", "GLD"] as const;
 
 /**
- * Refreshes shared correlation rows using aligned daily log-returns from Yahoo chart data.
+ * Refreshes shared correlation rows using aligned daily log-returns from Tiingo.
  */
 export async function refreshMacroCorrelationCache(
   admin: SupabaseClient,
 ): Promise<void> {
   const series: Record<string, number[]> = {};
   for (const t of PROXY_TICKERS) {
-    const closes = await fetchDailyCloses(t);
+    const closes = await fetchTiingoDailyCloses(t);
     series[t] = logReturns(closes);
   }
 
