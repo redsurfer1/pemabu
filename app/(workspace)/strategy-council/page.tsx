@@ -2,15 +2,26 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { usePortfolios } from "@/hooks/usePortfolios";
-import { generateStrategyCouncilMemoAction } from "@/lib/actions/intelligence/generateStrategyCouncilMemo";
 import { exportSleeveStrategyAction } from "@/lib/actions/portfolio/exportSleeveStrategyAction";
 import { STRATEGY_COUNCIL_PRINT_STORAGE_KEY } from "@/lib/intelligence/strategy-council-print-key";
 import type { StrategyCouncilMemoPayload } from "@/lib/services/ai";
 
 type SleeveRow = { id: string; name: string; purpose: string };
 
+function formatMemoError(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "error" in err) {
+    const e = (err as { error: unknown }).error;
+    if (typeof e === "string") return e;
+  }
+  if (err instanceof Error) return err.message;
+  return "Memo generation failed.";
+}
+
 export default function StrategyCouncilPage() {
+  const router = useRouter();
   const { data: portfolios = [] } = usePortfolios();
   const [portfolioId, setPortfolioId] = useState("");
   const [sleeves, setSleeves] = useState<SleeveRow[]>([]);
@@ -50,18 +61,54 @@ export default function StrategyCouncilPage() {
 
   async function onGenerateMemo() {
     if (!portfolioId) return;
+    const printWin = window.open("about:blank", "_blank");
     setMemoBusy(true);
     setMsg(null);
     try {
-      const r = await generateStrategyCouncilMemoAction(portfolioId);
-      if (!r.success) {
-        setMsg(r.error);
+      const res = await fetch("/api/strategy-council/memo", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portfolioId }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        markdown?: string;
+        pdfLayout?: StrategyCouncilMemoPayload["pdfLayout"];
+        usedFallback?: boolean;
+      };
+      if (!res.ok) {
+        printWin?.close();
+        setMsg(body.error ?? `Memo generation failed (${res.status}).`);
         return;
       }
-      const payload: StrategyCouncilMemoPayload = { markdown: r.markdown, pdfLayout: r.pdfLayout };
+      if (!body.markdown || !body.pdfLayout) {
+        printWin?.close();
+        setMsg("Memo response was incomplete.");
+        return;
+      }
+      const payload: StrategyCouncilMemoPayload = {
+        markdown: body.markdown,
+        pdfLayout: body.pdfLayout,
+      };
       sessionStorage.setItem(STRATEGY_COUNCIL_PRINT_STORAGE_KEY, JSON.stringify(payload));
       setLastMemoPayload(payload);
-      window.open("/strategy-council/print", "_blank", "noopener,noreferrer");
+      const printUrl = "/strategy-council/print";
+      if (printWin && !printWin.closed) {
+        printWin.location.assign(printUrl);
+        printWin.focus();
+      } else {
+        const opened = window.open(printUrl, "_blank", "noopener,noreferrer");
+        if (!opened) router.push(printUrl);
+      }
+      if (body.usedFallback) {
+        setMsg(
+          "Opened print view using a local summary (Claude unavailable or API key not set).",
+        );
+      }
+    } catch (e) {
+      printWin?.close();
+      setMsg(formatMemoError(e));
     } finally {
       setMemoBusy(false);
     }
@@ -163,8 +210,8 @@ export default function StrategyCouncilPage() {
             {pdfBusy ? "Preparing PDF…" : "Download PDF (Autonomous)"}
           </button>
           <p className="mt-2 text-[11px] text-gray-500">
-            PDF binary uses react-pdf on the server. Requires Autonomous tier; includes a non-fiduciary disclaimer
-            footer.
+            Memo requires Intelligence tier or higher. PDF download requires Autonomous tier and includes a
+            non-fiduciary disclaimer footer.
           </p>
         </section>
 

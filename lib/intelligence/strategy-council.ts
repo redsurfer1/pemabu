@@ -153,12 +153,107 @@ async function loadDriftBySleeve(
     }));
 }
 
-async function navCurrent(portfolioId: string): Promise<ReturnType<typeof d>> {
+async function navFromPortfolioHoldings(portfolioId: string): Promise<ReturnType<typeof d>> {
   if (isLocalVaultExecutionPlane()) {
-    return portfolioNavUsdVault(portfolioId);
+    const { rows } = await getVaultPool().query<{
+      quantity: string;
+      current_price: string | null;
+      price_current: string | null;
+      market_value: string | null;
+    }>(
+      `SELECT quantity::text, current_price::text, price_current::text, market_value::text
+       FROM portfolio_holdings
+       WHERE portfolio_id = $1::uuid`,
+      [portfolioId],
+    );
+    let sum = d(0);
+    for (const h of rows) {
+      const qty = d(h.quantity ?? "0");
+      const price = d(h.price_current ?? h.current_price ?? "0");
+      const mv =
+        h.market_value != null && h.market_value !== ""
+          ? d(h.market_value)
+          : qty.mul(price);
+      sum = sum.plus(mv);
+    }
+    return sum;
   }
   const supabase = await createClient();
-  return portfolioNavUsd(supabase, portfolioId);
+  const { data } = await supabase
+    .from("portfolio_holdings")
+    .select("quantity, current_price, price_current, market_value")
+    .eq("portfolio_id", portfolioId);
+  let sum = d(0);
+  for (const h of data ?? []) {
+    const row = h as {
+      quantity: string | number;
+      current_price: string | number | null;
+      price_current: string | number | null;
+      market_value: string | number | null;
+    };
+    const qty = d(String(row.quantity ?? "0"));
+    const price = d(String(row.price_current ?? row.current_price ?? "0"));
+    const mv =
+      row.market_value != null && String(row.market_value) !== ""
+        ? d(String(row.market_value))
+        : qty.mul(price);
+    sum = sum.plus(mv);
+  }
+  return sum;
+}
+
+async function vwRsiFromPortfolioHoldings(portfolioId: string): Promise<ReturnType<typeof d> | null> {
+  if (isLocalVaultExecutionPlane()) {
+    const { rows } = await getVaultPool().query<{
+      quantity: string;
+      current_price: string | null;
+      price_current: string | null;
+      rsi_14: string | null;
+    }>(
+      `SELECT quantity::text, current_price::text, price_current::text, rsi_14::text
+       FROM portfolio_holdings
+       WHERE portfolio_id = $1::uuid`,
+      [portfolioId],
+    );
+    return computeValueWeightedRsiFromHoldings(
+      rows.map((r) => ({
+        qty: r.quantity,
+        price_seed: r.price_current ?? r.current_price ?? "0",
+        rsi_14: r.rsi_14,
+      })),
+    );
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("portfolio_holdings")
+    .select("quantity, current_price, price_current, rsi_14")
+    .eq("portfolio_id", portfolioId);
+  const rows = (data ?? []).map((h) => {
+    const row = h as {
+      quantity: string | number;
+      current_price: string | number | null;
+      price_current: string | number | null;
+      rsi_14: string | number | null;
+    };
+    return {
+      qty: String(row.quantity ?? "0"),
+      price_seed: String(row.price_current ?? row.current_price ?? "0"),
+      rsi_14: row.rsi_14 == null ? null : String(row.rsi_14),
+    };
+  });
+  return computeValueWeightedRsiFromHoldings(rows);
+}
+
+async function navCurrent(portfolioId: string): Promise<ReturnType<typeof d>> {
+  if (isLocalVaultExecutionPlane()) {
+    const sleeveNav = await portfolioNavUsdVault(portfolioId);
+    if (!sleeveNav.isZero()) return sleeveNav;
+    return navFromPortfolioHoldings(portfolioId);
+  }
+  const supabase = await createClient();
+  const sleeveNav = await portfolioNavUsd(supabase, portfolioId);
+  if (!sleeveNav.isZero()) return sleeveNav;
+  return navFromPortfolioHoldings(portfolioId);
 }
 
 async function navWindowStartSnapshot(
@@ -203,7 +298,9 @@ async function vwRsiCurrent(portfolioId: string): Promise<ReturnType<typeof d> |
        WHERE sl.portfolio_id = $1::uuid AND sl.is_active = true`,
       [portfolioId],
     );
-    return computeValueWeightedRsiFromHoldings(rows);
+    const sleeveRsi = computeValueWeightedRsiFromHoldings(rows);
+    if (sleeveRsi) return sleeveRsi;
+    return vwRsiFromPortfolioHoldings(portfolioId);
   }
   const supabase = await createClient();
   const { data: sleeves } = await supabase
@@ -212,7 +309,7 @@ async function vwRsiCurrent(portfolioId: string): Promise<ReturnType<typeof d> |
     .eq("portfolio_id", portfolioId)
     .eq("is_active", true);
   const ids = (sleeves ?? []).map((s: { id: string }) => s.id);
-  if (ids.length === 0) return null;
+  if (ids.length === 0) return vwRsiFromPortfolioHoldings(portfolioId);
   const { data: holdings } = await supabase
     .from("sleeve_holdings")
     .select("qty, price_seed, rsi_14")
@@ -225,7 +322,9 @@ async function vwRsiCurrent(portfolioId: string): Promise<ReturnType<typeof d> |
       rsi_14: row.rsi_14 == null ? null : String(row.rsi_14),
     };
   });
-  return computeValueWeightedRsiFromHoldings(rows);
+  const sleeveRsi = computeValueWeightedRsiFromHoldings(rows);
+  if (sleeveRsi) return sleeveRsi;
+  return vwRsiFromPortfolioHoldings(portfolioId);
 }
 
 /**
