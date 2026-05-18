@@ -33,7 +33,7 @@ import { DEFAULT_ASSUMPTIONS, colAB, colV, colW, colX, colY, colZ } from "@/lib/
 
 const fetchMarketDataMock = vi.fn();
 
-vi.mock("@/lib/market-data/yahoo-finance", () => ({
+vi.mock("@/lib/market-data/fetch-market-data", () => ({
   fetchMarketData: (...args: unknown[]) => fetchMarketDataMock(...args),
   fetchMarketDataWithFallback: (...args: unknown[]) => fetchMarketDataMock(...args),
   // fetchMarketDataCached is the call site used in refresh-portfolio-signals.ts.

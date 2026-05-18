@@ -188,19 +188,37 @@ if (pgReachable) {
   );
 }
 
-section("Market Data");
+section("Market Data (Tiingo)");
 
-try {
-  const res = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1d&range=1d");
-  const data = await res.json();
-  const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-  if (price) {
-    pass(`Yahoo Finance reachable — AAPL: $${price}`);
-  } else {
-    warn("Yahoo Finance responded but returned no price — API may have changed");
+const tiingoKey = env.TIINGO_API_KEY?.trim();
+if (!tiingoKey) {
+  fail("TIINGO_API_KEY missing — required for licensed market data");
+} else {
+  pass("TIINGO_API_KEY set");
+  try {
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() - 7);
+    const startDate = start.toISOString().slice(0, 10);
+    const url =
+      `https://api.tiingo.com/tiingo/daily/SPY/prices?startDate=${startDate}&resampleFreq=daily`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Token ${tiingoKey}`, "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      fail(`Tiingo API returned ${res.status} — verify TIINGO_API_KEY and account tier`);
+    } else {
+      const rows = await res.json();
+      const last = Array.isArray(rows) ? rows[rows.length - 1] : null;
+      const price = last?.adjClose ?? last?.close;
+      if (price != null && Number.isFinite(price)) {
+        pass(`Tiingo reachable — SPY latest adjClose: $${Number(price).toFixed(2)}`);
+      } else {
+        warn("Tiingo responded but returned no usable SPY price row");
+      }
+    }
+  } catch (e) {
+    fail(`Tiingo unreachable — ${e instanceof Error ? e.message : String(e)}`);
   }
-} catch {
-  fail("Yahoo Finance unreachable — check network connectivity");
 }
 
 section("Governance Data");

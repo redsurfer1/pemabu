@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { useConsolidatedDashboard } from "@/hooks/usePortfolios";
 import { useDashboardServices } from "@/components/dashboard/DashboardServicesContext";
 import { PortfolioCard } from "@/components/dashboard/PortfolioCard";
@@ -162,12 +164,49 @@ export function DashboardClient({ userId }: DashboardClientProps) {
 }
 
 function EmptyState() {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const createDemo = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/workbook/demo-portfolio", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(j.error ?? "Failed to create demo portfolio");
+      await queryClient.invalidateQueries({ queryKey: ["consolidated"] });
+      window.location.reload();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="py-24 text-center">
-      <p className="mb-2 text-gray-400">No portfolios yet</p>
-      <p className="text-sm text-gray-600">
-        Use the portfolio selector in the nav to create your first portfolio.
+    <div className="mx-auto max-w-md py-24 text-center">
+      <p className="mb-2 text-gray-300">Welcome to Pemabu</p>
+      <p className="mb-8 text-sm text-gray-500">
+        Start with a pre-built sample portfolio or create your own from the nav.
       </p>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => void createDemo()}
+        className="rounded-md bg-emerald-500 px-6 py-2.5 text-sm font-medium text-[#0A1628] disabled:opacity-60"
+      >
+        {loading ? "Creating demo…" : "Create demo portfolio"}
+      </button>
+      <p className="mt-4">
+        <Link href="/demo" className="text-sm text-emerald-400/90 hover:text-emerald-300">
+          Preview features on the public demo →
+        </Link>
+      </p>
+      {message ? <p className="mt-3 text-xs text-red-400/90">{message}</p> : null}
     </div>
   );
 }

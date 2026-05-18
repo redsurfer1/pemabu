@@ -1,7 +1,7 @@
-// Watcher: weekly macro regime classification (uses Yahoo chart data via fetchMarketData).
+// Watcher: weekly macro regime classification (Tiingo via fetchMarketData).
 
 import { supabaseAdmin } from "../../lib/supabase/admin";
-import { fetchMarketData } from "../../lib/market-data/yahoo-finance";
+import { fetchMarketData } from "../../lib/market-data/fetch-market-data";
 import { classifyMacroRegime, type MacroIndicators } from "../../lib/intelligence/macro-regime";
 import { refreshMacroCorrelationCache } from "../../lib/intelligence/macro-correlation-cache";
 

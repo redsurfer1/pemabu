@@ -29,7 +29,7 @@ import {
 } from "@/lib/portfolio/formula-engine";
 import { getPortfolioTiingoToken } from "@/lib/portfolio/api-credentials";
 import { parseRowStatus, ROW_STATUS } from "@/lib/portfolio/fiat-watchlist";
-import { clearPriceCache, fetchMarketDataCached } from "@/lib/market-data/yahoo-finance";
+import { clearPriceCache, fetchMarketDataCached } from "@/lib/market-data/fetch-market-data";
 
 type RefreshRow = {
   id: string;

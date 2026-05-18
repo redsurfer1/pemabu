@@ -13,6 +13,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/pricing",
   "/crypto",
   "/request-access",
+  "/demo",
   "/auth/",
   "/api/stripe/",  // Stripe webhooks and public Stripe-facing endpoints
   "/api/public/",  // explicitly public API surface

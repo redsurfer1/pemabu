@@ -9,6 +9,8 @@ import AuthModal from "@/components/AuthModal";
 import MarketingNav from "@/components/home/MarketingNav";
 import { SiteLegalFooter } from "@/components/legal/SiteLegalFooter";
 import type { LeaderboardPreviewItem } from "@/components/home/leaderboard-preview";
+import { AllocationRing } from "@/components/allocation/AllocationRing";
+import { PUBLIC_DEMO_ALLOCATION, PUBLIC_DEMO_TOTAL_VALUE } from "@/lib/demo/public-demo-data";
 
 interface HomePageProps {
   leaderboardPreview?: LeaderboardPreviewItem[];
@@ -175,11 +177,51 @@ export default function HomePage({ leaderboardPreview = [] }: HomePageProps) {
             Request Access
           </Link>
           <Link
+            href="/demo"
+            className="inline-block rounded-md border border-emerald-500/40 px-8 py-3 text-[13px] font-medium tracking-wide text-emerald-400 transition-colors hover:bg-emerald-500/10"
+          >
+            Try Interactive Demo
+          </Link>
+          <Link
             href="/about"
             className="inline-block rounded-md border border-[#1a2f4e] px-8 py-3 text-[13px] font-medium tracking-wide text-slate-400 transition-colors hover:border-white/40 hover:bg-white/5 hover:text-slate-200"
           >
             See How It Works
           </Link>
+        </div>
+
+        <div
+          style={{
+            marginTop: 56,
+            padding: "28px 24px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.08)",
+            backgroundColor: "rgba(255,255,255,0.02)",
+            maxWidth: 420,
+            width: "100%",
+          }}
+        >
+          <p
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.16em",
+              color: "#64748b",
+              textTransform: "uppercase",
+              marginBottom: 16,
+              textAlign: "center",
+            }}
+          >
+            Allocation ring preview
+          </p>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <AllocationRing allocation={PUBLIC_DEMO_ALLOCATION} size={180} interactive />
+          </div>
+          <p style={{ marginTop: 12, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>
+            Sample portfolio · USD {PUBLIC_DEMO_TOTAL_VALUE.toLocaleString()}
+          </p>
+          <p style={{ marginTop: 8, textAlign: "center", fontSize: 11, color: "#64748b" }}>
+            Dashed ring = targets · solid segments = actual weights
+          </p>
         </div>
       </section>
 
