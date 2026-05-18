@@ -6,26 +6,7 @@ import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { enforceImportEntitlement, ImportEntitlementError } from "@/lib/marketplace/import-gate";
 import { spendImportToken } from "@/lib/marketplace/import-token-service";
-
-// ── In-process rate limiter ───────────────────────────────────────────────────
-// 5 imports per user per minute. Resets on cold start (Vercel serverless).
-// For production scale: replace with Redis / Upstash rate limiting.
-const importAttempts = new Map<string, { count: number; windowStart: number }>();
-
-function checkImportRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const windowMs = 60_000; // 1 minute
-  const maxPerWindow = 5;
-
-  const entry = importAttempts.get(userId);
-  if (!entry || now - entry.windowStart > windowMs) {
-    importAttempts.set(userId, { count: 1, windowStart: now });
-    return true;
-  }
-  if (entry.count >= maxPerWindow) return false;
-  entry.count++;
-  return true;
-}
+import { checkRateLimit, IMPORT_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 export const POST = withAuth(async (req, user, _ctx) => {
   let body: { portfolioId?: string; sleeveToken?: string };
@@ -40,10 +21,15 @@ export const POST = withAuth(async (req, user, _ctx) => {
     return NextResponse.json({ error: "portfolioId and sleeveToken required" }, { status: 400 });
   }
 
-  // Rate limit: 5 imports per user per minute (in-process; resets on cold start)
-  if (!checkImportRateLimit(user.id)) {
+  // Rate limit: 5 imports per user per hour (Supabase-backed; survives cold starts)
+  const rl = await checkRateLimit({ key: `import:${user.id}`, ...IMPORT_RATE_LIMIT });
+  if (!rl.allowed) {
     return NextResponse.json(
-      { error: "Too many import requests. Please wait a moment.", code: "RATE_LIMITED" },
+      {
+        error: "Too many import requests. Please wait before trying again.",
+        code: "RATE_LIMITED",
+        retryAfterSeconds: rl.retryAfterSeconds,
+      },
       { status: 429 },
     );
   }

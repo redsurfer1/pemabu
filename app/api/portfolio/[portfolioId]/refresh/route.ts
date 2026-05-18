@@ -8,6 +8,7 @@ import { refreshPortfolioSignals } from "@/lib/allocation/refresh-portfolio-sign
 import { normaliseWeights, type Assumptions } from "@/lib/portfolio/formula-engine";
 import { normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
 import { runSovereignScorePipeline } from "@/lib/portfolio/sovereign-score-pipeline";
+import { checkRateLimit, REFRESH_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 export const maxDuration = 60;
 
@@ -31,6 +32,19 @@ async function executeRefresh(
   }
 
   if (!options.skipOwnership && options.user) {
+    // Rate limit: 10 refreshes per user per hour (Supabase-backed; service-role bypass skips this)
+    const rl = await checkRateLimit({ key: `refresh:${options.user.id}`, ...REFRESH_RATE_LIMIT });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        {
+          error: "Too many refresh requests. Please wait before trying again.",
+          code: "RATE_LIMITED",
+          retryAfterSeconds: rl.retryAfterSeconds,
+        },
+        { status: 429 },
+      );
+    }
+
     const { getActiveServiceKeysForUser } = await import("@/lib/services/user-entitlements");
     const { canUseExchangePriceSync } = await import("@/lib/entitlements/tier-capabilities");
     const { tierForbiddenResponse } = await import("@/lib/security/tier-guard");

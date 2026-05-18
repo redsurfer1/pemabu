@@ -5,6 +5,7 @@ import { generatePortfolioBrief } from "@/lib/services/ai";
 import { getActiveProvider } from "@/lib/market-data";
 import { calculateAllocationWeights, calculatePortfolioValue, DEFAULT_TARGETS } from "@/lib/allocation/engine";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, BRIEF_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { z } from "zod";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Quote as EngineQuote } from "@/lib/allocation/engine";
@@ -41,6 +42,19 @@ export const POST = withAuth(async (req, user, _ctx) => {
   const keys = await getActiveServiceKeysForUser(user.id);
   const tierBlock = requireIntelligenceTier(keys);
   if (tierBlock) return tierBlock;
+
+  // Rate limit: 3 briefs per user per 24 hours (Supabase-backed)
+  const rl = await checkRateLimit({ key: `brief:${user.id}`, ...BRIEF_RATE_LIMIT });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      {
+        error: "Daily brief limit reached (3 per 24 hours). Try again later.",
+        code: "RATE_LIMITED",
+        retryAfterSeconds: rl.retryAfterSeconds,
+      },
+      { status: 429 },
+    );
+  }
 
   const portfolio = await getPortfolio(parsed.data.portfolioId);
   if (!portfolio || portfolio.user_id !== user.id) {
