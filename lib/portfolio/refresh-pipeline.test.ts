@@ -135,7 +135,10 @@ describe("refreshPortfolioSignals pipeline", () => {
     expect(upsertMock).toHaveBeenCalledTimes(1);
     const upsertPayload = upsertMock.mock.calls[0]?.[0] as Array<Record<string, unknown>>;
     expect(upsertPayload).toHaveLength(3);
+    expect(upsertMock.mock.calls[0]?.[1]).toEqual({ onConflict: "id", defaultToNull: false });
     upsertPayload.forEach((row) => {
+      expect(row.ticker).toBeTypeOf("string");
+      expect((row.ticker as string).length).toBeGreaterThan(0);
       expect(row.rank_overall).not.toBeNull();
       expect(row.alert_primary).toBeTypeOf("string");
       expect(row.target_sleeve_pct).not.toBeNull();

@@ -36,6 +36,9 @@ type RefreshRow = {
   portfolio_id: string;
   ticker: string;
   name: string | null;
+  asset_class: string;
+  currency: string;
+  source: string;
   quantity: number;
   expense_ratio: number | null;
   dividend_dollars: number | null;
@@ -94,15 +97,21 @@ export async function refreshPortfolioSignals(
   const { data: rows, error: holdingsErr } = await supabase
     .from("portfolio_holdings")
     .select(
-      "id,portfolio_id,ticker,name,quantity,expense_ratio,dividend_dollars,target_parity_weight,score_thirteen_f,score_macro_intelligence,score_governance_layer,score_political_tracker,score_token_quality,row_status",
+      "id,portfolio_id,ticker,name,asset_class,currency,source,quantity,expense_ratio,dividend_dollars,target_parity_weight,score_thirteen_f,score_macro_intelligence,score_governance_layer,score_political_tracker,score_token_quality,row_status",
     )
     .eq("portfolio_id", portfolioId)
     .order("ticker", { ascending: true });
   if (holdingsErr) throw holdingsErr;
-  const holdings = ((rows ?? []) as RefreshRow[]).map((h) => ({
-    ...h,
-    quantity: Number(h.quantity),
-  }));
+  const holdings = ((rows ?? []) as RefreshRow[])
+    .map((h) => ({
+      ...h,
+      ticker: String(h.ticker ?? "").trim().toUpperCase(),
+      quantity: Number(h.quantity),
+      asset_class: h.asset_class ?? "equity",
+      currency: h.currency ?? "USD",
+      source: h.source ?? "manual",
+    }))
+    .filter((h) => h.ticker.length > 0);
   if (holdings.length === 0) return;
 
   clearPriceCache();
@@ -147,6 +156,10 @@ export async function refreshPortfolioSignals(
       return {
         id: h.id,
         ticker: h.ticker,
+        name: h.name,
+        asset_class: h.asset_class,
+        currency: h.currency,
+        source: h.source,
         rowStatus: ROW_STATUS.COMPARABLE,
         marketDataError: true,
         quantity: Number(h.quantity),
@@ -230,6 +243,10 @@ export async function refreshPortfolioSignals(
     return {
       id: h.id,
       ticker: h.ticker,
+      name: h.name,
+      asset_class: h.asset_class,
+      currency: h.currency,
+      source: h.source,
       rowStatus,
       marketDataError: false,
       quantity: Number(h.quantity),
@@ -378,6 +395,11 @@ export async function refreshPortfolioSignals(
   const upserts = ranked.map((row) => ({
     id: row.id,
     portfolio_id: portfolioId,
+    ticker: row.ticker,
+    name: row.name ?? null,
+    asset_class: row.asset_class,
+    currency: row.currency,
+    source: row.source,
     expense_ratio: row.expenseRatio,
     quantity: row.quantity,
     target_parity_weight: row.target_parity_weight,
@@ -428,8 +450,9 @@ export async function refreshPortfolioSignals(
     updated_at: now,
   }));
 
-  const { error: upsertErr } = await supabase
-    .from("portfolio_holdings")
-    .upsert(upserts, { onConflict: "id" });
+  const { error: upsertErr } = await supabase.from("portfolio_holdings").upsert(upserts, {
+    onConflict: "id",
+    defaultToNull: false,
+  });
   if (upsertErr) throw upsertErr;
 }
