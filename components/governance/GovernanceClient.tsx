@@ -94,7 +94,7 @@ async function dismissAlert(alertId: string): Promise<void> {
   if (!r.ok) throw new Error("Failed to dismiss");
 }
 
-export function GovernanceClient() {
+export function GovernanceClient({ portfolioTickers = [] }: { portfolioTickers?: string[] }) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"alerts" | "watch_list">("alerts");
   const [addTicker, setAddTicker] = useState("");
@@ -104,6 +104,8 @@ export function GovernanceClient() {
     queryFn: fetchWatchList,
     staleTime: STALE.GOVERNANCE,
   });
+
+  const hasResolvableWatch = watchList.some((w) => Boolean(w.space_id));
 
   const {
     data: alerts = [],
@@ -115,7 +117,7 @@ export function GovernanceClient() {
     queryKey: ["governance", "alerts"],
     queryFn: fetchAlerts,
     staleTime: STALE.GOVERNANCE,
-    enabled: false,
+    enabled: activeTab === "alerts" && hasResolvableWatch,
   });
 
   const { mutate: addToken, isPending: isAdding } = useMutation({
@@ -192,12 +194,12 @@ export function GovernanceClient() {
           {watchList.length === 0 ? (
             <div className="rounded-xl border border-white/10 py-16 text-center">
               <p className="text-sm text-gray-500">No tokens on your watch list.</p>
-              <p className="mt-1 text-xs text-gray-600">Go to Watch List to add tokens, then Refresh Proposals.</p>
+              <p className="mt-1 text-xs text-gray-600">Go to Watch List to add tokens — proposals load automatically.</p>
             </div>
-          ) : !alertsFetched && !showAlertsLoading ? (
+          ) : !hasResolvableWatch ? (
             <div className="rounded-xl border border-white/10 py-16 text-center">
-              <p className="text-sm text-gray-500">Ready to fetch proposals.</p>
-              <p className="mt-1 text-xs text-gray-600">Click &quot;Refresh Proposals&quot; to load Snapshot data.</p>
+              <p className="text-sm text-gray-500">Watch list tokens need a Snapshot space.</p>
+              <p className="mt-1 text-xs text-gray-600">Add a supported token (e.g. UNI, AAVE) on the Watch List tab.</p>
             </div>
           ) : showAlertsLoading ? (
             <div className="py-12 text-center text-sm text-gray-500">
@@ -332,6 +334,24 @@ export function GovernanceClient() {
                 {isAdding ? "Adding..." : "Add"}
               </button>
             </div>
+            {portfolioTickers.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-[10px] uppercase tracking-widest text-gray-600">From portfolio</p>
+                <div className="flex flex-wrap gap-1">
+                  {portfolioTickers.map((ticker) => (
+                    <button
+                      key={`pf-${ticker}`}
+                      type="button"
+                      onClick={() => addToken(ticker)}
+                      disabled={isAdding || watchList.some((w) => w.token_ticker === ticker)}
+                      className="rounded border border-emerald-500/30 px-2 py-0.5 text-[10px] text-emerald-400 hover:border-emerald-500/50 disabled:opacity-40"
+                    >
+                      + {ticker}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-1">
               {Object.keys(KNOWN_SNAPSHOT_SPACES).map((ticker) => (
                 <button

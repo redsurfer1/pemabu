@@ -70,12 +70,15 @@ function ScoreBadge({ score }: { score: number }) {
 export function TokenQualityClient({ initialTickers }: { initialTickers: string[] }) {
   const [ticker, setTicker] = useState(initialTickers[0] ?? "");
   const [input, setInput] = useState("");
-  const [refresh, setRefresh] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const scoreQuery = useQuery({
-    queryKey: ["ttf-score", ticker, refresh],
+    queryKey: ["ttf-score", ticker, refreshNonce],
     queryFn: async () => {
-      const res = await fetch(`/api/token-quality/score?ticker=${encodeURIComponent(ticker)}${refresh ? "&refresh=1" : ""}`);
+      const forceRefresh = refreshNonce > 0;
+      const res = await fetch(
+        `/api/token-quality/score?ticker=${encodeURIComponent(ticker)}${forceRefresh ? "&refresh=1" : ""}`,
+      );
       if (!res.ok) throw new Error(await res.text());
       return res.json() as Promise<{ score: TTFScore; cached: boolean }>;
     },
@@ -92,12 +95,12 @@ export function TokenQualityClient({ initialTickers }: { initialTickers: string[
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value.toUpperCase())}
-          onKeyDown={(e) => { if (e.key === "Enter" && input.trim()) { setTicker(input.trim()); setRefresh(false); } }}
+          onKeyDown={(e) => { if (e.key === "Enter" && input.trim()) { setTicker(input.trim()); setRefreshNonce(0); } }}
           placeholder="Enter ticker (e.g. ETH, BTC, SOL)"
           className="flex-1 px-4 py-2.5 bg-white/10 rounded-xl text-sm text-white border border-white/10 focus:outline-none focus:border-emerald-500 placeholder-gray-600"
         />
         <button
-          onClick={() => { if (input.trim()) { setTicker(input.trim()); setRefresh(false); } }}
+          onClick={() => { if (input.trim()) { setTicker(input.trim()); setRefreshNonce(0); } }}
           className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-colors"
         >
           Score
@@ -110,7 +113,7 @@ export function TokenQualityClient({ initialTickers }: { initialTickers: string[
           {initialTickers.map((t) => (
             <button
               key={t}
-              onClick={() => { setTicker(t); setInput(t); setRefresh(false); }}
+              onClick={() => { setTicker(t); setInput(t); setRefreshNonce(0); }}
               className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors ${ticker === t ? "bg-emerald-600 text-white" : "bg-white/10 text-gray-300 hover:bg-white/20"}`}
             >
               {t}
@@ -139,7 +142,7 @@ export function TokenQualityClient({ initialTickers }: { initialTickers: string[
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl font-bold text-white font-mono">{data.score.ticker}</h2>
                   {data.cached && (
-                    <button onClick={() => { setRefresh(true); }} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                    <button onClick={() => setRefreshNonce((n) => n + 1)} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
                       Refresh
                     </button>
                   )}

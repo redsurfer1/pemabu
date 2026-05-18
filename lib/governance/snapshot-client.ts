@@ -75,4 +75,13 @@ export const KNOWN_SNAPSHOT_SPACES: Record<string, string> = {
   GTC: "gitcoindao.eth",
   RPL: "rocketpool-dao.eth",
   LDO: "lido-snapshot.eth",
+  SNX: "synthetix.eth",
+  FXS: "frax.eth",
+  ARB: "arbitrumfoundation.eth",
+  OP: "opcollective.eth",
+  GMX: "gmx.eth",
+  "1INCH": "1inch.eth",
+  PENDLE: "pendle.eth",
+  LQTY: "liquitygov.eth",
+  RUNE: "thorchain.eth",
 };

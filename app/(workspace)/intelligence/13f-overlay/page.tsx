@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ThirteenFOverlayClient } from "@/components/intelligence/ThirteenFOverlayClient";
 import { requireIntelligenceTier } from "@/lib/portfolio/intelligence-access";
+import { getEquityTickersForUser } from "@/lib/portfolio/portfolio-tickers";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,7 +22,9 @@ export default async function ThirteenFOverlayPage({
   }
 
   const sp = await searchParams;
-  const initialTicker = sp.ticker?.toUpperCase().trim() || "AAPL";
+  const portfolioTickers = await getEquityTickersForUser(user.id);
+  const initialTicker =
+    sp.ticker?.toUpperCase().trim() || portfolioTickers[0] || "AAPL";
 
   return (
     <div className="min-h-screen bg-[#0A1628] px-4 py-8 sm:px-8">
@@ -32,7 +35,7 @@ export default async function ThirteenFOverlayPage({
             Hedge fund 13F-HR filings from SEC EDGAR — included with Pemabu Intelligence and Autonomous.
           </p>
         </div>
-        <ThirteenFOverlayClient initialTicker={initialTicker} />
+        <ThirteenFOverlayClient initialTicker={initialTicker} portfolioTickers={portfolioTickers} />
       </div>
     </div>
   );

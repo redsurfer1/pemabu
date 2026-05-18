@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { isSubscriptionRowAccessActive } from "@/lib/constants/services";
+import { isSubscriptionRowAccessActive, TIER_INCLUSIONS } from "@/lib/constants/services";
 
 const BETA_TRIAL_SERVICE_BUNDLE = [
   "autonomous_annual",
@@ -7,7 +7,21 @@ const BETA_TRIAL_SERVICE_BUNDLE = [
   "core_v1",
   "live_broadcast_addon",
   "addon_political_tracker",
+  "addon_governance_alerts",
+  "addon_token_quality",
 ] as const;
+
+function expandTierInclusions(keys: readonly string[]): string[] {
+  const expanded = new Set(keys);
+  for (const key of keys) {
+    if (key in TIER_INCLUSIONS) {
+      for (const included of TIER_INCLUSIONS[key as keyof typeof TIER_INCLUSIONS]) {
+        expanded.add(included);
+      }
+    }
+  }
+  return [...expanded];
+}
 
 /**
  * Active `service_key` values for the signed-in user (subscriptions + group grants).
@@ -34,8 +48,8 @@ export async function getActiveServiceKeysForUser(userId: string): Promise<strin
 
   const g = grp ? (grp as { subscription_group: string }).subscription_group : null;
   if (g === "beta" || g === "trial") {
-    return Array.from(new Set([...keys, ...BETA_TRIAL_SERVICE_BUNDLE]));
+    return expandTierInclusions([...keys, ...BETA_TRIAL_SERVICE_BUNDLE]);
   }
 
-  return keys;
+  return expandTierInclusions(keys);
 }

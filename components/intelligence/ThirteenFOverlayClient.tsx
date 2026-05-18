@@ -16,7 +16,13 @@ async function fetch13F(ticker: string): Promise<{ ticker: string; filings: Fili
   return res.json() as Promise<{ ticker: string; filings: Filing[]; error?: string }>;
 }
 
-export function ThirteenFOverlayClient({ initialTicker = "AAPL" }: { initialTicker?: string }) {
+export function ThirteenFOverlayClient({
+  initialTicker = "AAPL",
+  portfolioTickers = [],
+}: {
+  initialTicker?: string;
+  portfolioTickers?: string[];
+}) {
   const [input, setInput] = useState(initialTicker);
   const [ticker, setTicker] = useState(initialTicker);
 
@@ -55,6 +61,29 @@ export function ThirteenFOverlayClient({ initialTicker = "AAPL" }: { initialTick
           Search EDGAR
         </button>
       </form>
+
+      {portfolioTickers.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs text-gray-500 self-center">Portfolio:</span>
+          {portfolioTickers.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setInput(t);
+                setTicker(t);
+              }}
+              className={`rounded-lg px-3 py-1 font-mono text-xs transition-colors ${
+                ticker === t
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       {query.isLoading ? <p className="text-sm text-gray-500">Loading 13F filings…</p> : null}
       {query.error ? (

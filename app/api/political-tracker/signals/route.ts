@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { getPortfolioTickersForUser } from "@/lib/portfolio/portfolio-tickers";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -26,13 +27,7 @@ export const GET = withAuth(async (req, user) => {
     return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
   }
 
-  // Get all tickers held in this portfolio.
-  const { data: holdings } = await supabaseAdmin
-    .from("holdings")
-    .select("ticker")
-    .eq("portfolio_id", portfolioId);
-
-  const tickers = (holdings ?? []).map((h) => (h as { ticker: string }).ticker.toUpperCase());
+  const tickers = await getPortfolioTickersForUser(user.id, { portfolioId });
 
   if (tickers.length === 0) {
     return NextResponse.json({ signals: [] });

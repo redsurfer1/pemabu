@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import { exportSleeveStrategyAction } from "@/lib/actions/portfolio/exportSleeveStrategyAction";
@@ -252,12 +251,6 @@ export default function StrategyCouncilPage() {
         </section>
 
         {msg ? <p className="text-sm text-red-400">{msg}</p> : null}
-
-        <p className="text-center text-xs text-gray-600">
-          <Link href="/marketplace" className="text-emerald-400/80 hover:text-emerald-300">
-            Strategy marketplace leaderboard →
-          </Link>
-        </p>
       </div>
     </div>
   );
