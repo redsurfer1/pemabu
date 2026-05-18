@@ -57,13 +57,23 @@ export async function GET(req: Request) {
         }));
         return NextResponse.json({
           strategies,
-          viewer: { isIntelligence: true, authenticated, userId: viewerUserId },
+          viewer: {
+            isIntelligence: true,
+            authenticated,
+            userId: viewerUserId,
+            creatorPublicId: viewerUserId ? publicCreatorId(viewerUserId) : null,
+          },
         });
       }
       const strategies = await listMarketplaceLeaderboardTeaserVault(limit);
       return NextResponse.json({
         strategies,
-        viewer: { isIntelligence: false, authenticated, userId: viewerUserId },
+        viewer: {
+          isIntelligence: false,
+          authenticated,
+          userId: viewerUserId,
+          creatorPublicId: viewerUserId ? publicCreatorId(viewerUserId) : null,
+        },
       });
     }
 
@@ -84,7 +94,12 @@ export async function GET(req: Request) {
       }));
       return NextResponse.json({
         strategies,
-        viewer: { isIntelligence: true, authenticated, userId: viewerUserId },
+        viewer: {
+          isIntelligence: true,
+          authenticated,
+          userId: viewerUserId,
+          creatorPublicId: viewerUserId ? publicCreatorId(viewerUserId) : null,
+        },
       });
     }
 
@@ -92,7 +107,12 @@ export async function GET(req: Request) {
     const strategies = await listMarketplaceLeaderboardTeaserSupabase(pub, limit);
     return NextResponse.json({
       strategies,
-      viewer: { isIntelligence: false, authenticated, userId: viewerUserId },
+      viewer: {
+        isIntelligence: false,
+        authenticated,
+        userId: viewerUserId,
+        creatorPublicId: viewerUserId ? publicCreatorId(viewerUserId) : null,
+      },
     });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

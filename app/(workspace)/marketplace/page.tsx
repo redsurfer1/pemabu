@@ -30,7 +30,12 @@ type FullRow = TeaserRow & {
   is_own_publisher?: boolean;
 };
 
-type Viewer = { isIntelligence: boolean; authenticated: boolean; userId?: string | null };
+type Viewer = {
+  isIntelligence: boolean;
+  authenticated: boolean;
+  userId?: string | null;
+  creatorPublicId?: string | null;
+};
 
 function rowKey(r: TeaserRow | FullRow, i: number): string {
   return "id" in r && r.id ? r.id : `${r.display_name}-${i}`;
@@ -376,9 +381,9 @@ export default function MarketplacePage() {
                 Publish to vault leaderboard
               </button>
               {pubMsg ? <p className="mt-2 text-xs text-gray-400">{pubMsg}</p> : null}
-              {ownsPublishedStrategy && viewer.userId ? (
+              {ownsPublishedStrategy && viewer.creatorPublicId ? (
                 <p className="mt-3">
-                  <ShareCreatorProfileButton userId={viewer.userId} />
+                  <ShareCreatorProfileButton creatorPublicId={viewer.creatorPublicId} />
                 </p>
               ) : null}
             </>

@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { publicCreatorId } from "@/lib/marketplace/public-creator-id";
 
-export function ShareCreatorProfileButton({ userId }: { userId: string }) {
+export function ShareCreatorProfileButton({ creatorPublicId }: { creatorPublicId: string }) {
   const [copied, setCopied] = useState(false);
   const shareUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/creator/${publicCreatorId(userId)}`
-      : `/creator/${publicCreatorId(userId)}`;
+      ? `${window.location.origin}/creator/${creatorPublicId}`
+      : `/creator/${creatorPublicId}`;
 
   return (
     <button
