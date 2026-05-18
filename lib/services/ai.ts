@@ -5,13 +5,22 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { AllocationWeight, Signal } from "@/lib/types/database";
+import { AI_MODELS, AI_DISCLAIMER } from "@/lib/constants/ai-models";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const MODEL = "claude-opus-4-5";
-const STRATEGY_COUNCIL_MODEL = process.env.STRATEGY_COUNCIL_ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+/**
+ * Lightweight calls (narrative snippets, brief explanations):
+ *   AI_MODELS.FAST — low latency, low cost.
+ *
+ * Strategy Council memo (long-form structured JSON, 8192 tokens):
+ *   STRATEGY_COUNCIL_MODEL — defaults to AI_MODELS.PRIMARY; can be
+ *   overridden by STRATEGY_COUNCIL_ANTHROPIC_MODEL env var.
+ */
+const FAST_MODEL = AI_MODELS.FAST;
+const STRATEGY_COUNCIL_MODEL = process.env.STRATEGY_COUNCIL_ANTHROPIC_MODEL ?? AI_MODELS.PRIMARY;
 const MAX_TOKENS = 1024;
 
 // ── Signal narrative ─────────────────────────────────
@@ -37,7 +46,7 @@ export async function generateSignalNarrative(input: {
     `No jargon. No recommendations. Facts only.`;
 
   const message = await anthropic.messages.create({
-    model: MODEL,
+    model: FAST_MODEL,
     max_tokens: MAX_TOKENS,
     messages: [{ role: "user", content: prompt }],
   });
@@ -82,11 +91,10 @@ export async function generatePortfolioBrief(input: {
     `Use plain English. Do not include investment advice, buy/sell recommendations, ` +
     `or predictions about future performance. ` +
     `Address the portfolio owner directly (use "your portfolio"). ` +
-    `End with exactly this disclaimer on its own line: ` +
-    `"This brief is for informational purposes only and does not constitute financial advice."`;
+    `End with exactly this disclaimer on its own line: "${AI_DISCLAIMER}"`;
 
   const message = await anthropic.messages.create({
-    model: MODEL,
+    model: FAST_MODEL,
     max_tokens: MAX_TOKENS,
     messages: [{ role: "user", content: prompt }],
   });
@@ -119,7 +127,7 @@ export async function explainHolding(input: {
     `Plain English. No buy/sell recommendations.`;
 
   const message = await anthropic.messages.create({
-    model: MODEL,
+    model: FAST_MODEL,
     max_tokens: MAX_TOKENS,
     messages: [{ role: "user", content: prompt }],
   });
@@ -131,7 +139,7 @@ export async function explainHolding(input: {
 /** DeFi governance proposal summary — call only from server actions / API routes after user opt-in. */
 export async function generateGovernanceProposalSummary(prompt: string): Promise<string> {
   const message = await anthropic.messages.create({
-    model: MODEL,
+    model: FAST_MODEL,
     max_tokens: MAX_TOKENS,
     messages: [{ role: "user", content: prompt }],
   });
