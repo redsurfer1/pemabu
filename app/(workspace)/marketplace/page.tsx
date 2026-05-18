@@ -7,8 +7,7 @@ import { STALE } from "@/lib/constants/query-config";
 import { usePortfolios } from "@/hooks/usePortfolios";
 import { importSleeveStrategyAction } from "@/lib/actions/portfolio/importSleeveStrategyAction";
 
-const LIABILITY_FOOTER =
-  "Pemabu is a local-first software utility. All strategies are for informational purposes only. Not a registered investment advisor. The user retains full fiduciary responsibility for execution.";
+import { PemabuDisclaimer } from "@/components/ui/PemabuDisclaimer";
 
 type TeaserRow = {
   display_name: string;
@@ -188,7 +187,7 @@ export default function MarketplacePage() {
 
         <section className="mt-8 rounded-lg border border-white/10 bg-black/20 p-5">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Import blueprint</h2>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">{LIABILITY_FOOTER}</p>
+          <PemabuDisclaimer className="mt-2 text-[11px]" />
           {!showPrivate ? (
             <div className="mt-4 rounded border border-white/10 bg-black/30 px-4 py-6 text-center text-sm text-gray-300">
               {!viewer.authenticated ? (
@@ -252,7 +251,7 @@ export default function MarketplacePage() {
 
         <section className="mt-8 rounded-lg border border-white/10 bg-black/20 p-5">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Publish blueprint</h2>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">{LIABILITY_FOOTER}</p>
+          <PemabuDisclaimer className="mt-2 text-[11px]" />
           {!showPrivate ? (
             <p className="mt-4 text-sm text-gray-500">
               Publishing (including blueprint payload) is available to Intelligence subscribers after authentication.
@@ -293,7 +292,9 @@ export default function MarketplacePage() {
           )}
         </section>
 
-        <p className="mx-auto mt-10 max-w-2xl text-center text-[11px] leading-relaxed text-gray-600">{LIABILITY_FOOTER}</p>
+        <div className="mx-auto mt-10 max-w-2xl text-center">
+          <PemabuDisclaimer className="text-[11px]" />
+        </div>
       </div>
     </div>
   );

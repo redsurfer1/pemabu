@@ -40,6 +40,12 @@ export default function MarketingNav({ onSignIn }: MarketingNavProps) {
             Pricing
           </Link>
           <Link
+            href="/disclaimer"
+            className="cursor-pointer text-[13px] font-normal tracking-wide text-slate-500 no-underline hover:text-slate-300"
+          >
+            Disclaimer
+          </Link>
+          <Link
             href="/request-access"
             className="cursor-pointer text-[13px] font-medium tracking-wide text-emerald-500 no-underline hover:text-emerald-400"
           >

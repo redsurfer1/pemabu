@@ -7,6 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import PemabuLogo from "@/components/brand/PemabuLogo";
 import AuthModal from "@/components/AuthModal";
 import MarketingNav from "@/components/home/MarketingNav";
+import { SiteLegalFooter } from "@/components/legal/SiteLegalFooter";
 import type { LeaderboardPreviewItem } from "@/components/home/leaderboard-preview";
 
 interface HomePageProps {
@@ -242,22 +243,11 @@ export default function HomePage({ leaderboardPreview = [] }: HomePageProps) {
         style={{
           borderTop: "1px solid #1a2f4e",
           backgroundColor: "#0A1628",
-          padding: "32px",
-          textAlign: "center",
+          padding: "32px 24px",
           marginTop: "auto",
         }}
       >
-        <p
-          style={{
-            fontSize: 12,
-            color: "#2d3f54",
-            letterSpacing: "0.04em",
-            margin: 0,
-          }}
-        >
-          © 2026 Pemabu&nbsp;&nbsp;·&nbsp;&nbsp;Private Beta&nbsp;&nbsp;·&nbsp;&nbsp;By
-          invitation only
-        </p>
+        <SiteLegalFooter />
       </footer>
     </div>
   );

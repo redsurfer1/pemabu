@@ -8,6 +8,7 @@ import { ServicesSidebar } from "@/components/dashboard/ServicesSidebar";
 import { SignalFeed } from "@/components/dashboard/SignalFeed";
 import { HoldingsBuilder } from "@/components/workbook/HoldingsBuilder";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
+import { InvestmentDisclaimerBanner } from "@/components/legal/InvestmentDisclaimerBanner";
 import { WORKSPACE_PORTFOLIO_STORAGE_KEY } from "@/components/navigation/WorkspaceChrome";
 
 interface DashboardClientProps {
@@ -94,6 +95,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
 
   return (
     <>
+      <InvestmentDisclaimerBanner />
       <SystemSafetyBanner portfolioId={selectedPortfolioId} />
 
       <div className="w-full px-4 py-8 lg:px-6 xl:px-8">

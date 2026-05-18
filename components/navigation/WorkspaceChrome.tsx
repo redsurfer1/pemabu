@@ -9,6 +9,7 @@ import { WorkspaceNav } from "@/components/navigation/WorkspaceNav";
 import { useConsolidatedDashboard } from "@/hooks/usePortfolios";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { WORKSPACE_PORTFOLIO_STORAGE_KEY } from "@/lib/workspace/portfolio-selection";
+import { InvestmentDisclaimerBanner } from "@/components/legal/InvestmentDisclaimerBanner";
 
 export const SERVICES_SIDEBAR_STORAGE_KEY = "pemabu.dashboard.servicesOpen";
 export { WORKSPACE_PORTFOLIO_STORAGE_KEY };
@@ -172,6 +173,7 @@ export function WorkspaceChrome({
           </button>
         </div>
       </nav>
+      <InvestmentDisclaimerBanner />
       {children}
     </div>
   );

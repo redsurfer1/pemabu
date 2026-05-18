@@ -2,7 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import Link from "next/link";
 import { PemabuLogoCompact } from "@/components/brand/PemabuLogo";
+import { LEGAL_ROUTES } from "@/lib/constants/compliance";
 
 interface AuthModalProps {
   onClose: () => void;
@@ -237,6 +239,17 @@ export default function AuthModal({ onClose }: AuthModalProps) {
             </span>
           </span>
         </div>
+
+        <p style={{ marginTop: 16, textAlign: "center", fontSize: 10, lineHeight: 1.5, color: "#4a607a" }}>
+          Pemabu does not offer investment advice.{" "}
+          <Link href={LEGAL_ROUTES.disclaimer} style={{ color: "#10b981", textDecoration: "underline" }}>
+            Investment Disclaimer
+          </Link>
+          {" · "}
+          <Link href={LEGAL_ROUTES.terms} style={{ color: "#6b7f99", textDecoration: "underline" }}>
+            Terms
+          </Link>
+        </p>
       </div>
     </div>
   );

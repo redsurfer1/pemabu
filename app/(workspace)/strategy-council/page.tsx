@@ -6,6 +6,7 @@ import { usePortfolios } from "@/hooks/usePortfolios";
 import { exportSleeveStrategyAction } from "@/lib/actions/portfolio/exportSleeveStrategyAction";
 import { STRATEGY_COUNCIL_PRINT_STORAGE_KEY } from "@/lib/intelligence/strategy-council-print-key";
 import type { StrategyCouncilMemoPayload } from "@/lib/services/ai";
+import { PemabuDisclaimer } from "@/components/ui/PemabuDisclaimer";
 
 type SleeveRow = { id: string; name: string; purpose: string };
 
@@ -216,10 +217,7 @@ export default function StrategyCouncilPage() {
 
         <section className="rounded-lg border border-white/10 bg-black/20 p-5">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Portable sleeve (blueprint)</h2>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-            Pemabu is a local-first software utility. All strategies are for informational purposes; the user retains
-            full fiduciary responsibility for execution. Not a registered investment advisor.
-          </p>
+          <PemabuDisclaimer className="mt-2 text-[11px]" />
           <label className="mt-3 block text-xs text-gray-500">Sleeve</label>
           <select
             className="mt-1 w-full rounded border border-white/10 bg-[#0d1524] px-3 py-2 text-sm text-white"
