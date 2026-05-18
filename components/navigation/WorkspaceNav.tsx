@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   WORKSPACE_NAV_ITEMS,
   engineHref,
+  historyHref,
   isWorkspaceNavActive,
 } from "@/lib/navigation/workspace-nav";
 
@@ -40,6 +41,19 @@ export function WorkspaceNav({ portfolioId, className = "" }: WorkspaceNavProps)
           </Link>
         );
       })}
+      {portfolioId ? (
+        <Link
+          href={historyHref(portfolioId)}
+          className={`rounded border px-3 py-1 text-xs transition-colors ${
+            pathname.startsWith("/portfolio/history")
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+              : "border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
+          }`}
+          aria-current={pathname.startsWith("/portfolio/history") ? "page" : undefined}
+        >
+          History
+        </Link>
+      ) : null}
     </nav>
   );
 }

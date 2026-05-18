@@ -10,6 +10,11 @@ export function engineHref(portfolioId?: string | null): string {
   return `/portfolio/engine?portfolio=${encodeURIComponent(portfolioId)}`;
 }
 
+export function historyHref(portfolioId?: string | null): string {
+  if (!portfolioId) return "/portfolio/history";
+  return `/portfolio/history?portfolioId=${encodeURIComponent(portfolioId)}`;
+}
+
 export function isWorkspaceNavActive(pathname: string, pathPrefix: string): boolean {
   if (pathPrefix === "/dashboard") {
     return pathname === "/dashboard";
