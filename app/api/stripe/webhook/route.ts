@@ -87,23 +87,20 @@ async function handleMarketplaceUnlock(session: Stripe.Checkout.Session): Promis
     );
   }
 
-  // Ledger credit — only active when MARKETPLACE_USE_IMPORT_LEDGER=true.
-  // Both the unlock row (above) AND the ledger credit are written during the
-  // transition period. Once the flag is permanently true and the backfill has
-  // run, the unlock insert can be removed in a follow-up migration.
-  if (process.env.MARKETPLACE_USE_IMPORT_LEDGER === "true") {
-    try {
-      await creditTokensFromStripe({
-        userId,
-        stripeSessionId: sessionId,
-        quantity: 1,
-        amountUsdCents: amountCents,
-      });
-    } catch (e) {
-      // Non-fatal for the webhook response — the unlock row was already written.
-      // Log for monitoring; the backfill migration can heal any missed credits.
-      console.error("import-token ledger credit failed (non-fatal):", e);
-    }
+  // Always credit the import token ledger. The backfill migration has run and
+  // the ledger is the canonical entitlement source. Legacy unlock row is still
+  // written above for backward compatibility during the transition window.
+  try {
+    await creditTokensFromStripe({
+      userId,
+      stripeSessionId: sessionId,
+      quantity: 1,
+      amountUsdCents: amountCents,
+    });
+  } catch (e) {
+    // Non-fatal — the unlock row was already written and can serve as backup.
+    // Log for monitoring; a manual credit adjustment can heal any missed rows.
+    console.error("import-token ledger credit failed (non-fatal):", e);
   }
 
   return null;

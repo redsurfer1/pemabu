@@ -96,7 +96,7 @@ export default function MarketplacePage() {
           setImportMsg(`Intelligence tier required (REQUIRED_TIER: ${r.requiredTier}).`);
         } else if ("code" in r && r.code === "PAYMENT_REQUIRED") {
           setImportMsg(
-            `${r.error} Click “Pay $4.99 unlock” after pasting the same sleeve token, complete Stripe checkout, then import again.`,
+            `${r.error} Purchase an import token ($4.99) — paste the sleeve token, click “Buy import token”, complete Stripe checkout, then import again.`,
           );
         } else {
           setImportMsg(r.error);
@@ -242,7 +242,7 @@ export default function MarketplacePage() {
                 onClick={() => void startUnlockCheckout()}
                 className="ml-2 mt-3 rounded border border-emerald-500/40 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-950/40 disabled:opacity-40"
               >
-                Pay $4.99 unlock (Stripe)
+                Buy import token — $4.99 (Stripe)
               </button>
               {importMsg ? <p className="mt-2 text-xs text-gray-400">{importMsg}</p> : null}
             </>

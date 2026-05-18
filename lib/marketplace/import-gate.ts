@@ -5,17 +5,16 @@
 // route and the server action.
 //
 // Feature flag: MARKETPLACE_USE_IMPORT_LEDGER controls which path runs.
-//   false (default) — delegates to assertMarketplaceImportUnlock (existing
-//                     per-blueprint unlock behavior, unchanged).
-//   true            — checks token balance in marketplace_import_ledger.
-//                     Do NOT enable until the ledger backfill migration
-//                     (backfill_existing_unlocks_to_ledger) has been applied.
+//   (unset / default) — uses marketplace_import_ledger (per-import token model).
+//   false             — legacy: delegates to assertMarketplaceImportUnlock
+//                       (existing per-blueprint unlock behavior, unchanged).
+//                       Set MARKETPLACE_USE_IMPORT_LEDGER=false only when
+//                       reverting to the legacy path during an emergency rollback.
 //
 // NOTE: The direction / stripe_session_id / idempotency_key columns used by
 // getImportTokenBalance are added to marketplace_import_ledger by migration
-// [timestamp]_import_token_spend_rpc.sql. This module is safe to deploy
-// before that migration runs because the ledger path is behind the feature
-// flag and will not execute until MARKETPLACE_USE_IMPORT_LEDGER=true.
+// [timestamp]_import_token_spend_rpc.sql. Ensure that migration and the
+// backfill migration have been applied before the ledger path is active.
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assertMarketplaceImportUnlock } from "./assert-import-unlock";
@@ -41,11 +40,11 @@ export class ImportEntitlementError extends Error {
 /**
  * Verifies the user has entitlement to import a sleeve strategy.
  *
- * When MARKETPLACE_USE_IMPORT_LEDGER=false (default):
- *   Delegates to assertMarketplaceImportUnlock — existing per-blueprint
- *   unlock behavior is completely unchanged.
+ * When MARKETPLACE_USE_IMPORT_LEDGER=false (emergency rollback only):
+ *   Delegates to assertMarketplaceImportUnlock — legacy per-blueprint
+ *   unlock behavior.
  *
- * When MARKETPLACE_USE_IMPORT_LEDGER=true:
+ * Otherwise (default):
  *   Checks token balance in marketplace_import_ledger.
  *   Does NOT spend the token — call spendImportToken() in
  *   import-token-service.ts after the import succeeds.
@@ -60,7 +59,8 @@ export async function enforceImportEntitlement(
   userId: string,
   sleeveToken: string,
 ): Promise<void> {
-  const useLedger = process.env.MARKETPLACE_USE_IMPORT_LEDGER === "true";
+  // Default ON — only falls back to legacy unlock when explicitly set to "false".
+  const useLedger = process.env.MARKETPLACE_USE_IMPORT_LEDGER !== "false";
 
   if (!useLedger) {
     // Existing behavior — this path must not change

@@ -44,7 +44,7 @@ export async function importSleeveStrategyAction(portfolioId: string, sleeveToke
   if (!out.ok) return { success: false as const, error: out.error };
 
   // Spend one import token after a successful import (ledger path only).
-  if (process.env.MARKETPLACE_USE_IMPORT_LEDGER === "true") {
+  if (process.env.MARKETPLACE_USE_IMPORT_LEDGER !== "false") {
     const idempotencyKey = `${user.id}:${sleeveToken.slice(0, 32)}:${Math.floor(Date.now() / 60_000)}`;
     try {
       await spendImportToken({

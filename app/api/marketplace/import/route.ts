@@ -67,7 +67,7 @@ export const POST = withAuth(async (req, user, _ctx) => {
 
   // Spend one import token after a successful import (ledger path only).
   // Idempotency key: user + sleeve + 60-second bucket → safe to retry within the window.
-  if (process.env.MARKETPLACE_USE_IMPORT_LEDGER === "true") {
+  if (process.env.MARKETPLACE_USE_IMPORT_LEDGER !== "false") {
     const idempotencyKey = `${user.id}:${sleeveToken.slice(0, 32)}:${Math.floor(Date.now() / 60_000)}`;
     try {
       await spendImportToken({
