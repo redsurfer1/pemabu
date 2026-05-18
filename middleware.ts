@@ -2,10 +2,30 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { checkAccess } from "@/lib/access/checkAccess";
 
-const PROTECTED_ROUTE_PREFIXES = ["/dashboard", "/workbook", "/admin", "/portfolio", "/strategy-council"];
+/**
+ * Public paths that do NOT require authentication.
+ * Everything else matched by the wildcard matcher below is protected by default.
+ * Add new public marketing/auth pages here; workspace routes are protected automatically.
+ */
+const PUBLIC_PATH_PREFIXES = [
+  "/",           // exact home — checked separately via === below
+  "/about",
+  "/pricing",
+  "/crypto",
+  "/request-access",
+  "/auth/",
+  "/api/stripe/",  // Stripe webhooks and public Stripe-facing endpoints
+  "/api/public/",  // explicitly public API surface
+];
 
+function isPublicPath(pathname: string): boolean {
+  if (pathname === "/") return true;
+  return PUBLIC_PATH_PREFIXES.some((p) => p !== "/" && (pathname === p.replace(/\/$/, "") || pathname.startsWith(p)));
+}
+
+/** Inverse: anything that is NOT a public path requires auth. */
 function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return !isPublicPath(pathname);
 }
 
 export async function middleware(request: NextRequest) {
@@ -83,20 +103,17 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse;
 }
 
+/**
+ * Wildcard matcher — runs middleware on every route except:
+ *   • Next.js static build assets  (_next/static, _next/image)
+ *   • favicon and common static file extensions
+ *
+ * This means any new workspace route is automatically protected without
+ * requiring a manual update to this list. Public pages are carved out by
+ * isPublicPath() / isProtectedPath() above, not by the matcher.
+ */
 export const config = {
   matcher: [
-    "/api/admin/:path*",
-    "/dashboard",
-    "/dashboard/:path*",
-    "/admin",
-    "/admin/:path*",
-    "/workbook",
-    "/workbook/:path*",
-    "/portfolio",
-    "/portfolio/:path*",
-    "/strategy-council",
-    "/strategy-council/:path*",
-    "/marketplace",
-    "/marketplace/:path*",
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)).*)",
   ],
 };
