@@ -112,6 +112,23 @@ if (marketProvider === "tiingo" || marketProvider === "google-finance") {
   fail(`Unknown MARKET_DATA_PROVIDER=${marketProvider} — use tiingo`);
 }
 
+section("Sentry");
+
+const sentryDsn = env.SENTRY_DSN?.trim() || env.NEXT_PUBLIC_SENTRY_DSN?.trim();
+if (sentryDsn) {
+  pass("Sentry DSN configured (SENTRY_DSN or NEXT_PUBLIC_SENTRY_DSN)");
+  if (!env.NEXT_PUBLIC_SENTRY_DSN?.trim()) {
+    warn("NEXT_PUBLIC_SENTRY_DSN unset — browser errors will not reach Sentry");
+  }
+  if (!env.SENTRY_DSN?.trim()) {
+    warn("SENTRY_DSN unset — prefer setting both to the same DSN on Vercel");
+  }
+} else {
+  warn(
+    "Sentry DSN not set — production errors will not be reported. Set SENTRY_DSN + NEXT_PUBLIC_SENTRY_DSN, then run: npm run verify:sentry",
+  );
+}
+
 section("Docker");
 
 try {

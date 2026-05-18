@@ -14,7 +14,8 @@
     "lint": "eslint",
     "vault:sync": "tsx scripts/sync-local-schema.ts",
     "watcher": "tsx services/watcher/index.ts",
-    "doctor": "node scripts/doctor.mjs"
+    "doctor": "node scripts/doctor.mjs",
+    "verify:sentry": "node scripts/verify-sentry.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",

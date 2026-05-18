@@ -7,11 +7,14 @@
  * Sentry features are available here (no profiling, limited integrations).
  */
 import * as Sentry from "@sentry/nextjs";
+import { getSentryDsn } from "@/lib/monitoring/sentry-dsn";
+
+const dsn = getSentryDsn();
 
 Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  dsn,
 
-  enabled: process.env.NODE_ENV === "production",
+  enabled: Boolean(dsn) && process.env.NODE_ENV === "production",
 
   // Minimal trace sampling for edge routes — they are high-frequency.
   tracesSampleRate: 0.02,

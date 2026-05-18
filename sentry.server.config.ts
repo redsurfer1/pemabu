@@ -4,11 +4,14 @@
  * and server actions.
  */
 import * as Sentry from "@sentry/nextjs";
+import { getSentryDsn } from "@/lib/monitoring/sentry-dsn";
+
+const dsn = getSentryDsn();
 
 Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  dsn,
 
-  enabled: process.env.NODE_ENV === "production",
+  enabled: Boolean(dsn) && process.env.NODE_ENV === "production",
 
   // Server-side trace sampling — 10% for API routes.
   tracesSampleRate: 0.1,

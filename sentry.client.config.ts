@@ -7,12 +7,15 @@
  * your configured origins, not read data).
  */
 import * as Sentry from "@sentry/nextjs";
+import { getSentryClientDsn } from "@/lib/monitoring/sentry-dsn";
+
+const dsn = getSentryClientDsn();
 
 Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  dsn,
 
-  // Only enable in production; avoids polluting Sentry during local dev.
-  enabled: process.env.NODE_ENV === "production",
+  // Only enable when a DSN is configured and in production.
+  enabled: Boolean(dsn) && process.env.NODE_ENV === "production",
 
   // Performance traces — 5% sample rate to keep quota manageable.
   tracesSampleRate: 0.05,

@@ -16,6 +16,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/auth/",
   "/api/stripe/",  // Stripe webhooks and public Stripe-facing endpoints
   "/api/public/",  // explicitly public API surface
+  "/api/cron/",    // Vercel cron + CRON_SECRET bearer routes (auth inside handlers)
 ];
 
 function isPublicPath(pathname: string): boolean {
