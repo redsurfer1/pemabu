@@ -78,9 +78,10 @@ export async function creditTokensFromStripe(
       service_key: "marketplace_import_token",
       direction: "credit",
       tokens_consumed: params.quantity,
-      price_per_token: params.amountUsdCents / 100,
-      total_charged_usd: (params.amountUsdCents * params.quantity) / 100,
-      amount_usd_cents: params.amountUsdCents * params.quantity,
+      price_per_token:
+        params.quantity > 0 ? params.amountUsdCents / 100 / params.quantity : 0,
+      total_charged_usd: params.amountUsdCents / 100,
+      amount_usd_cents: params.amountUsdCents,
       is_complimentary: params.isComplimentary ?? false,
       stripe_session_id: params.stripeSessionId,
     });

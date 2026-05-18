@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { MARKETPLACE_UNLOCK_PRICE_CENTS, splitUnlockSale } from "@/lib/marketplace/unlock-pricing";
 import { creditTokensFromStripe } from "@/lib/marketplace/import-token-service";
+import { processReferralReward, resolveReferralCode } from "@/lib/marketplace/referral-service";
 
 export const runtime = "nodejs";
 
@@ -54,7 +55,24 @@ async function handleMarketplaceUnlock(session: Stripe.Checkout.Session): Promis
       ? session.amount_total
       : MARKETPLACE_UNLOCK_PRICE_CENTS;
 
-  const { creatorPayoutCents, platformFeeCents, creatorRoyaltyPct } = splitUnlockSale(amountCents);
+  const { data: strategyRow } = await supabaseAdmin
+    .from("marketplace_strategies")
+    .select("is_founding_publisher")
+    .eq("id", blueprintId)
+    .maybeSingle();
+
+  const isFoundingPublisher = Boolean(strategyRow?.is_founding_publisher);
+  const { creatorPayoutCents, platformFeeCents, creatorRoyaltyPct } = splitUnlockSale(amountCents, {
+    isFoundingPublisher,
+  });
+
+  console.info("[webhook] Royalty split:", {
+    strategyId: blueprintId,
+    isFoundingPublisher,
+    creatorPct: creatorRoyaltyPct * 100,
+    creatorRoyaltyUsd: creatorPayoutCents / 100,
+    platformFeeUsd: platformFeeCents / 100,
+  });
 
   const { data: existing } = await supabaseAdmin
     .from("marketplace_unlocks")
@@ -103,6 +121,48 @@ async function handleMarketplaceUnlock(session: Stripe.Checkout.Session): Promis
     // Non-fatal — the unlock row was already written and can serve as backup.
     // Log for monitoring; a manual credit adjustment can heal any missed rows.
     console.error("import-token ledger credit failed (non-fatal):", e);
+  }
+
+  return null;
+}
+
+async function handleImportTokenBundle(session: Stripe.Checkout.Session): Promise<Response | null> {
+  const md = session.metadata ?? {};
+  const userId = md.user_id?.trim();
+  const sessionId = session.id;
+  const referralCode = md.referral_code?.trim();
+
+  if (!userId || !sessionId) {
+    console.error("import_token_bundle missing metadata", { md, sessionId });
+    return NextResponse.json({ error: "Invalid session metadata" }, { status: 400 });
+  }
+
+  const tokenQuantity = Math.max(1, parseInt(md.token_quantity ?? "1", 10) || 1);
+  const amountCents =
+    typeof session.amount_total === "number" && session.amount_total > 0 ? session.amount_total : 0;
+
+  try {
+    await creditTokensFromStripe({
+      userId,
+      stripeSessionId: sessionId,
+      quantity: tokenQuantity,
+      amountUsdCents: amountCents,
+    });
+  } catch (e) {
+    console.error("import token bundle credit failed:", e);
+    return NextResponse.json({ error: "Token credit failed" }, { status: 500 });
+  }
+
+  if (referralCode) {
+    const referrerUserId = await resolveReferralCode(referralCode);
+    if (referrerUserId) {
+      const result = await processReferralReward({
+        referrerUserId,
+        refereeUserId: userId,
+        stripeSessionId: sessionId,
+      });
+      console.info("[webhook] Referral reward:", { referralCode, ...result });
+    }
   }
 
   return null;
@@ -288,6 +348,14 @@ export async function POST(req: Request): Promise<Response> {
         return NextResponse.json({ received: true });
       }
       const err = await handleSaasSubscriptionCheckout(session);
+      return err ?? NextResponse.json({ received: true });
+    }
+
+    if (session.metadata?.type === "import_token_bundle") {
+      if (session.mode !== "payment" || session.payment_status !== "paid") {
+        return NextResponse.json({ received: true });
+      }
+      const err = await handleImportTokenBundle(session);
       return err ?? NextResponse.json({ received: true });
     }
 
