@@ -57,6 +57,8 @@ jobs:
           MARKETPLACE_USE_IMPORT_LEDGER: "false"
           MARKET_DATA_PROVIDER: tiingo
           TIINGO_API_KEY: test-tiingo-key-not-real
+          # Sentry DSN is intentionally left empty in CI test runs (Sentry disabled when unset)
+          NEXT_PUBLIC_SENTRY_DSN: ""
 
   build:
     name: Build

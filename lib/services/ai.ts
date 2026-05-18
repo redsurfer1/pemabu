@@ -4,6 +4,7 @@
 // SERVER-ONLY: never import from client components.
 
 import Anthropic from "@anthropic-ai/sdk";
+import * as Sentry from "@sentry/nextjs";
 import type { AllocationWeight, Signal } from "@/lib/types/database";
 import { AI_MODELS, AI_DISCLAIMER } from "@/lib/constants/ai-models";
 
@@ -185,11 +186,17 @@ export async function generateStrategyCouncilMonthlyMemo(contextPacketJson: stri
     `- Macro-Tilt: suggest rebalancing themes informed by drift aggregates and execution stats only.\n` +
     `- If data gaps are noted in the JSON, acknowledge uncertainty briefly.`;
 
-  const message = await anthropic.messages.create({
-    model: STRATEGY_COUNCIL_MODEL,
-    max_tokens: 8192,
-    messages: [{ role: "user", content: prompt }],
-  });
+  let message: Awaited<ReturnType<typeof anthropic.messages.create>>;
+  try {
+    message = await anthropic.messages.create({
+      model: STRATEGY_COUNCIL_MODEL,
+      max_tokens: 8192,
+      messages: [{ role: "user", content: prompt }],
+    });
+  } catch (err) {
+    Sentry.captureException(err, { tags: { ai_call: "strategy_council_memo" } });
+    throw err;
+  }
 
   const content = message.content[0];
   const raw = content.type === "text" ? content.text.trim() : "{}";

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { ImportEntitlementError } from "@/lib/marketplace/import-gate";
+import * as Sentry from "@sentry/nextjs";
 
 // ── Structured error class ────────────────────────────────────────────────────
 
@@ -83,8 +84,9 @@ export function withAuth(
         );
       }
 
-      // Unexpected errors — log always, expose detail in development only
+      // Unexpected errors — log always, capture in Sentry (production), expose detail in dev
       console.error("[withAuth] Unhandled error:", e);
+      Sentry.captureException(e);
       const isDev = process.env.NODE_ENV === "development";
       return NextResponse.json(
         {

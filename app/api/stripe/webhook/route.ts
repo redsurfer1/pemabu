@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { MARKETPLACE_UNLOCK_PRICE_CENTS, splitUnlockSale } from "@/lib/marketplace/unlock-pricing";
 import { creditTokensFromStripe } from "@/lib/marketplace/import-token-service";
@@ -270,8 +271,13 @@ export async function POST(req: Request): Promise<Response> {
     event = stripeClient().webhooks.constructEvent(rawBody, sig, secret);
   } catch (err) {
     console.error("Stripe webhook signature verification failed:", err);
+    // Not reported to Sentry — invalid signature is expected for spoofed requests.
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
+
+  // Wrap the entire event dispatch in a Sentry transaction so webhook
+  // failures surface in the Sentry dashboard with event.type context.
+  Sentry.setTag("stripe.event_type", event.type);
 
   // ── checkout.session.completed ────────────────────────────────────────────
   if (event.type === "checkout.session.completed") {
