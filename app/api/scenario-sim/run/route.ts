@@ -89,48 +89,18 @@ export const POST = withAuth(async (req, user) => {
     );
   }
 
-  // Run the simulation. The actual allocation engine call goes here.
-  // For now: apply adjustments to a simple allocation model and return projected results.
-  const result = runSimulation(body.portfolio_id, body.adjustments ?? {}, body.label ?? "Untitled");
-
-  return NextResponse.json({
-    ok: true,
-    remaining: "remaining" in check ? check.remaining : null,
-    simulation: result,
-  });
-});
-
-// Lightweight in-process allocation simulation.
-// Real implementation will call the local allocation engine via getVaultPool().
-function runSimulation(
-  portfolioId: string,
-  adjustments: Record<string, number>,
-  label: string,
-): Record<string, unknown> {
-  const baseline = { equity: 60, fixed_income: 30, cash: 10 };
-  const adjusted = { ...baseline };
-
-  for (const [assetClass, delta] of Object.entries(adjustments)) {
-    if (assetClass in adjusted) {
-      (adjusted as Record<string, number>)[assetClass] = Math.max(
-        0,
-        ((adjusted as Record<string, number>)[assetClass] ?? 0) + delta,
-      );
-    }
-  }
-
-  const total = Object.values(adjusted).reduce((a, b) => a + b, 0);
-  const normalised = Object.fromEntries(
-    Object.entries(adjusted).map(([k, v]) => [k, total > 0 ? Math.round((v / total) * 1000) / 10 : 0]),
+  // Scenario simulation engine is under active development.
+  // The gating, usage tracking, and overage billing above are fully wired;
+  // the engine itself will query live holdings and project rebalancing outcomes
+  // against the factor model. Returning an honest 501 rather than fake data.
+  return NextResponse.json(
+    {
+      ok: false,
+      code: "FEATURE_COMING_SOON",
+      message:
+        "Scenario simulation engine is coming soon. Your monthly usage counter has NOT been incremented for this request.",
+      remaining: "remaining" in check ? check.remaining : null,
+    },
+    { status: 501 },
   );
-
-  return {
-    label,
-    portfolio_id: portfolioId,
-    run_at: new Date().toISOString(),
-    baseline,
-    adjustments,
-    projected_allocation: normalised,
-    projected_drift_reduction_pct: Object.keys(adjustments).length > 0 ? 3.2 : 0,
-  };
-}
+});

@@ -48,7 +48,9 @@ async function runSim(payload: {
     body: JSON.stringify(payload),
   });
   const data = await res.json() as RunResponse;
-  if (!res.ok && res.status !== 402) throw new Error(data.error ?? "Simulation failed");
+  // 402: overage checkout prompt (pass through)
+  // 501: FEATURE_COMING_SOON (pass through so onSuccess can display the gate message)
+  if (!res.ok && res.status !== 402 && res.status !== 501) throw new Error(data.error ?? "Simulation failed");
   return data;
 }
 
@@ -58,6 +60,7 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
   const [adjustments, setAdjustments] = useState<Record<string, number>>({});
   const [lastResult, setLastResult] = useState<SimResult | null>(null);
   const [overageUrl, setOverageUrl] = useState<string | null>(null);
+  const [comingSoon, setComingSoon] = useState(false);
 
   const usageQuery = useQuery({ queryKey: ["sim-usage"], queryFn: fetchUsage, staleTime: 30_000 });
 
@@ -67,9 +70,14 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
       if (data.ok && data.simulation) {
         setLastResult(data.simulation);
         setOverageUrl(null);
+        setComingSoon(false);
         void qc.invalidateQueries({ queryKey: ["sim-usage"] });
       } else if (data.code === "SOFT_CAP_EXCEEDED") {
         setOverageUrl(data.overage_checkout_url ?? null);
+        setComingSoon(false);
+      } else if (data.code === "FEATURE_COMING_SOON") {
+        setComingSoon(true);
+        setOverageUrl(null);
       }
     },
   });
@@ -80,6 +88,7 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
 
   function handleRun() {
     setOverageUrl(null);
+    setComingSoon(false);
     runMutation.mutate({ portfolio_id: portfolioId, adjustments, label });
   }
 
@@ -158,6 +167,17 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
             >
               Pay $0.50 &amp; Run
             </a>
+          </div>
+        )}
+
+        {comingSoon && (
+          <div className="bg-sky-900/30 border border-sky-500/30 rounded-lg p-4 space-y-1">
+            <p className="text-sm font-medium text-sky-300">Simulation engine coming soon</p>
+            <p className="text-xs text-sky-400/80">
+              The full allocation simulation engine is under active development. Gating, usage
+              tracking, and overage billing are wired and ready — the engine itself will project
+              rebalancing outcomes against your live holdings. Your usage counter was not incremented.
+            </p>
           </div>
         )}
 
