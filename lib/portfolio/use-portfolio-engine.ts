@@ -7,11 +7,12 @@ import type { Assumptions } from "@/lib/portfolio/formula-engine";
 import { DEFAULT_ASSUMPTIONS, colAB, colAK, normaliseWeights } from "@/lib/portfolio/formula-engine";
 import { normaliseFactorWeights } from "@/lib/portfolio/portfolio-factors";
 import type { AssetClass } from "@/lib/types/database";
+import { parseRowStatus, ROW_STATUS, type RowStatus } from "@/lib/portfolio/fiat-watchlist";
 
 export interface ComputedRow {
   id: string;
   portfolio_id: string;
-  rowStatus: "Active" | "Comparable";
+  rowStatus: RowStatus;
   symbol: string;
   name: string;
   quantity: number;
@@ -94,7 +95,7 @@ function mapHoldingToComputedRow(row: Record<string, unknown>): ComputedRow {
   return {
     id: String(row.id),
     portfolio_id: String(row.portfolio_id),
-    rowStatus: "Active",
+    rowStatus: parseRowStatus(row.row_status),
     symbol,
     name: String(row.name ?? symbol),
     quantity,
@@ -411,6 +412,8 @@ export function usePortfolioEngine(portfolioId: string) {
     async (payload: HoldingInsert) => {
       const assetClass = payload.asset_class ?? "equity";
       const ticker = assetClass === "cash" ? "CASH" : payload.symbol.toUpperCase();
+      const rowStatus =
+        payload.quantity > 0 ? ROW_STATUS.ACTIVE : ROW_STATUS.WATCH;
       const res = await fetch("/api/workbook/holdings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -422,6 +425,7 @@ export function usePortfolioEngine(portfolioId: string) {
           asset_class: assetClass,
           quantity: payload.quantity,
           source: "manual",
+          row_status: rowStatus,
           ...(payload.expense_ratio != null ? { expense_ratio: payload.expense_ratio } : {}),
           ...(payload.target_parity_weight != null
             ? { target_parity_weight: payload.target_parity_weight }
@@ -433,6 +437,39 @@ export function usePortfolioEngine(portfolioId: string) {
       await refreshSignals();
     },
     [portfolioId, refreshSignals],
+  );
+
+  const addToWatchlist = useCallback(
+    async (ticker: string) => {
+      if (!portfolioId) return;
+      const symbol = ticker.trim().toUpperCase();
+      if (!symbol) return;
+      const res = await fetch("/api/workbook/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ portfolio_id: portfolioId, ticker: symbol }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Add to watchlist failed");
+      await fetchRows(++fetchGenerationRef.current);
+      await refreshSignals();
+    },
+    [fetchRows, portfolioId, refreshSignals],
+  );
+
+  const removeFromWatchlist = useCallback(
+    async (ticker: string) => {
+      if (!portfolioId) return;
+      const res = await fetch(
+        `/api/workbook/watchlist/${encodeURIComponent(ticker)}?portfolioId=${encodeURIComponent(portfolioId)}`,
+        { method: "DELETE", credentials: "same-origin" },
+      );
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Remove from watchlist failed");
+      await fetchRows(++fetchGenerationRef.current);
+    },
+    [fetchRows, portfolioId],
   );
 
   const removeHolding = useCallback(
@@ -516,6 +553,8 @@ export function usePortfolioEngine(portfolioId: string) {
     refreshSignals,
     addHolding,
     removeHolding,
+    addToWatchlist,
+    removeFromWatchlist,
     updateAssumptions,
   };
 }

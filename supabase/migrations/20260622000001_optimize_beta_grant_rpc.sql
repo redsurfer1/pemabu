@@ -1,20 +1,20 @@
 -- Optimize assign_beta_grant_atomic: INSERT...SELECT instead of per-key loop.
 
-create or replace function public.assign_beta_grant_atomic(
+CREATE OR REPLACE FUNCTION public.assign_beta_grant_atomic(
   p_user_id      uuid,
   p_assigned_by  uuid,
-  p_notes        text default null
+  p_notes        text DEFAULT NULL
 )
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
   v_now           timestamptz := now();
   v_service_count integer;
-begin
-  insert into public.user_group_assignments (
+BEGIN
+  INSERT INTO public.user_group_assignments (
     user_id,
     subscription_group,
     assigned_by,
@@ -23,7 +23,7 @@ begin
     created_at,
     updated_at
   )
-  values (
+  VALUES (
     p_user_id,
     'beta',
     p_assigned_by,
@@ -32,14 +32,14 @@ begin
     v_now,
     v_now
   )
-  on conflict (user_id) do update set
+  ON CONFLICT (user_id) DO UPDATE SET
     subscription_group = 'beta',
     assigned_by        = p_assigned_by,
     assigned_at        = v_now,
-    notes              = coalesce(p_notes, user_group_assignments.notes),
+    notes              = COALESCE(p_notes, user_group_assignments.notes),
     updated_at         = v_now;
 
-  insert into public.user_subscriptions (
+  INSERT INTO public.user_subscriptions (
     user_id,
     service_key,
     status,
@@ -51,43 +51,39 @@ begin
     created_at,
     updated_at
   )
-  select
+  SELECT
     p_user_id,
     ps.service_key,
     'complimentary',
-    null,
+    NULL,
     p_assigned_by,
     'Auto-granted via beta group assignment',
     v_now,
-    null,
+    NULL,
     v_now,
     v_now
-  from public.pemabu_services ps
-  where ps.is_active = true
-  on conflict (user_id, service_key) do update set
-    status             = 'complimentary',
-    price_paid_usd     = null,
-    ends_at            = null,
-    notes              = 'Auto-granted via beta group assignment',
-    updated_at         = v_now;
+  FROM public.pemabu_services ps
+  WHERE ps.is_active = true
+  ON CONFLICT (user_id, service_key) DO UPDATE SET
+    status         = 'complimentary',
+    price_paid_usd = NULL,
+    ends_at        = NULL,
+    notes          = 'Auto-granted via beta group assignment',
+    updated_at     = v_now;
 
-  get diagnostics v_service_count = row_count;
+  GET DIAGNOSTICS v_service_count = ROW_COUNT;
 
-  return jsonb_build_object(
-    'success',           true,
-    'user_id',           p_user_id,
-    'services_granted',  v_service_count,
-    'assigned_at',       v_now
+  RETURN jsonb_build_object(
+    'success',          true,
+    'user_id',          p_user_id,
+    'services_granted', v_service_count,
+    'assigned_at',      v_now
   );
-
-exception
-  when others then
-    return jsonb_build_object(
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(
       'success', false,
-      'error',   sqlerrm
+      'error',   SQLERRM
     );
-end;
-$$;
-
-revoke all on function public.assign_beta_grant_atomic(uuid, uuid, text) from public;
-grant execute on function public.assign_beta_grant_atomic(uuid, uuid, text) to service_role;
+END;
+$fn$;

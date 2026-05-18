@@ -42,13 +42,19 @@ ALTER TABLE public.creator_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.marketplace_unlocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sovereign_sync_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "creator_stats_select_self"
-  ON public.creator_stats FOR SELECT TO authenticated
-  USING (creator_user_id = (SELECT auth.uid()));
+DO $$ BEGIN
+  CREATE POLICY "creator_stats_select_self"
+    ON public.creator_stats FOR SELECT TO authenticated
+    USING (creator_user_id = (SELECT auth.uid()));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "marketplace_unlocks_select_own"
-  ON public.marketplace_unlocks FOR SELECT TO authenticated
-  USING (user_id = (SELECT auth.uid()));
+DO $$ BEGIN
+  CREATE POLICY "marketplace_unlocks_select_own"
+    ON public.marketplace_unlocks FOR SELECT TO authenticated
+    USING (user_id = (SELECT auth.uid()));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Inserts from Stripe webhook use service_role (bypass RLS).
 

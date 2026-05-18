@@ -1,11 +1,5 @@
--- ─────────────────────────────────────────────────────────────────────────────
 -- MARKETPLACE IMPORT TOKEN SYSTEM
--- Tracks token consumption for blueprint imports.
--- Revenue model: 1 token = $4.99, consumed per import.
--- Beta users: exempt (complimentary subscription covers marketplace access).
--- ─────────────────────────────────────────────────────────────────────────────
 
--- Add marketplace_import_token to the service catalog
 insert into public.pemabu_services (
   service_key,
   display_name,
@@ -19,9 +13,7 @@ insert into public.pemabu_services (
 values (
   'marketplace_import_token',
   'Marketplace Import Token',
-  'One-time token consumed when importing a Sleeve Blueprint strategy. '
-  'Each import costs one token. Tokens do not expire. '
-  'Beta users receive unlimited imports at no charge.',
+  'One-time token consumed when importing a Sleeve Blueprint strategy. Each import costs one token. Tokens do not expire. Beta users receive unlimited imports at no charge.',
   'overage',
   'per_event',
   4.99,
@@ -35,13 +27,6 @@ on conflict (service_key) do update set
   is_active     = excluded.is_active,
   sort_order    = excluded.sort_order,
   updated_at    = now();
-
-
--- ─────────────────────────────────────────────────────────────────────────────
--- TOKEN LEDGER TABLE
--- One row per import event. Append-only — no updates, no deletes.
--- strategy_id nullable when the token is not linked to a published marketplace row.
--- ─────────────────────────────────────────────────────────────────────────────
 
 create table if not exists public.marketplace_import_ledger (
   id                uuid        primary key default gen_random_uuid(),
@@ -67,14 +52,15 @@ create index if not exists idx_marketplace_import_ledger_imported_at
 
 alter table public.marketplace_import_ledger enable row level security;
 
-create policy "users_read_own_import_ledger"
-  on public.marketplace_import_ledger for select
-  using (auth.uid() = user_id);
+do $policy$ begin
+  create policy "users_read_own_import_ledger"
+    on public.marketplace_import_ledger for select
+    using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $policy$;
 
 grant all on public.marketplace_import_ledger to service_role;
 grant select on public.marketplace_import_ledger to authenticated;
 
 comment on table public.marketplace_import_ledger is
-  'Append-only ledger of Sleeve Blueprint import events. '
-  'Revenue source: marketplace_import_token at $4.99 per import. '
-  'Beta users are marked is_complimentary = true and are not charged.';
+  'Append-only ledger of Sleeve Blueprint import events. Revenue source: marketplace_import_token at $4.99 per import. Beta users are marked is_complimentary = true and are not charged.';

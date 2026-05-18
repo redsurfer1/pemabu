@@ -32,23 +32,26 @@ create trigger trg_portfolio_api_credentials_updated_at
 alter table public.portfolio_api_credentials enable row level security;
 
 drop policy if exists "portfolio_api_credentials_owner" on public.portfolio_api_credentials;
-create policy "portfolio_api_credentials_owner"
-  on public.portfolio_api_credentials
-  for all
-  to authenticated
-  using (
-    exists (
-      select 1 from public.portfolios p
-      where p.id = portfolio_id and p.user_id = auth.uid()
+do $$ begin
+  create policy "portfolio_api_credentials_owner"
+    on public.portfolio_api_credentials
+    for all
+    to authenticated
+    using (
+      exists (
+        select 1 from public.portfolios p
+        where p.id = portfolio_id and p.user_id = auth.uid()
+      )
     )
-  )
-  with check (
-    user_id = auth.uid()
-    and exists (
-      select 1 from public.portfolios p
-      where p.id = portfolio_id and p.user_id = auth.uid()
-    )
-  );
+    with check (
+      user_id = auth.uid()
+      and exists (
+        select 1 from public.portfolios p
+        where p.id = portfolio_id and p.user_id = auth.uid()
+      )
+    );
+exception when duplicate_object then null;
+end $$;
 
 grant select, insert, update, delete on public.portfolio_api_credentials to authenticated;
 grant all on public.portfolio_api_credentials to service_role;

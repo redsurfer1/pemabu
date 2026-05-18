@@ -28,6 +28,7 @@ import {
   DEFAULT_ASSUMPTIONS,
 } from "@/lib/portfolio/formula-engine";
 import { getPortfolioTiingoToken } from "@/lib/portfolio/api-credentials";
+import { parseRowStatus, ROW_STATUS } from "@/lib/portfolio/fiat-watchlist";
 import { clearPriceCache, fetchMarketDataCached } from "@/lib/market-data/yahoo-finance";
 
 type RefreshRow = {
@@ -44,6 +45,7 @@ type RefreshRow = {
   score_governance_layer: number | null;
   score_political_tracker: number | null;
   score_token_quality: number | null;
+  row_status: string | null;
 };
 
 type RankedWorkRow = {
@@ -92,7 +94,7 @@ export async function refreshPortfolioSignals(
   const { data: rows, error: holdingsErr } = await supabase
     .from("portfolio_holdings")
     .select(
-      "id,portfolio_id,ticker,name,quantity,expense_ratio,dividend_dollars,target_parity_weight,score_thirteen_f,score_macro_intelligence,score_governance_layer,score_political_tracker,score_token_quality",
+      "id,portfolio_id,ticker,name,quantity,expense_ratio,dividend_dollars,target_parity_weight,score_thirteen_f,score_macro_intelligence,score_governance_layer,score_political_tracker,score_token_quality,row_status",
     )
     .eq("portfolio_id", portfolioId)
     .order("ticker", { ascending: true });
@@ -138,13 +140,14 @@ export async function refreshPortfolioSignals(
   }
 
   const withBase = holdings.map((h) => {
+    const storedStatus = parseRowStatus(h.row_status);
     const md = marketByTicker.get(h.ticker) ?? null;
     const marketDataError = Boolean(md?.error);
-    if (marketDataError) {
+    if (marketDataError && storedStatus !== ROW_STATUS.WATCH) {
       return {
         id: h.id,
         ticker: h.ticker,
-        rowStatus: "Comparable",
+        rowStatus: ROW_STATUS.COMPARABLE,
         marketDataError: true,
         quantity: Number(h.quantity),
         expenseRatio: h.expense_ratio != null ? Number(h.expense_ratio) : null,
@@ -219,10 +222,15 @@ export async function refreshPortfolioSignals(
     const volatilityAbs = colAC(return_3mo);
     const volatilitySigned = colAD(return_3mo);
     const rsi = computeRSI(md?.recentCloses ?? []);
+    const rowStatus =
+      storedStatus === ROW_STATUS.WATCH
+        ? ROW_STATUS.WATCH
+        : ROW_STATUS.ACTIVE;
+
     return {
       id: h.id,
       ticker: h.ticker,
-      rowStatus: "Active",
+      rowStatus,
       marketDataError: false,
       quantity: Number(h.quantity),
       expenseRatio: h.expense_ratio != null ? Number(h.expense_ratio) : null,
@@ -284,7 +292,11 @@ export async function refreshPortfolioSignals(
     };
   });
 
-  const totalMV = withBase.reduce((s, r) => s + (r.market_value ?? 0), 0);
+  const totalMV = withBase.reduce(
+    (s, r) =>
+      r.rowStatus === ROW_STATUS.WATCH ? s : s + (r.market_value ?? 0),
+    0,
+  );
   for (const row of withBase) {
     row.currentWeight = row.market_value != null ? colD(row.market_value, totalMV) : null;
   }
@@ -296,6 +308,28 @@ export async function refreshPortfolioSignals(
 
   const rankMap = denseRank(ranked.map((r) => r.compositeScore ?? null), false);
   for (const row of ranked) {
+    if (row.rowStatus === ROW_STATUS.WATCH) {
+      row.rank_overall = null;
+      row.alert_primary = null;
+      row.alert_secondary = null;
+      row.target_sleeve_pct = null;
+      row.parity_dollars = null;
+      row.parity_change_dollars = null;
+      row.shares_delta = null;
+      row.composite_score = null;
+      row.sub_rank_current = null;
+      row.sub_rank_expense = null;
+      row.sub_rank_weighted_ret = null;
+      row.sub_rank_div_apy = null;
+      row.sub_rank_volatility = null;
+      row.sub_rank_thirteen_f = null;
+      row.sub_rank_macro_intelligence = null;
+      row.sub_rank_governance_layer = null;
+      row.sub_rank_political_tracker = null;
+      row.sub_rank_token_quality = null;
+      row.sub_rank_vol_signed = null;
+      continue;
+    }
     if (row.marketDataError) {
       row.rank_overall = null;
       row.alert_primary = null;
@@ -390,6 +424,7 @@ export async function refreshPortfolioSignals(
     parity_dollars: row.parity_dollars,
     parity_change_dollars: row.parity_change_dollars,
     shares_delta: row.shares_delta,
+    row_status: row.rowStatus,
     updated_at: now,
   }));
 

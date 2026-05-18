@@ -57,6 +57,8 @@ export interface Portfolio {
   updated_at: string;
 }
 
+export type HoldingRowStatus = "Active" | "Comparable" | "Watch";
+
 export interface Holding {
   id: string;
   portfolio_id: string;
@@ -68,6 +70,7 @@ export interface Holding {
   current_price: number | null;
   currency: string;
   source: HoldingSource;
+  row_status?: HoldingRowStatus;
   /** From nightly quote (e.g. +1.25 = +1.25%). */
   last_change_pct: number | null;
   /** User-entered expense ratio as decimal fraction (0.0003 = 0.03%). */

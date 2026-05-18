@@ -95,19 +95,28 @@ alter table public.user_subscriptions      enable row level security;
 alter table public.user_group_assignments  enable row level security;
 
 -- pemabu_services: public read, service-role write
-create policy "services_public_read"
-  on public.pemabu_services for select
-  using (true);
+do $$ begin
+  create policy "services_public_read"
+    on public.pemabu_services for select
+    using (true);
+exception when duplicate_object then null;
+end $$;
 
 -- user_subscriptions: owner read own rows
-create policy "subscriptions_owner_read"
-  on public.user_subscriptions for select
-  using (auth.uid() = user_id);
+do $$ begin
+  create policy "subscriptions_owner_read"
+    on public.user_subscriptions for select
+    using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- user_group_assignments: owner read own row
-create policy "groups_owner_read"
-  on public.user_group_assignments for select
-  using (auth.uid() = user_id);
+do $$ begin
+  create policy "groups_owner_read"
+    on public.user_group_assignments for select
+    using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- ────────────────────────────────────────
 -- 7. Grants

@@ -42,14 +42,20 @@ create table if not exists public.macro_correlation_cache (
 alter table public.macro_regime_history   enable row level security;
 alter table public.macro_correlation_cache enable row level security;
 
-create policy "users_own_macro_history"
-  on public.macro_regime_history
-  for select
-  using (auth.uid() = user_id);
+do $$ begin
+  create policy "users_own_macro_history"
+    on public.macro_regime_history
+    for select
+    using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
-create policy "authenticated_read_correlation_cache"
-  on public.macro_correlation_cache for select
-  using (auth.role() = 'authenticated');
+do $$ begin
+  create policy "authenticated_read_correlation_cache"
+    on public.macro_correlation_cache for select
+    using (auth.role() = 'authenticated');
+exception when duplicate_object then null;
+end $$;
 
 grant all    on public.macro_regime_history    to service_role;
 grant select on public.macro_regime_history    to authenticated;

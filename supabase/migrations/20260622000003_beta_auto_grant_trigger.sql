@@ -3,7 +3,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $$
+AS $fn$
 begin
   if NEW.is_active = false then
     return NEW;
@@ -38,9 +38,9 @@ begin
 
   return NEW;
 end;
-$$;
+$fn$;
 
-drop trigger if exists trg_auto_grant_new_service_to_beta on public.pemabu_services;
+DROP TRIGGER IF EXISTS trg_auto_grant_new_service_to_beta ON public.pemabu_services;
 
 create trigger trg_auto_grant_new_service_to_beta
   after insert on public.pemabu_services

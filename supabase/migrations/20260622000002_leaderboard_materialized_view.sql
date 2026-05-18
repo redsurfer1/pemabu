@@ -31,14 +31,14 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $$
-begin
-  refresh materialized view concurrently public.marketplace_leaderboard_scores;
-end;
-$$;
+AS $fn$
+BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY public.marketplace_leaderboard_scores;
+END;
+$fn$;
 
-revoke all on function public.refresh_leaderboard_scores() from public;
-grant execute on function public.refresh_leaderboard_scores() to service_role;
+REVOKE ALL ON FUNCTION public.refresh_leaderboard_scores() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.refresh_leaderboard_scores() TO service_role;
 
 grant select on public.marketplace_leaderboard_scores to authenticated;
 grant select on public.marketplace_leaderboard_scores to anon;

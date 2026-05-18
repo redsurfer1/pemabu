@@ -33,21 +33,27 @@ create index if not exists idx_family_share_tokens_hash
 alter table public.family_share_tokens     enable row level security;
 alter table public.family_share_access_log enable row level security;
 
-create policy "owners_manage_share_tokens"
-  on public.family_share_tokens
-  for all
-  using (auth.uid() = owner_user_id)
-  with check (auth.uid() = owner_user_id);
+do $$ begin
+  create policy "owners_manage_share_tokens"
+    on public.family_share_tokens
+    for all
+    using (auth.uid() = owner_user_id)
+    with check (auth.uid() = owner_user_id);
+exception when duplicate_object then null;
+end $$;
 
-create policy "owners_read_access_log"
-  on public.family_share_access_log for select
-  using (
-    exists (
-      select 1 from public.family_share_tokens t
-      where t.id = family_share_access_log.token_id
-        and t.owner_user_id = auth.uid()
-    )
-  );
+do $$ begin
+  create policy "owners_read_access_log"
+    on public.family_share_access_log for select
+    using (
+      exists (
+        select 1 from public.family_share_tokens t
+        where t.id = family_share_access_log.token_id
+          and t.owner_user_id = auth.uid()
+      )
+    );
+exception when duplicate_object then null;
+end $$;
 
 grant all on public.family_share_tokens     to service_role;
 grant all on public.family_share_access_log to service_role;

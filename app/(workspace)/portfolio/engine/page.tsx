@@ -16,14 +16,17 @@ import { FACTOR_WEIGHT_KEYS, normaliseFactorWeights } from "@/lib/portfolio/port
 import { usePortfolioEngine } from "@/lib/portfolio/use-portfolio-engine";
 import type { ComputedRow } from "@/lib/portfolio/use-portfolio-engine";
 import { resolveWorkspacePortfolioId } from "@/lib/workspace/portfolio-selection";
+import { PortfolioWatchlistPanel } from "@/components/portfolio/PortfolioWatchlistPanel";
+import { ROW_STATUS } from "@/lib/portfolio/fiat-watchlist";
 
-type TabKey = "dashboard" | "signals" | "assumptions" | "audit";
+type TabKey = "dashboard" | "signals" | "assumptions" | "audit" | "watchlist";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "dashboard", label: "Dashboard" },
   { key: "signals", label: "Signals" },
   { key: "assumptions", label: "Assumptions" },
   { key: "audit", label: "Data Audit" },
+  { key: "watchlist", label: "Watchlist" },
 ];
 
 const sortableColumns: Array<keyof ComputedRow> = [
@@ -154,6 +157,8 @@ function PortfolioEnginePageContent() {
     refreshSignals,
     addHolding,
     removeHolding,
+    addToWatchlist,
+    removeFromWatchlist,
     updateAssumptions,
   } = usePortfolioEngine(selected);
 
@@ -172,7 +177,10 @@ function PortfolioEnginePageContent() {
     setSavedAssumptions(engineAssumptions);
   }, [engineAssumptions]);
 
-  const activeRows = useMemo(() => computed.filter((r) => r.rowStatus === "Active"), [computed]);
+  const activeRows = useMemo(
+    () => computed.filter((r) => r.rowStatus === ROW_STATUS.ACTIVE),
+    [computed],
+  );
   const avgRsi = useMemo(() => {
     const vals = activeRows.map((r) => r.rsi_14).filter((v): v is number => v != null);
     if (!vals.length) return null;
@@ -402,9 +410,24 @@ function PortfolioEnginePageContent() {
               </thead>
               <tbody>
                 {sortedComputed.map((r) => (
-                  <tr key={r.id} className={r.rowStatus === "Comparable" ? "opacity-60" : ""}>
+                  <tr
+                    key={r.id}
+                    className={
+                      r.rowStatus === ROW_STATUS.COMPARABLE
+                        ? "opacity-60"
+                        : r.rowStatus === ROW_STATUS.WATCH
+                          ? "bg-[#f59e0b08]"
+                          : ""
+                    }
+                  >
                     <td className="px-2 py-1">{r.rank_overall ?? "—"}</td>
-                    <td className="px-2 py-1">{r.rowStatus}</td>
+                    <td
+                      className={`px-2 py-1 ${
+                        r.rowStatus === ROW_STATUS.WATCH ? "text-[#f59e0b]" : ""
+                      }`}
+                    >
+                      {r.rowStatus}
+                    </td>
                     <td className="px-2 py-1 text-white">{r.symbol}</td>
                     <td className="px-2 py-1">{r.name}</td>
                     <td className="px-2 py-1">{num(r.price_current)}</td>
@@ -516,6 +539,16 @@ function PortfolioEnginePageContent() {
               })();
             }}
             onCancel={() => setLocalAssumptions(savedAssumptions)}
+          />
+        </div>
+      )}
+
+      {tab === "watchlist" && (
+        <div className="p-6">
+          <PortfolioWatchlistPanel
+            portfolioId={selected}
+            onAdd={addToWatchlist}
+            onRemove={removeFromWatchlist}
           />
         </div>
       )}

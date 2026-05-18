@@ -24,13 +24,19 @@ COMMENT ON TABLE public.marketplace_strategies IS
 
 ALTER TABLE public.marketplace_strategies ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "marketplace_strategies_select_all"
-  ON public.marketplace_strategies FOR SELECT TO authenticated
-  USING (true);
+DO $$ BEGIN
+  CREATE POLICY "marketplace_strategies_select_all"
+    ON public.marketplace_strategies FOR SELECT TO authenticated
+    USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "marketplace_strategies_insert_authenticated"
-  ON public.marketplace_strategies FOR INSERT TO authenticated
-  WITH CHECK (true);
+DO $$ BEGIN
+  CREATE POLICY "marketplace_strategies_insert_authenticated"
+    ON public.marketplace_strategies FOR INSERT TO authenticated
+    WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 GRANT SELECT, INSERT ON public.marketplace_strategies TO authenticated;
 

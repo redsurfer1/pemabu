@@ -197,42 +197,75 @@ ALTER TABLE public.daily_execution_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.execution_control ENABLE ROW LEVEL SECURITY;
 
 -- RLS: owner-scoped credentials & proposals
-CREATE POLICY "exchange_credentials_select_own"
-  ON public.exchange_credentials FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-CREATE POLICY "exchange_credentials_insert_own"
-  ON public.exchange_credentials FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
-CREATE POLICY "exchange_credentials_update_own"
-  ON public.exchange_credentials FOR UPDATE TO authenticated
-  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "exchange_credentials_delete_own"
-  ON public.exchange_credentials FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
+DO $$ BEGIN
+  CREATE POLICY "exchange_credentials_select_own"
+    ON public.exchange_credentials FOR SELECT TO authenticated
+    USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "exchange_credentials_insert_own"
+    ON public.exchange_credentials FOR INSERT TO authenticated
+    WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "exchange_credentials_update_own"
+    ON public.exchange_credentials FOR UPDATE TO authenticated
+    USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "exchange_credentials_delete_own"
+    ON public.exchange_credentials FOR DELETE TO authenticated
+    USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "trade_proposals_select_own"
-  ON public.trade_proposals FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-CREATE POLICY "trade_proposals_update_own"
-  ON public.trade_proposals FOR UPDATE TO authenticated
-  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DO $$ BEGIN
+  CREATE POLICY "trade_proposals_select_own"
+    ON public.trade_proposals FOR SELECT TO authenticated
+    USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "trade_proposals_update_own"
+    ON public.trade_proposals FOR UPDATE TO authenticated
+    USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "daily_execution_logs_select_own"
-  ON public.daily_execution_logs FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-CREATE POLICY "daily_execution_logs_insert_own"
-  ON public.daily_execution_logs FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
+DO $$ BEGIN
+  CREATE POLICY "daily_execution_logs_select_own"
+    ON public.daily_execution_logs FOR SELECT TO authenticated
+    USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "daily_execution_logs_insert_own"
+    ON public.daily_execution_logs FOR INSERT TO authenticated
+    WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "execution_control_select_own"
-  ON public.execution_control FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-CREATE POLICY "execution_control_insert_own"
-  ON public.execution_control FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
-CREATE POLICY "execution_control_update_own"
-  ON public.execution_control FOR UPDATE TO authenticated
-  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DO $$ BEGIN
+  CREATE POLICY "execution_control_select_own"
+    ON public.execution_control FOR SELECT TO authenticated
+    USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "execution_control_insert_own"
+    ON public.execution_control FOR INSERT TO authenticated
+    WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "execution_control_update_own"
+    ON public.execution_control FOR UPDATE TO authenticated
+    USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 GRANT SELECT, INSERT, UPDATE ON public.exchange_credentials TO authenticated;
 GRANT SELECT, UPDATE ON public.trade_proposals TO authenticated;

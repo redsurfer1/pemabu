@@ -34,13 +34,19 @@ COMMENT ON TABLE public.execution_errors IS
 
 ALTER TABLE public.execution_errors ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "execution_errors_select_own"
-  ON public.execution_errors FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
+DO $$ BEGIN
+  CREATE POLICY "execution_errors_select_own"
+    ON public.execution_errors FOR SELECT TO authenticated
+    USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "execution_errors_insert_own"
-  ON public.execution_errors FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
+DO $$ BEGIN
+  CREATE POLICY "execution_errors_insert_own"
+    ON public.execution_errors FOR INSERT TO authenticated
+    WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 GRANT SELECT, INSERT ON public.execution_errors TO authenticated;
 

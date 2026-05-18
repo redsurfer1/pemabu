@@ -3,7 +3,7 @@ returns integer
 language plpgsql
 security definer
 set search_path = public
-as $$
+AS $fn$
 declare
   v_expired integer;
 begin
@@ -19,10 +19,7 @@ begin
 
   return coalesce(v_expired, 0);
 end;
-$$;
+$fn$;
 
-revoke all on function public.expire_elapsed_trials() from public;
-grant execute on function public.expire_elapsed_trials() to service_role;
-
-comment on function public.expire_elapsed_trials is
-  'Expires trial subscriptions past ends_at.';
+REVOKE ALL ON FUNCTION public.expire_elapsed_trials() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.expire_elapsed_trials() TO service_role;

@@ -56,27 +56,33 @@ CREATE INDEX IF NOT EXISTS holding_audit_log_portfolio_created_idx
 
 ALTER TABLE public.holding_audit_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "holding_audit_log_select_owner"
-  ON public.holding_audit_log
-  FOR SELECT
-  TO authenticated
-  USING (
-    portfolio_id IN (
-      SELECT id FROM public.portfolios
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "holding_audit_log_select_owner"
+    ON public.holding_audit_log
+    FOR SELECT
+    TO authenticated
+    USING (
+      portfolio_id IN (
+        SELECT id FROM public.portfolios
+        WHERE user_id = auth.uid()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "holding_audit_log_insert_owner"
-  ON public.holding_audit_log
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    user_id = auth.uid()
-    AND portfolio_id IN (
-      SELECT id FROM public.portfolios
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "holding_audit_log_insert_owner"
+    ON public.holding_audit_log
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+      user_id = auth.uid()
+      AND portfolio_id IN (
+        SELECT id FROM public.portfolios
+        WHERE user_id = auth.uid()
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 GRANT SELECT, INSERT ON public.holding_audit_log TO authenticated;

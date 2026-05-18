@@ -96,7 +96,7 @@ export type UpsertHoldingInput = Pick<
   Holding,
   "ticker" | "name" | "asset_class" | "quantity" | "cost_basis" | "currency" | "source"
 > &
-  Partial<Pick<Holding, "expense_ratio" | "target_weight_pct">>;
+  Partial<Pick<Holding, "expense_ratio" | "target_weight_pct" | "row_status">>;
 
 export async function upsertHolding(portfolioId: string, input: UpsertHoldingInput): Promise<Holding> {
   const supabase = await createClient();

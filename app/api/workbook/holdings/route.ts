@@ -10,7 +10,8 @@ const UpsertHoldingSchema = z.object({
   ticker: z.string().min(1).max(20).toUpperCase(),
   name: z.string().max(200).optional(),
   asset_class: ASSET_CLASS_ENUM,
-  quantity: z.number().positive(),
+  quantity: z.number().min(0),
+  row_status: z.enum(["Active", "Comparable", "Watch"]).optional(),
   cost_basis: z.number().positive().optional(),
   currency: z.enum(["USD", "GBP", "EUR", "CAD", "AUD"]).default("USD"),
   source: z.enum(["manual", "upload", "csv_import"]).default("manual"),
@@ -47,12 +48,16 @@ export const POST = withAuth(async (req, user, _ctx) => {
   if (!portfolio || portfolio.user_id !== user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const { portfolio_id, name, cost_basis, expense_ratio, target_weight_pct, ...rest } = holdingData;
+  const { portfolio_id, name, cost_basis, expense_ratio, target_weight_pct, row_status, ...rest } =
+    holdingData;
+  const effectiveRowStatus =
+    row_status ?? (rest.quantity > 0 ? ("Active" as const) : ("Watch" as const));
   try {
     const holding = await upsertHolding(portfolio_id, {
       ...rest,
       name: name ?? null,
       cost_basis: cost_basis ?? null,
+      row_status: effectiveRowStatus,
       ...(expense_ratio !== undefined ? { expense_ratio } : {}),
       ...(target_weight_pct !== undefined ? { target_weight_pct } : {}),
     });

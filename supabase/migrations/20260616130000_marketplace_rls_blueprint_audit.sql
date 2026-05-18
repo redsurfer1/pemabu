@@ -47,43 +47,55 @@ CREATE INDEX IF NOT EXISTS marketplace_strategy_subscribers_user_idx
 
 ALTER TABLE public.marketplace_strategy_subscribers ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "marketplace_strategy_subscribers_select_own"
-  ON public.marketplace_strategy_subscribers
-  FOR SELECT
-  TO authenticated
-  USING (user_id = (SELECT auth.uid()));
+DO $$ BEGIN
+  CREATE POLICY "marketplace_strategy_subscribers_select_own"
+    ON public.marketplace_strategy_subscribers
+    FOR SELECT
+    TO authenticated
+    USING (user_id = (SELECT auth.uid()));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 DROP POLICY IF EXISTS "marketplace_strategies_select_all" ON public.marketplace_strategies;
 DROP POLICY IF EXISTS "marketplace_strategies_insert_authenticated" ON public.marketplace_strategies;
 
-CREATE POLICY "marketplace_strategies_select_owner_or_subscriber"
-  ON public.marketplace_strategies
-  FOR SELECT
-  TO authenticated
-  USING (
-    publisher_user_id = (SELECT auth.uid())
-    OR EXISTS (
-      SELECT 1 FROM public.marketplace_strategy_subscribers s
-      WHERE s.strategy_id = marketplace_strategies.id
-        AND s.user_id = (SELECT auth.uid())
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "marketplace_strategies_select_owner_or_subscriber"
+    ON public.marketplace_strategies
+    FOR SELECT
+    TO authenticated
+    USING (
+      publisher_user_id = (SELECT auth.uid())
+      OR EXISTS (
+        SELECT 1 FROM public.marketplace_strategy_subscribers s
+        WHERE s.strategy_id = marketplace_strategies.id
+          AND s.user_id = (SELECT auth.uid())
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "marketplace_strategies_insert_publisher"
-  ON public.marketplace_strategies
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    publisher_user_id IS NOT NULL
-    AND publisher_user_id = (SELECT auth.uid())
-  );
+DO $$ BEGIN
+  CREATE POLICY "marketplace_strategies_insert_publisher"
+    ON public.marketplace_strategies
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+      publisher_user_id IS NOT NULL
+      AND publisher_user_id = (SELECT auth.uid())
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "marketplace_strategies_update_publisher"
-  ON public.marketplace_strategies
-  FOR UPDATE
-  TO authenticated
-  USING (publisher_user_id = (SELECT auth.uid()))
-  WITH CHECK (publisher_user_id = (SELECT auth.uid()));
+DO $$ BEGIN
+  CREATE POLICY "marketplace_strategies_update_publisher"
+    ON public.marketplace_strategies
+    FOR UPDATE
+    TO authenticated
+    USING (publisher_user_id = (SELECT auth.uid()))
+    WITH CHECK (publisher_user_id = (SELECT auth.uid()));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 GRANT INSERT, UPDATE ON public.marketplace_strategies TO authenticated;
 

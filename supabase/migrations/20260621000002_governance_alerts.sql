@@ -54,21 +54,30 @@ alter table public.governance_watch_list  enable row level security;
 alter table public.governance_proposals   enable row level security;
 alter table public.governance_user_alerts enable row level security;
 
-create policy "users_own_watch_list"
-  on public.governance_watch_list
-  for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+do $$ begin
+  create policy "users_own_watch_list"
+    on public.governance_watch_list
+    for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
-create policy "authenticated_read_proposals"
-  on public.governance_proposals for select
-  using (auth.role() = 'authenticated');
+do $$ begin
+  create policy "authenticated_read_proposals"
+    on public.governance_proposals for select
+    using (auth.role() = 'authenticated');
+exception when duplicate_object then null;
+end $$;
 
-create policy "users_own_alerts"
-  on public.governance_user_alerts
-  for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+do $$ begin
+  create policy "users_own_alerts"
+    on public.governance_user_alerts
+    for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 grant all on public.governance_watch_list  to service_role;
 grant all on public.governance_user_alerts to service_role;
