@@ -94,6 +94,24 @@ if (!env.ANTHROPIC_API_KEY) {
   pass("ANTHROPIC_API_KEY set");
 }
 
+const marketProvider = env.MARKET_DATA_PROVIDER ?? "tiingo";
+if (marketProvider === "tiingo" || marketProvider === "google-finance") {
+  if (marketProvider === "google-finance") {
+    warn(
+      "MARKET_DATA_PROVIDER=google-finance is deprecated — set MARKET_DATA_PROVIDER=tiingo (licensed Tiingo paid tier).",
+    );
+  } else {
+    pass("MARKET_DATA_PROVIDER=tiingo (licensed market data)");
+  }
+  if (!env.TIINGO_API_KEY) {
+    fail("TIINGO_API_KEY missing — required for Tiingo market data");
+  } else {
+    pass("TIINGO_API_KEY set");
+  }
+} else {
+  fail(`Unknown MARKET_DATA_PROVIDER=${marketProvider} — use tiingo`);
+}
+
 section("Docker");
 
 try {

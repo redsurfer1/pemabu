@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
+import { fetchMarketDataWithFallback } from "@/lib/market-data/fetch-market-data";
+import { normalizeTicker } from "@/lib/market-data/normalize-ticker";
 
 type PeriodKey = "3mo" | "6mo" | "1yr" | "3yr" | "5yr";
 
-const PERIOD_MONTHS: Record<PeriodKey, number> = {
-  "3mo": 3,
-  "6mo": 6,
-  "1yr": 12,
-  "3yr": 36,
-  "5yr": 60,
+const PERIOD_BASIS: Record<PeriodKey, "basisPrice3mo" | "basisPrice6mo" | "basisPrice1yr" | "basisPrice3yr" | "basisPrice5yr"> = {
+  "3mo": "basisPrice3mo",
+  "6mo": "basisPrice6mo",
+  "1yr": "basisPrice1yr",
+  "3yr": "basisPrice3yr",
+  "5yr": "basisPrice5yr",
 };
 
-function subtractMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() - months);
-  return d;
-}
-
-function formatDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export const GET = withAuth(async (request, _user, _ctx) => {
@@ -32,24 +28,31 @@ export const GET = withAuth(async (request, _user, _ctx) => {
   }
 
   const tickers = tickersParam.split(",").map((t) => t.trim().toUpperCase());
-  const periods = (periodsParam?.split(",") ?? Object.keys(PERIOD_MONTHS)) as PeriodKey[];
+  const periods = (periodsParam?.split(",") ?? Object.keys(PERIOD_BASIS)) as PeriodKey[];
 
   const supabase = await createClient();
   const today = new Date();
+  const dateKey = todayKey();
 
   const results: Record<string, Record<string, number>> = {};
 
   for (const ticker of tickers) {
     results[ticker] = {};
 
+    if (ticker === "CASH") {
+      for (const period of periods) {
+        if (period in PERIOD_BASIS) results[ticker]![period] = 1;
+      }
+      continue;
+    }
+
+    let md: Awaited<ReturnType<typeof fetchMarketDataWithFallback>> | null = null;
+
     for (const period of periods) {
-      const months = PERIOD_MONTHS[period];
-      if (!months) continue;
+      if (!(period in PERIOD_BASIS)) continue;
 
-      const targetDate = subtractMonths(today, months);
-      const cacheKey = `hist:${ticker}:${period}:${formatDateKey(targetDate)}`;
+      const cacheKey = `hist:${ticker}:${period}:${dateKey}`;
 
-      // Check cache
       const { data: cached } = await supabase
         .from("price_cache")
         .select("price, fetched_at, ttl_seconds")
@@ -65,37 +68,22 @@ export const GET = withAuth(async (request, _user, _ctx) => {
         }
       }
 
-      // Fetch from Yahoo Finance
-      try {
-        const yahooFinance = (await import("yahoo-finance2")).default;
-        const period1 = new Date(targetDate);
-        period1.setDate(period1.getDate() - 5);
-        const period2 = new Date(targetDate);
-        period2.setDate(period2.getDate() + 5);
-
-        const historical = await yahooFinance.historical(ticker, {
-          period1: period1.toISOString().slice(0, 10),
-          period2: period2.toISOString().slice(0, 10),
-          interval: "1d",
-        }) as Array<{ date: string | Date; close?: number }>;
-
-        // Find closest price on or before target date
-        const beforeTarget = historical
-          .filter((row) => new Date(row.date) <= targetDate)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        const price = beforeTarget[0]?.close ?? historical[0]?.close;
-        if (price != null) {
-          results[ticker]![period] = price;
-
-          // Cache with 24h TTL
-          await supabase.from("price_cache").upsert(
-            { cache_key: cacheKey, price, fetched_at: new Date().toISOString(), ttl_seconds: 86400 },
-            { onConflict: "cache_key" },
-          );
+      if (!md) {
+        try {
+          md = await fetchMarketDataWithFallback(normalizeTicker(ticker));
+        } catch {
+          md = null;
         }
-      } catch {
-        // Skip this ticker/period on error
+      }
+
+      const basisKey = PERIOD_BASIS[period];
+      const price = md && !md.error ? md[basisKey] : 0;
+      if (price > 0) {
+        results[ticker]![period] = price;
+        await supabase.from("price_cache").upsert(
+          { cache_key: cacheKey, price, fetched_at: new Date().toISOString(), ttl_seconds: 86400 },
+          { onConflict: "cache_key" },
+        );
       }
     }
   }

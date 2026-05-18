@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
+import { fetchMarketDataWithFallback } from "@/lib/market-data/fetch-market-data";
+import { normalizeTicker } from "@/lib/market-data/normalize-ticker";
 
 export const GET = withAuth(async (request, _user, _ctx) => {
   const { searchParams } = new URL(request.url);
@@ -17,9 +19,13 @@ export const GET = withAuth(async (request, _user, _ctx) => {
   const results: Record<string, number> = {};
 
   for (const ticker of tickers) {
+    if (ticker === "CASH") {
+      results[ticker] = 1;
+      continue;
+    }
+
     const cacheKey = `current:${ticker}`;
 
-    // Check cache (15-min TTL for current prices)
     const { data: cached } = await supabase
       .from("price_cache")
       .select("price, fetched_at, ttl_seconds")
@@ -35,23 +41,18 @@ export const GET = withAuth(async (request, _user, _ctx) => {
       }
     }
 
-    // Fetch from Yahoo Finance
     try {
-      const yahooFinance = (await import("yahoo-finance2")).default;
-      const quote = await yahooFinance.quote(ticker) as { regularMarketPrice?: number };
-      const price = quote.regularMarketPrice;
+      const md = await fetchMarketDataWithFallback(normalizeTicker(ticker));
+      if (md.error || md.price1 <= 0) continue;
 
-      if (price != null) {
-        results[ticker] = price;
+      results[ticker] = md.price1;
 
-        // Cache with 15-min TTL
-        await supabase.from("price_cache").upsert(
-          { cache_key: cacheKey, price, fetched_at: now.toISOString(), ttl_seconds: 900 },
-          { onConflict: "cache_key" },
-        );
-      }
+      await supabase.from("price_cache").upsert(
+        { cache_key: cacheKey, price: md.price1, fetched_at: now.toISOString(), ttl_seconds: 900 },
+        { onConflict: "cache_key" },
+      );
     } catch {
-      // Skip on error
+      /* skip on error */
     }
   }
 

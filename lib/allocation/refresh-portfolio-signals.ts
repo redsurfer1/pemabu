@@ -144,7 +144,7 @@ export async function refreshPortfolioSignals(
       volatility3mo: 0,
       currency: "USD",
       fetchedAt: new Date().toISOString(),
-      provider: "yahoo",
+      provider: "tiingo",
     });
   }
 

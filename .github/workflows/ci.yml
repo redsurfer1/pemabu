@@ -55,6 +55,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role
           USE_LOCAL_VAULT: "false"
           MARKETPLACE_USE_IMPORT_LEDGER: "false"
+          MARKET_DATA_PROVIDER: tiingo
+          TIINGO_API_KEY: test-tiingo-key-not-real
 
   build:
     name: Build
@@ -80,6 +82,8 @@ jobs:
           # CI env — deliberately no vault, no local DB
           USE_LOCAL_VAULT: "false"
           MARKETPLACE_USE_IMPORT_LEDGER: "false"
+          MARKET_DATA_PROVIDER: tiingo
+          TIINGO_API_KEY: test-tiingo-key-not-real
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

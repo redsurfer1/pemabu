@@ -1,23 +1,20 @@
 // lib/market-data/index.ts
-// Returns the active provider based on env var.
-// Add new providers here when upgrading pre-launch.
+// Licensed market data via Tiingo (MARKET_DATA_PROVIDER=tiingo).
 
-import { googleFinanceProvider } from "./google-finance";
+import { tiingoProvider } from "./tiingo-provider";
 import type { MarketDataProvider } from "./types";
 
 export function getActiveProvider(): MarketDataProvider {
-  const provider = process.env.MARKET_DATA_PROVIDER;
-  switch (provider) {
-    case "google-finance":
-      return googleFinanceProvider;
-    default:
-      // Fail loudly — Zod in lib/env.ts catches this
-      // at startup, but guard here defensively
-      throw new Error(
-        `Unknown MARKET_DATA_PROVIDER: ${provider}. ` + `Valid values: 'google-finance'`,
-      );
+  const raw = process.env.MARKET_DATA_PROVIDER ?? "tiingo";
+  const provider = raw === "google-finance" ? "tiingo" : raw;
+  if (provider === "tiingo") {
+    return tiingoProvider;
   }
+  throw new Error(
+    `Unknown MARKET_DATA_PROVIDER: ${raw}. Valid value: 'tiingo' (legacy 'google-finance' is mapped to tiingo).`,
+  );
 }
 
 export type { MarketDataProvider, Quote, QuoteBatchResult, PriceResult } from "./types";
 export { isPriceStale } from "./types";
+export { tiingoProvider } from "./tiingo-provider";

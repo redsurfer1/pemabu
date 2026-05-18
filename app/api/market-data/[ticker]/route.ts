@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
-import { fetchMarketDataWithFallback } from "@/lib/market-data/yahoo-finance";
-import { normalizeTicker } from "@/lib/market-data/yahoo-finance";
+import { fetchMarketDataWithFallback } from "@/lib/market-data/fetch-market-data";
+import { normalizeTicker } from "@/lib/market-data/normalize-ticker";
 
 export const GET = withAuth(
   async (

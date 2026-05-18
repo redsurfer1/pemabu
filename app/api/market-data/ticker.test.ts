@@ -3,11 +3,9 @@ import { GET } from "./[ticker]/route";
 
 const fetchMarketDataWithFallbackMock = vi.fn();
 
-vi.mock("@/lib/market-data/yahoo-finance", () => ({
+vi.mock("@/lib/market-data/fetch-market-data", () => ({
   fetchMarketDataWithFallback: (...args: unknown[]) => fetchMarketDataWithFallbackMock(...args),
-  // Identity mock — tests verify the ticker is forwarded as-is from params;
-  // real normalizeTicker uppercases, but tests assert the raw param value.
-  normalizeTicker: (ticker: string) => ticker,
+  normalizeTicker: (ticker: string) => ticker.trim().toUpperCase(),
 }));
 
 // withAuth calls createClient() → cookies() which crashes outside Next.js request
@@ -43,7 +41,7 @@ describe("GET /api/market-data/[ticker]", () => {
       volatility3mo: 0.123456,
       currency: "USD",
       fetchedAt: "2026-04-16T10:00:00.000Z",
-      provider: "yahoo",
+      provider: "tiingo",
     });
 
     const res = await GET(new Request("http://localhost/api/market-data/VEA"), {
@@ -61,7 +59,7 @@ describe("GET /api/market-data/[ticker]", () => {
       fetchedAt: "2026-04-16T10:00:00.000Z",
     });
     expect("error" in body).toBe(false);
-    expect(res.headers.get("x-market-data-provider")).toBe("yahoo");
+    expect(res.headers.get("x-market-data-provider")).toBe("tiingo");
   });
 
   test("lowercase ticker is forwarded; normalization happens in provider", async () => {
@@ -80,18 +78,18 @@ describe("GET /api/market-data/[ticker]", () => {
       volatility3mo: null,
       currency: "USD",
       fetchedAt: "2026-04-16T10:00:00.000Z",
-      provider: "yahoo",
+      provider: "tiingo",
     }));
 
     const res = await GET(new Request("http://localhost/api/market-data/vea"), {
       params: Promise.resolve({ ticker: "vea" }),
     });
 
-    expect(fetchMarketDataWithFallbackMock).toHaveBeenCalledWith("vea");
+    expect(fetchMarketDataWithFallbackMock).toHaveBeenCalledWith("VEA");
     expect(res.status).toBe(200);
   });
 
-  test("Yahoo error propagates as 502", async () => {
+  test("Tiingo error propagates as 502", async () => {
     fetchMarketDataWithFallbackMock.mockResolvedValue({
       ticker: "VEA",
       name: "VEA",
@@ -108,7 +106,7 @@ describe("GET /api/market-data/[ticker]", () => {
       currency: "USD",
       fetchedAt: "2026-04-16T10:00:00.000Z",
       error: "HTTP 429",
-      provider: "yahoo",
+      provider: "tiingo",
     });
 
     const res = await GET(new Request("http://localhost/api/market-data/VEA"), {
@@ -128,7 +126,7 @@ describe("GET /api/market-data/[ticker]", () => {
     expect(res.status).toBe(404);
   });
 
-  test("Yahoo 429 triggers Tiingo fallback, returns 200", async () => {
+  test("Tiingo success returns 200 with provider header", async () => {
     fetchMarketDataWithFallbackMock.mockResolvedValue({
       ticker: "VEA",
       name: "VEA",
@@ -157,7 +155,7 @@ describe("GET /api/market-data/[ticker]", () => {
     expect(res.headers.get("x-market-data-provider")).toBe("tiingo");
   });
 
-  test("Yahoo 404 (bad ticker) does NOT fall through to Tiingo", async () => {
+  test("Tiingo not found returns 502", async () => {
     fetchMarketDataWithFallbackMock.mockResolvedValue({
       ticker: "FAKEXYZ",
       name: "FAKEXYZ",
@@ -174,7 +172,7 @@ describe("GET /api/market-data/[ticker]", () => {
       currency: "USD",
       fetchedAt: "2026-04-16T10:00:00.000Z",
       error: "HTTP 404",
-      provider: "yahoo",
+      provider: "tiingo",
     });
 
     const res = await GET(new Request("http://localhost/api/market-data/FAKEXYZ"), {
@@ -184,10 +182,10 @@ describe("GET /api/market-data/[ticker]", () => {
 
     expect(res.status).toBe(502);
     expect(body.error).toContain("404");
-    expect(body.provider).toBe("yahoo");
+    expect(body.provider).toBe("tiingo");
   });
 
-  test("Both providers fail returns combined error", async () => {
+  test("Tiingo upstream error returns 502", async () => {
     fetchMarketDataWithFallbackMock.mockResolvedValue({
       ticker: "VEA",
       name: "VEA",
@@ -203,8 +201,8 @@ describe("GET /api/market-data/[ticker]", () => {
       volatility3mo: null,
       currency: "USD",
       fetchedAt: "2026-04-16T10:00:00.000Z",
-      error: "Yahoo: HTTP 429 | Tiingo: HTTP 503",
-      provider: "yahoo",
+      error: "Tiingo HTTP 503",
+      provider: "tiingo",
     });
 
     const res = await GET(new Request("http://localhost/api/market-data/VEA"), {
@@ -213,7 +211,7 @@ describe("GET /api/market-data/[ticker]", () => {
     const body = await res.json();
 
     expect(res.status).toBe(502);
-    expect(body.error).toContain("Yahoo:");
-    expect(body.error).toContain("Tiingo:");
+    expect(body.error).toContain("503");
+    expect(body.provider).toBe("tiingo");
   });
 });

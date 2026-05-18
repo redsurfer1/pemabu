@@ -5,7 +5,10 @@ const serverSchema = z.object({
   CRON_SECRET: z.string().min(32),
   PEMABU_CRON_SECRET: z.string().min(16),
   ANTHROPIC_API_KEY: z.string().startsWith("sk-ant-"),
-  MARKET_DATA_PROVIDER: z.enum(["google-finance"]),
+  MARKET_DATA_PROVIDER: z.preprocess(
+    (val) => (val === "google-finance" ? "tiingo" : val),
+    z.enum(["tiingo"]),
+  ),
   RESEND_API_KEY: z.string().startsWith("re_"),
   RESEND_FROM_EMAIL: z.string().email(),
   OPERATOR_ALERT_EMAIL: z.string().email(),

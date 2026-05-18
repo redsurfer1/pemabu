@@ -1,6 +1,6 @@
 import type { Holding } from "@/lib/types/database";
 import { getActiveProvider } from "./index";
-import { normalizeTicker } from "./yahoo-finance";
+import { normalizeTicker } from "./normalize-ticker";
 
 /** Fill missing current_price / last_change_pct from the active market-data provider (display-only). */
 export async function enrichHoldingsWithLiveQuotes(holdings: Holding[]): Promise<Holding[]> {

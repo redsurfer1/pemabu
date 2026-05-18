@@ -3,8 +3,8 @@
 // MARKET_DATA_PROVIDER env var, not application code.
 //
 // PriceResult is the unified price value-object used across the application.
-// All three market-data subsystems (google-finance provider, yahoo-finance
-// enrichment, priceService/yahoo-finance2) should return or map to this shape.
+// All market-data subsystems (Tiingo provider, enrichment, priceService)
+// should return or map to this shape.
 
 export type QuoteErrorKind =
   | "rate_limit"

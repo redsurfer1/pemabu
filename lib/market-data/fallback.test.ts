@@ -1,35 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { MarketDataResult } from "./yahoo-finance";
-import { fetchMarketDataWithFallback } from "./yahoo-finance";
+import type { MarketDataResult } from "./market-data-result";
+import { fetchMarketDataWithFallback } from "./fetch-market-data";
 
 const tiingoMock = vi.hoisted(() => vi.fn());
 
 vi.mock("./tiingo", () => ({
   fetchMarketDataTiingo: (...args: unknown[]) => tiingoMock(...args),
 }));
-
-/** Enough daily points for volatility (needs 64+ closes). */
-function makeYahooChartPayload(symbol: string, lastClose = 100) {
-  const n = 70;
-  const base = Math.floor(Date.now() / 1000);
-  const timestamps: number[] = [];
-  const closes: number[] = [];
-  for (let i = 0; i < n; i++) {
-    timestamps.push(base - (n - 1 - i) * 86400);
-    closes.push(lastClose - (n - 1 - i) * 0.01);
-  }
-  return {
-    chart: {
-      result: [
-        {
-          meta: { shortName: symbol, currency: "USD", symbol },
-          timestamp: timestamps,
-          indicators: { quote: [{ close: closes }] },
-        },
-      ],
-    },
-  };
-}
 
 function baseTiingoOk(overrides: Partial<MarketDataResult> = {}): MarketDataResult {
   return {
@@ -51,84 +28,50 @@ function baseTiingoOk(overrides: Partial<MarketDataResult> = {}): MarketDataResu
   };
 }
 
-describe("fetchMarketDataWithFallback", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
-
+describe("fetchMarketDataWithFallback (Tiingo)", () => {
   beforeEach(() => {
     tiingoMock.mockReset();
-    fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  test("Yahoo success, Tiingo never called", async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify(makeYahooChartPayload("VEA", 68.5)), { status: 200 }),
-    );
-
-    const result = await fetchMarketDataWithFallback("VEA");
-
+  test("CASH returns fixed $1 without calling Tiingo", async () => {
+    const result = await fetchMarketDataWithFallback("CASH");
     expect(tiingoMock).not.toHaveBeenCalled();
-    expect(result.provider).toBe("yahoo");
+    expect(result.provider).toBe("tiingo");
+    expect(result.price1).toBe(1);
     expect(result.error).toBeUndefined();
-    expect(result.ticker).toBe("VEA");
-    expect(result.price1).toBeCloseTo(68.5, 0);
   });
 
-  test("Yahoo 429, Tiingo called and succeeds", async () => {
-    fetchMock.mockResolvedValue(new Response("", { status: 429 }));
-    tiingoMock.mockResolvedValue(baseTiingoOk({ price1: 99 }));
-
+  test("equity ticker uses Tiingo", async () => {
+    tiingoMock.mockResolvedValue(baseTiingoOk({ price1: 48.13 }));
     const result = await fetchMarketDataWithFallback("VEA");
-
-    expect(tiingoMock).toHaveBeenCalledTimes(1);
-    // fetchMarketDataTiingo now accepts (ticker, options?) — token is undefined
-    // when no tiingoToken is passed to fetchMarketDataWithFallback.
     expect(tiingoMock).toHaveBeenCalledWith("VEA", { token: undefined });
     expect(result.provider).toBe("tiingo");
-    expect(result.price1).toBe(99);
+    expect(result.price1).toBe(48.13);
+    expect(result.error).toBeUndefined();
   });
 
-  test("Yahoo 500, Tiingo called and succeeds", async () => {
-    fetchMock.mockResolvedValue(new Response("", { status: 500 }));
-    tiingoMock.mockResolvedValue(baseTiingoOk({ price1: 42 }));
-
-    const result = await fetchMarketDataWithFallback("VEA");
-
+  test("crypto ticker normalized to BTC-USD", async () => {
+    tiingoMock.mockResolvedValue(baseTiingoOk({ ticker: "BTC-USD", price1: 77000 }));
+    const result = await fetchMarketDataWithFallback("BTC");
+    expect(tiingoMock).toHaveBeenCalledWith("BTC-USD", { token: undefined });
     expect(result.provider).toBe("tiingo");
-    expect(result.price1).toBe(42);
+    expect(result.ticker).toBe("BTC-USD");
   });
 
-  test("Yahoo 404, Tiingo NOT called (bad ticker, not a transient error)", async () => {
-    fetchMock.mockResolvedValue(new Response("", { status: 404 }));
+  test("portfolio Tiingo token forwarded", async () => {
+    tiingoMock.mockResolvedValue(baseTiingoOk());
+    await fetchMarketDataWithFallback("VEA", { tiingoToken: "portfolio-token" });
+    expect(tiingoMock).toHaveBeenCalledWith("VEA", { token: "portfolio-token" });
+  });
 
+  test("Tiingo error surfaces on result", async () => {
+    tiingoMock.mockResolvedValue({ ...baseTiingoOk(), error: "Tiingo HTTP 404" });
     const result = await fetchMarketDataWithFallback("FAKEXYZ");
-
-    expect(tiingoMock).not.toHaveBeenCalled();
-    expect(result.provider).toBe("yahoo");
-    expect(result.error).toContain("404");
-  });
-
-  test("Yahoo timeout string triggers fallback", async () => {
-    fetchMock.mockRejectedValue(new Error("fetch failed: ECONNRESET"));
-    tiingoMock.mockResolvedValue(baseTiingoOk({ price1: 7 }));
-
-    const result = await fetchMarketDataWithFallback("VEA");
-
     expect(result.provider).toBe("tiingo");
-    expect(result.price1).toBe(7);
-  });
-
-  test("Both providers fail, combined error returned", async () => {
-    fetchMock.mockResolvedValue(new Response("", { status: 429 }));
-    tiingoMock.mockResolvedValue({ ...baseTiingoOk(), error: "HTTP 503" });
-
-    const result = await fetchMarketDataWithFallback("VEA");
-
-    expect(result.error).toBe("Yahoo: Yahoo HTTP 429 | Tiingo: HTTP 503");
-    expect(result.provider).toBe("yahoo");
+    expect(result.error).toContain("404");
   });
 });

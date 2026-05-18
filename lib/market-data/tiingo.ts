@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
 import { computeRSI } from "@/lib/portfolio/formula-engine";
-import type { MarketDataResult } from "@/lib/market-data/yahoo-finance";
+import type { MarketDataResult } from "@/lib/market-data/market-data-result";
 
 type TiingoMetaResponse = {
   ticker?: string;
