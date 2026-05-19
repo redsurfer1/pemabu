@@ -4,6 +4,7 @@ export const WORKSPACE_NAV_ITEMS = [
   { label: "Strategy Council", href: "/strategy-council", pathPrefix: "/strategy-council" },
   { label: "Marketplace", href: "/marketplace", pathPrefix: "/marketplace" },
   { label: "Creator", href: "/creator/dashboard", pathPrefix: "/creator" },
+  { label: "Tax Export", href: "/tax", pathPrefix: "/tax" },
 ] as const;
 
 export function engineHref(portfolioId?: string | null): string {
