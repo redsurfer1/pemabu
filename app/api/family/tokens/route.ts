@@ -60,7 +60,7 @@ export const POST = withAuth(async (req, user) => {
   const rawToken = generateShareToken();
   const tokenHash = hashShareToken(rawToken);
 
-  let portfolioId: string | null = d.portfolio_id ?? null;
+  const portfolioId: string | null = d.portfolio_id ?? null;
   if (portfolioId) {
     const { data: owned } = await supabase
       .from("portfolios")
