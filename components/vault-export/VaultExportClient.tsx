@@ -3,6 +3,18 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+const DEMO_CONFIG = {
+  id: "demo-config",
+  provider: "s3" as const,
+  bucket_name: "pemabu-demo-vault",
+  region: "us-east-1",
+  endpoint_url: null,
+  is_enabled: true,
+  last_export_at: new Date().toISOString(),
+  last_export_status: "success",
+  last_export_error: null,
+};
+
 interface ExportConfig {
   id: string;
   provider: "s3" | "backblaze" | "nas";
@@ -38,9 +50,15 @@ async function deleteConfig(): Promise<void> {
   if (!res.ok) throw new Error(await res.text());
 }
 
-export function VaultExportClient() {
+export function VaultExportClient({ demo = false }: { demo?: boolean }) {
   const qc = useQueryClient();
-  const configQuery = useQuery({ queryKey: ["vault-export-config"], queryFn: fetchConfig, staleTime: 60_000 });
+  const configQuery = useQuery({
+    queryKey: ["vault-export-config"],
+    queryFn: fetchConfig,
+    staleTime: 60_000,
+    enabled: !demo,
+  });
+  const config = demo ? DEMO_CONFIG : configQuery.data;
 
   const [provider, setProvider] = useState<"s3" | "backblaze" | "nas">("s3");
   const [bucket, setBucket] = useState("");
@@ -64,8 +82,6 @@ export function VaultExportClient() {
     mutationFn: deleteConfig,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["vault-export-config"] }),
   });
-
-  const config = configQuery.data;
 
   function handleSave() {
     const body: Record<string, unknown> = { provider, is_enabled: true };

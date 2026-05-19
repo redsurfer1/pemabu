@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { enrichHoldingsWithLiveQuotes } from "@/lib/market-data/enrich-holdings";
 import { getPortfolioHoldings, getPortfolio, upsertHolding } from "@/lib/services/portfolio";
 import { z } from "zod";
@@ -31,7 +32,7 @@ export const GET = withAuth(async (req, user, _ctx) => {
   }
   const holdings = await enrichHoldingsWithLiveQuotes(await getPortfolioHoldings(portfolioId));
   return NextResponse.json({ holdings });
-});
+}, { keyTemplate: "holdings:{userId}", ...READ_RATE_LIMIT });
 
 export const POST = withAuth(async (req, user, _ctx) => {
   const body = await req.json();
@@ -79,4 +80,4 @@ export const POST = withAuth(async (req, user, _ctx) => {
       { status: code === "PGRST116" ? 404 : 422 },
     );
   }
-});
+}, { keyTemplate: "holdings:{userId}", ...MUTATION_RATE_LIMIT });

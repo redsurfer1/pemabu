@@ -13,6 +13,9 @@ import { FoundingPublisherBadge } from "@/components/marketplace/FoundingPublish
 import { TokenBundleSelector, type BundleSize } from "@/components/marketplace/TokenBundleSelector";
 import { ReferralCodeDisplay } from "@/components/marketplace/ReferralCodeDisplay";
 import { ShareCreatorProfileButton } from "@/components/marketplace/ShareCreatorProfileButton";
+import { StrategyRatingStars } from "@/components/community/StrategyRatingStars";
+import { StrategyReviewSection } from "@/components/community/StrategyReviewSection";
+import { StrategyDiscussionSection } from "@/components/community/StrategyDiscussionSection";
 
 type TeaserRow = {
   display_name: string;
@@ -72,6 +75,7 @@ export default function MarketplacePage() {
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<BundleSize>("single");
   const [referralInput, setReferralInput] = useState("");
+  const [selectedStrategy, setSelectedStrategy] = useState<{ id: string; name: string } | null>(null);
   const ownsPublishedStrategy = rows.some(
     (r) => "is_own_publisher" in r && (r as FullRow).is_own_publisher,
   );
@@ -214,6 +218,7 @@ export default function MarketplacePage() {
                     <th className="px-3 py-2">Published</th>
                   </>
                 ) : null}
+                <th className="px-3 py-2 text-right">Community</th>
               </tr>
             </thead>
             <tbody>
@@ -251,11 +256,62 @@ export default function MarketplacePage() {
                       <td className="px-3 py-2 text-gray-500">{(r as FullRow).published_at.slice(0, 10)}</td>
                     </>
                   ) : null}
+                  <td className="px-3 py-2 text-right">
+                    {"id" in r && (r as FullRow).id ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <StrategyRatingStars strategyId={(r as FullRow).id} readonly />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedStrategy((prev) =>
+                              prev?.id === (r as FullRow).id
+                                ? null
+                                : { id: (r as FullRow).id, name: r.display_name },
+                            )
+                          }
+                          className="text-[11px] text-sky-300/90 hover:text-sky-200 underline-offset-2 hover:underline"
+                        >
+                          {selectedStrategy?.id === (r as FullRow).id ? "Close" : "Discuss"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {selectedStrategy ? (
+          <section className="mt-8 rounded-lg border border-white/10 bg-black/20 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                Community — {selectedStrategy.name}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedStrategy(null)}
+                className="rounded border border-white/10 px-2 py-1 text-xs text-gray-400 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <h3 className="mb-2 text-xs font-semibold text-gray-400">Rating</h3>
+                <StrategyRatingStars strategyId={selectedStrategy.id} />
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-semibold text-gray-400">Reviews</h3>
+                <StrategyReviewSection strategyId={selectedStrategy.id} />
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-semibold text-gray-400">Discussion</h3>
+                <StrategyDiscussionSection strategyId={selectedStrategy.id} />
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-8 rounded-lg border border-white/10 bg-black/20 p-5">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Import blueprint</h2>

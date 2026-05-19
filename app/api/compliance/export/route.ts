@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { NON_FIDUCIARY_FOOTER, NON_ADVISORY_HEADLINE, LEGAL_LAST_UPDATED } from "@/lib/constants/compliance";
+import { SENSITIVE_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 export const POST = withAuth(async (_req, user) => {
   const [portfolioResult, auditResult, briefsResult, aiLogsResult] = await Promise.all([
@@ -78,4 +79,4 @@ export const POST = withAuth(async (_req, user) => {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
-});
+}, { keyTemplate: "compliance:{userId}", ...SENSITIVE_RATE_LIMIT });

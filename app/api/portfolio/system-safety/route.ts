@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { createClient } from "@/lib/supabase/server";
 import { getVaultPool } from "@/lib/db";
 import { isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
@@ -62,4 +63,4 @@ export const GET = withAuth(async (req, user, _ctx) => {
     haltCategory,
     lastErrorCode: e ? (e as { error_code: string | null }).error_code : null,
   });
-});
+}, { keyTemplate: "system-safety:{userId}", ...READ_RATE_LIMIT });

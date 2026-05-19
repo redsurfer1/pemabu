@@ -2,10 +2,17 @@ import { KNOWN_SNAPSHOT_SPACES } from "@/lib/governance/snapshot-client";
 import { getPortfolioTickersForUser } from "@/lib/portfolio/portfolio-tickers";
 import { requireServiceAccess } from "@/lib/security/tier-guard";
 import { createClient } from "@/lib/supabase/server";
+import { isDemoRequest } from "@/lib/demo/demo-guard";
 import { GovernanceClient } from "@/components/governance/GovernanceClient";
 
-export default async function GovernancePage() {
-  await requireServiceAccess("addon_governance_alerts");
+export default async function GovernancePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const sp = await searchParams;
+  const demo = isDemoRequest(sp);
+  if (!demo) await requireServiceAccess("addon_governance_alerts");
 
   const supabase = await createClient();
   const {
@@ -17,7 +24,7 @@ export default async function GovernancePage() {
 
   return (
     <div className="min-h-screen bg-[#0A1628] px-4 py-8 sm:px-8">
-      <GovernanceClient portfolioTickers={portfolioTickers} />
+      <GovernanceClient portfolioTickers={portfolioTickers} demo={demo} />
     </div>
   );
 }

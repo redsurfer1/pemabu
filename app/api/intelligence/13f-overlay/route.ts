@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import {
   buildThirteenFOverlayRows,
   searchEdgarThirteenF,
@@ -33,4 +34,4 @@ export const GET = withAuth(async (req, user) => {
     console.error("13F overlay EDGAR fetch error:", e);
     return NextResponse.json({ ticker, filings: [], source: "sec_edgar", error: "Fetch failed" });
   }
-});
+}, { keyTemplate: "13f:{userId}", ...READ_RATE_LIMIT });

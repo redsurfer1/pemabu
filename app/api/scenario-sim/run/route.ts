@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
+import { AI_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { resolveEffectiveTier } from "@/lib/security/tier-guard";
 import { checkAndIncrementSimUsage } from "@/lib/scenario-sim/usage";
+import { runSimulation } from "@/lib/scenario-sim/engine";
 
 const BodySchema = z.object({
   portfolio_id: z.string().uuid(),
-  // Scenario parameters passed to the simulation engine.
   adjustments: z.record(z.string(), z.number()).optional(),
   label: z.string().max(120).optional(),
 });
@@ -40,7 +41,6 @@ export const POST = withAuth(async (req, user) => {
   const check = await checkAndIncrementSimUsage(user.id, keys);
 
   if (!check.allowed) {
-    // Intelligence cap hit — create an overage Stripe checkout for $0.50.
     const cap = "cap" in check ? check.cap : 20;
 
     if (process.env.STRIPE_SECRET_KEY?.trim()) {
@@ -89,18 +89,19 @@ export const POST = withAuth(async (req, user) => {
     );
   }
 
-  // Scenario simulation engine is under active development.
-  // The gating, usage tracking, and overage billing above are fully wired;
-  // the engine itself will query live holdings and project rebalancing outcomes
-  // against the factor model. Returning an honest 501 rather than fake data.
-  return NextResponse.json(
-    {
-      ok: false,
-      code: "FEATURE_COMING_SOON",
-      message:
-        "Scenario simulation engine is coming soon. Your monthly usage counter has NOT been incremented for this request.",
+  try {
+    const simulation = await runSimulation(
+      { portfolioId: body.portfolio_id, adjustments: body.adjustments ?? {} },
+      body.label ?? "Scenario",
+    );
+
+    return NextResponse.json({
+      ok: true,
+      simulation,
       remaining: "remaining" in check ? check.remaining : null,
-    },
-    { status: 501 },
-  );
-});
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: msg, code: "ENGINE_ERROR" }, { status: 500 });
+  }
+}, { keyTemplate: "scenario-sim:{userId}", ...AI_RATE_LIMIT });

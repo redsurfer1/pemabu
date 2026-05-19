@@ -40,6 +40,20 @@ export function StrategyPerformanceCell({
   const history = perfQuery.data?.history ?? [];
   const consistency = perfQuery.data?.summary?.consistency ?? getConsistency(history);
   const weeksTracked = perfQuery.data?.summary?.weeksTracked ?? history.length;
+  const avgDrift = perfQuery.data?.summary?.avgDriftPct;
+  const dominantGrade = perfQuery.data?.summary?.dominantGrade;
+
+  function gradeColor(grade: string | null): string {
+    if (!grade) return "text-gray-500";
+    const colors: Record<string, string> = {
+      A: "text-emerald-400",
+      B: "text-sky-400",
+      C: "text-amber-400",
+      D: "text-orange-400",
+      F: "text-red-400",
+    };
+    return colors[grade] ?? "text-gray-500";
+  }
 
   const modal =
     open && typeof document !== "undefined"
@@ -93,18 +107,30 @@ export function StrategyPerformanceCell({
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <PerformanceSparkline
-          history={history}
-          consistency={consistency}
-          weeksTracked={weeksTracked}
-        />
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <PerformanceSparkline
+            history={history}
+            consistency={consistency}
+            weeksTracked={weeksTracked}
+          />
+          {avgDrift != null ? (
+            <span className="text-[11px] text-gray-500" title="Average weekly drift">
+              ∅{avgDrift.toFixed(1)}%
+            </span>
+          ) : null}
+          {dominantGrade ? (
+            <span className={`text-[11px] font-semibold ${gradeColor(dominantGrade)}`} title="Most common grade">
+              {dominantGrade}
+            </span>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="text-left text-[11px] text-sky-300/90 hover:text-sky-200 underline-offset-2 hover:underline w-fit"
+          className="w-fit rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-gray-400 hover:border-white/20 hover:text-gray-200"
         >
-          View history
+          Details →
         </button>
       </div>
       {modal}

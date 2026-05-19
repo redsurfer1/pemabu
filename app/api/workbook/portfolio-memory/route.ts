@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   buildPortfolioMemoryEvents,
@@ -90,4 +91,4 @@ export const GET = withAuth(async (req, user) => {
   };
 
   return NextResponse.json(body);
-});
+}, { keyTemplate: "portfolio-memory:{userId}", ...READ_RATE_LIMIT });

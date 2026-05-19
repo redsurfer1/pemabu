@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getPortfolio } from "@/lib/services/portfolio";
 import { createClient } from "@/lib/supabase/server";
 import { ROW_STATUS } from "@/lib/portfolio/fiat-watchlist";
@@ -51,4 +52,4 @@ export const DELETE = withAuth(async (req, user, ctx) => {
 
   if (updateErr) throw updateErr;
   return NextResponse.json({ success: true });
-});
+}, { keyTemplate: "watchlist:{userId}", ...MUTATION_RATE_LIMIT });

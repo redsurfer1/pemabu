@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { createClient } from "@/lib/supabase/server";
 import { getVaultPool } from "@/lib/db";
 import { isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
@@ -32,4 +33,4 @@ export const GET = withAuth(async (_req, user, ctx) => {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ sleeves: data ?? [] });
-});
+}, { keyTemplate: "sleeves:{userId}", ...MUTATION_RATE_LIMIT });

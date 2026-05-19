@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import {
   getPortfolio,
   getPortfolioSignals,
@@ -25,7 +26,7 @@ export const GET = withAuth(async (req, user, _ctx) => {
   }
   const signals = await getPortfolioSignals(portfolioId, { type, status, limit });
   return NextResponse.json({ signals });
-});
+}, { keyTemplate: "signals:{userId}", ...READ_RATE_LIMIT });
 
 const AckSchema = z.object({
   signalId: z.string().uuid(),

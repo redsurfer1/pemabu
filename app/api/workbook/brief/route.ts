@@ -30,6 +30,38 @@ function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {
   return m;
 }
 
+export const GET = withAuth(async (req, user) => {
+  const url = new URL(req.url);
+  const portfolioId = url.searchParams.get("portfolioId");
+  if (!portfolioId) {
+    return NextResponse.json({ error: "Missing portfolioId" }, { status: 400 });
+  }
+
+  const supabase = await createClient();
+  const { data: lastBrief } = await supabase
+    .from("portfolio_briefs")
+    .select("brief_text, generated_at")
+    .eq("portfolio_id", portfolioId)
+    .eq("user_id", user.id)
+    .order("generated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!lastBrief) {
+    return NextResponse.json({ error: "No brief found" }, { status: 404 });
+  }
+
+  const ageMs = Date.now() - new Date(lastBrief.generated_at).getTime();
+  const nextAvailableMs = Math.max(0, 24 * 60 * 60 * 1000 - ageMs);
+
+  return NextResponse.json({
+    brief: lastBrief.brief_text,
+    cached: ageMs < 24 * 60 * 60 * 1000,
+    nextAvailableMs,
+    generatedAt: lastBrief.generated_at,
+  });
+});
+
 export const POST = withAuth(async (req, user, _ctx) => {
   const body = await req.json();
   const parsed = BriefSchema.safeParse(body);

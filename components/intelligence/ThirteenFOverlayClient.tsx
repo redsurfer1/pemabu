@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { EmptyState } from "@/components/shared/EmptyState";
 import {
   PositionSentimentBadge,
   PositionSentimentSummary,
@@ -128,7 +129,7 @@ export function ThirteenFOverlayClient({
       {query.data?.error ? <p className="text-sm text-amber-400/90">{query.data.error}</p> : null}
 
       {!query.isLoading && !query.error && filings.length === 0 ? (
-        <p className="text-sm text-gray-500">No 13F-HR filings found for {ticker} in the recent window.</p>
+        <EmptyState title="No 13F filings" description="Search for a fund to see their latest filings" />
       ) : null}
 
       {latestByFiler.size > 0 ? (

@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api/auth";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { encryptUtf8 } from "@/lib/security/encryption";
+import { READ_RATE_LIMIT, SENSITIVE_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ConfigSchema = z.object({
   provider: z.enum(["s3", "backblaze", "nas"]),
@@ -32,7 +33,7 @@ export const GET = withAuth(async (_req, user) => {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ config: data ?? null });
-});
+}, { keyTemplate: "vault:{userId}", ...READ_RATE_LIMIT });
 
 // PUT: create or replace the export config.
 export const PUT = withAuth(async (req, user) => {
@@ -76,7 +77,7 @@ export const PUT = withAuth(async (req, user) => {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ config: data });
-});
+}, { keyTemplate: "vault:{userId}", ...SENSITIVE_RATE_LIMIT });
 
 // DELETE: remove the export config.
 export const DELETE = withAuth(async (_req, user) => {
@@ -90,4 +91,4 @@ export const DELETE = withAuth(async (_req, user) => {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });
-});
+}, { keyTemplate: "vault:{userId}", ...SENSITIVE_RATE_LIMIT });

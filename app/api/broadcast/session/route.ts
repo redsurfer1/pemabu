@@ -5,6 +5,7 @@ import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateBroadcastToken, hashBroadcastToken } from "@/lib/broadcast/token-service";
 import { pingFlomismaWatcherUpdate } from "@/lib/execution/flomisma-signal";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const CreateSchema = z.object({
   portfolio_id: z.string().uuid(),
@@ -71,7 +72,7 @@ export const POST = withAuth(async (req, user) => {
     session,
     viewer_url: `${baseUrl}/broadcast/${raw}`,
   });
-});
+}, { keyTemplate: "broadcast:{userId}", ...MUTATION_RATE_LIMIT });
 
 // PATCH: go_live, stop_live, or ping on an existing session.
 export const PATCH = withAuth(async (req, user) => {
@@ -107,7 +108,7 @@ export const PATCH = withAuth(async (req, user) => {
   }
 
   return NextResponse.json({ session: data });
-});
+}, { keyTemplate: "broadcast:{userId}", ...MUTATION_RATE_LIMIT });
 
 // GET: retrieve the user's active broadcast sessions.
 export const GET = withAuth(async (_req, user) => {
@@ -130,4 +131,4 @@ export const GET = withAuth(async (_req, user) => {
   }));
 
   return NextResponse.json({ sessions });
-});
+}, { keyTemplate: "broadcast:{userId}", ...READ_RATE_LIMIT });

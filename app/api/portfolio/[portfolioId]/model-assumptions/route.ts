@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth, type RouteHandlerContext } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT, READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import {
   getModelAssumptionsForPortfolioIfOwned,
   upsertModelAssumptions,
@@ -53,7 +54,7 @@ export const GET = withAuth(async (_req, user, ctx: RouteHandlerContext) => {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   return NextResponse.json({ assumptions });
-});
+}, { keyTemplate: "model-assumptions:{userId}", ...READ_RATE_LIMIT });
 
 export const PUT = withAuth(async (req, user, ctx: RouteHandlerContext) => {
   const params = await ctx.params;
@@ -90,4 +91,4 @@ export const PUT = withAuth(async (req, user, ctx: RouteHandlerContext) => {
 
   await upsertModelAssumptions(portfolioId, sleeveType, assumptions);
   return NextResponse.json({ success: true, sleeveType, assumptions });
-});
+}, { keyTemplate: "model-assumptions:{userId}", ...MUTATION_RATE_LIMIT });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ADDON = "addon_options_overlay";
 
@@ -20,4 +21,4 @@ export const DELETE = withAuth(async (_req, user, ctx) => {
 
   if (error) throw error;
   return NextResponse.json({ success: true });
-});
+}, { keyTemplate: "options:{userId}", ...MUTATION_RATE_LIMIT });

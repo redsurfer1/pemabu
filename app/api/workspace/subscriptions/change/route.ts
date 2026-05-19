@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth, AppError } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import Stripe from "stripe";
 import { z } from "zod";
@@ -112,4 +113,4 @@ export const POST = withAuth(async (req, user) => {
   });
 
   return NextResponse.json({ url: session.url, sessionId: session.id });
-});
+}, { keyTemplate: "subscriptions:{userId}", ...MUTATION_RATE_LIMIT });

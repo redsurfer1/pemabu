@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EmptyState } from "@/components/shared/EmptyState";
 import {
   usePortfolioHoldings,
   useUpsertHolding,
@@ -566,7 +567,7 @@ export function HoldingsBuilder({ portfolioId, currency = "USD" }: HoldingsBuild
       )}
 
       {holdings.length === 0 && !adding && (
-        <p className="py-6 text-center text-xs text-gray-500">No holdings yet. Add your first position above.</p>
+        <EmptyState title="No holdings yet" description="Add your first position above" />
       )}
     </div>
   );

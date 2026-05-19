@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { seedDemoPortfolioForUser } from "@/lib/demo/seed-demo-portfolio";
 
 export const runtime = "nodejs";
@@ -15,4 +16,4 @@ export const POST = withAuth(async (_req, user) => {
     holdingsCount: result.holdingsCount,
     created: result.created,
   });
-});
+}, { keyTemplate: "demo-portfolio:{userId}", ...MUTATION_RATE_LIMIT });

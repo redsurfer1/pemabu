@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getConsolidatedDashboard, getUserPortfolios, getPortfolioHoldings } from "@/lib/services/portfolio";
 import { getActiveProvider } from "@/lib/market-data";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
@@ -71,4 +72,4 @@ export const GET = withAuth(async (req, user, _ctx) => {
     const status = /timeout/i.test(msg) ? 504 : 500;
     return NextResponse.json({ error: msg }, { status });
   }
-});
+}, { keyTemplate: "consolidated:{userId}", ...READ_RATE_LIMIT });

@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { EmptyState } from "@/components/shared/EmptyState";
 import {
   PositionSentimentBadge,
   PositionSentimentSummary,
 } from "@/components/intelligence/PositionSentimentBadge";
 import type { PositionSentiment } from "@/lib/intelligence/position-sentiment";
 import type { EnrichedCongressionalDisclosure } from "@/lib/political-tracker/disclosure-sentiment";
+import { DEMO_DISCLOSURES } from "@/lib/demo/demo-data";
 
 async function fetchSignals(portfolioId: string): Promise<EnrichedCongressionalDisclosure[]> {
   const res = await fetch(`/api/political-tracker/signals?portfolio_id=${encodeURIComponent(portfolioId)}`);
@@ -56,7 +58,7 @@ function DisclosureRow({ d }: { d: EnrichedCongressionalDisclosure }) {
   );
 }
 
-export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string }) {
+export function PoliticalTrackerClient({ portfolioId, demo = false }: { portfolioId: string; demo?: boolean }) {
   const [view, setView] = useState<"signals" | "recent">("signals");
   const [tickerFilter, setTickerFilter] = useState("");
 
@@ -64,19 +66,20 @@ export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string })
     queryKey: ["political-tracker-signals", portfolioId],
     queryFn: () => fetchSignals(portfolioId),
     staleTime: 5 * 60 * 1000,
-    enabled: view === "signals",
+    enabled: view === "signals" && !demo,
   });
 
   const recentQuery = useQuery({
     queryKey: ["political-tracker-recent", tickerFilter],
     queryFn: () => fetchRecent(tickerFilter),
     staleTime: 5 * 60 * 1000,
-    enabled: view === "recent",
+    enabled: view === "recent" && !demo,
   });
 
-  const rows = view === "signals" ? (signalsQuery.data ?? []) : (recentQuery.data ?? []);
-  const isLoading = view === "signals" ? signalsQuery.isLoading : recentQuery.isLoading;
-  const error = view === "signals" ? signalsQuery.error : recentQuery.error;
+  const realRows = view === "signals" ? (signalsQuery.data ?? []) : (recentQuery.data ?? []);
+  const rows = demo ? (DEMO_DISCLOSURES as unknown as EnrichedCongressionalDisclosure[]) : realRows;
+  const isLoading = demo ? false : (view === "signals" ? signalsQuery.isLoading : recentQuery.isLoading);
+  const error = demo ? null : (view === "signals" ? signalsQuery.error : recentQuery.error);
 
   const sentimentCounts = useMemo(() => {
     const counts: Record<PositionSentiment, number> = {
@@ -145,11 +148,12 @@ export function PoliticalTrackerClient({ portfolioId }: { portfolioId: string })
       )}
 
       {!isLoading && !error && rows.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          {view === "signals"
+        <EmptyState
+          title="No disclosures found"
+          description={view === "signals"
             ? "No congressional trades found for your current holdings in the last 90 days."
-            : "No disclosures found."}
-        </div>
+            : "Congressional trading disclosures will appear here"}
+        />
       )}
 
       {rows.length > 0 ? <PositionSentimentSummary counts={sentimentCounts} /> : null}

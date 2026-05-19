@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { assertPortfolioOwnedByUser, getPortfolioAssumptions, upsertPortfolioAssumptions } from "@/lib/portfolio/portfolio-assumptions-store";
 import type { Assumptions } from "@/lib/portfolio/formula-engine";
 const AssumptionsBodySchema = z.object({
@@ -33,7 +34,7 @@ export const GET = withAuth(async (req, user) => {
     const message = err instanceof Error ? err.message : "Failed to load assumptions";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-});
+}, { keyTemplate: "assumptions:{userId}", ...READ_RATE_LIMIT });
 
 export const PUT = withAuth(async (req, user) => {
   const body = await req.json();
@@ -76,4 +77,4 @@ export const PUT = withAuth(async (req, user) => {
   })();
 
   return NextResponse.json({ assumptions: applied });
-});
+}, { keyTemplate: "assumptions:{userId}", ...MUTATION_RATE_LIMIT });

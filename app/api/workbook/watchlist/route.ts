@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getPortfolio } from "@/lib/services/portfolio";
 import { createClient } from "@/lib/supabase/server";
 import { ROW_STATUS } from "@/lib/portfolio/fiat-watchlist";
@@ -32,7 +33,7 @@ export const GET = withAuth(async (req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ watchList: data ?? [] });
-});
+}, { keyTemplate: "watchlist:{userId}", ...READ_RATE_LIMIT });
 
 export const POST = withAuth(async (req, user) => {
   let body: unknown;
@@ -89,4 +90,4 @@ export const POST = withAuth(async (req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ watch: data }, { status: 201 });
-});
+}, { keyTemplate: "watchlist:{userId}", ...MUTATION_RATE_LIMIT });

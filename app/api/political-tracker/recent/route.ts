@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/api/auth";
 import { enrichDisclosuresWithSentiment } from "@/lib/political-tracker/disclosure-sentiment";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const HISTORY_DAYS = 365;
 
@@ -39,4 +40,4 @@ export const GET = withAuth(async (req, user) => {
   const disclosures = enrichDisclosuresWithSentiment(all, display);
 
   return NextResponse.json({ disclosures });
-});
+}, { keyTemplate: "political:{userId}", ...READ_RATE_LIMIT });

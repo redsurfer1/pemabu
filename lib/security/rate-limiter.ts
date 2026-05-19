@@ -113,3 +113,29 @@ export const PRICES_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
   maxCount: 200,
   windowSeconds: 60,
 };
+
+// ── Standard profiles for bulk application ──────────────────────────────────
+
+/** 60 standard reads per user per minute. */
+export const READ_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
+  maxCount: 60,
+  windowSeconds: 60,
+};
+
+/** 30 mutations per user per minute. */
+export const MUTATION_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
+  maxCount: 30,
+  windowSeconds: 60,
+};
+
+/** 10 AI-powered requests per user per minute. */
+export const AI_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
+  maxCount: 10,
+  windowSeconds: 60,
+};
+
+/** 5 sensitive operations per user per minute (credentials, vault config). */
+export const SENSITIVE_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
+  maxCount: 5,
+  windowSeconds: 60,
+};

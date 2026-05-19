@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { KNOWN_SNAPSHOT_SPACES } from "@/lib/governance/snapshot-client";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ADDON = "addon_governance_alerts";
 
@@ -25,7 +26,7 @@ export const GET = withAuth(async (_req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ watchList: data ?? [] });
-});
+}, { keyTemplate: "governance:{userId}", ...READ_RATE_LIMIT });
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
@@ -61,4 +62,4 @@ export const POST = withAuth(async (req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ watch: data });
-});
+}, { keyTemplate: "governance:{userId}", ...MUTATION_RATE_LIMIT });

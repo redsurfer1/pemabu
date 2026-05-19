@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
+import { AI_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { isAutonomous } from "@/lib/portfolio/intelligence-access";
 import { StrategyCouncilMemoPdfDocument } from "@/lib/intelligence/strategy-council-pdf-document";
@@ -71,4 +72,4 @@ export const POST = withAuth(async (req, user, _ctx) => {
     console.error("memo-pdf render", e);
     return NextResponse.json({ error: "PDF render failed" }, { status: 500 });
   }
-});
+}, { keyTemplate: "memo-pdf:{userId}", ...AI_RATE_LIMIT });

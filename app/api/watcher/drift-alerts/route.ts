@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getVaultPool } from "@/lib/db";
 import { requireIntelligenceTier } from "@/lib/portfolio/intelligence-access";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
@@ -54,4 +55,4 @@ export const GET = withAuth(async (req, user) => {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ alerts: data ?? [] });
-});
+}, { keyTemplate: "drift-alerts:{userId}", ...READ_RATE_LIMIT });

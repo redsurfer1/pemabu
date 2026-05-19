@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getCachedServices } from "@/lib/cache/service-catalog";
 import { isSubscriptionRowAccessActive } from "@/lib/constants/services";
@@ -27,4 +28,4 @@ export const GET = withAuth(async (_req, user) => {
   }));
 
   return NextResponse.json({ subscriptions: enriched });
-});
+}, { keyTemplate: "subscriptions:{userId}", ...READ_RATE_LIMIT });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT, READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { generateShareToken, hashShareToken, buildShareUrl } from "@/lib/family-sharing/token-service";
@@ -29,7 +30,7 @@ export const GET = withAuth(async (_req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ tokens: data ?? [] });
-});
+}, { keyTemplate: "family:{userId}", ...READ_RATE_LIMIT });
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
@@ -80,4 +81,4 @@ export const POST = withAuth(async (req, user) => {
     shareUrl,
     warning: "Save this token and share URL now. The raw token cannot be retrieved after this response.",
   });
-});
+}, { keyTemplate: "family:{userId}", ...MUTATION_RATE_LIMIT });

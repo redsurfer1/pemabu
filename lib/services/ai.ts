@@ -130,8 +130,7 @@ export async function generatePortfolioBrief(input: {
     `significant drift from target, and highlight the most critical signal if any. ` +
     `Use plain English. Do not include investment advice, buy/sell recommendations, ` +
     `or predictions about future performance. ` +
-    `Address the portfolio owner directly (use "your portfolio"). ` +
-    `End with exactly this disclaimer on its own line: "${AI_DISCLAIMER}"`;
+    `Address the portfolio owner directly (use "your portfolio").`;
 
   return callAnthropic("portfolio_brief", { model: FAST_MODEL, maxTokens: MAX_TOKENS, prompt, userId: input.userId }, async () => {
     const message = await anthropic.messages.create({
@@ -140,7 +139,8 @@ export async function generatePortfolioBrief(input: {
       messages: [{ role: "user", content: prompt }],
     });
     const content = message.content[0];
-    return content.type === "text" ? content.text : "";
+    const text = content.type === "text" ? content.text : "";
+    return `${text.trim()}\n\n${AI_DISCLAIMER}`;
   });
 }
 

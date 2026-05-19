@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getPortfolio, updatePortfolio, deletePortfolio } from "@/lib/services/portfolio";
 import type { Portfolio } from "@/lib/types/database";
 import { z } from "zod";
@@ -54,7 +55,7 @@ export const PATCH = withAuth(async (req, user, ctx) => {
   if (currency !== undefined) patch.currency = currency;
   const updated = await updatePortfolio(id, patch);
   return NextResponse.json({ portfolio: updated });
-});
+}, { keyTemplate: "portfolios:{userId}", ...MUTATION_RATE_LIMIT });
 
 export const DELETE = withAuth(async (req, user, ctx) => {
   const { id: idParam } = await ctx.params;
@@ -68,4 +69,4 @@ export const DELETE = withAuth(async (req, user, ctx) => {
   }
   await deletePortfolio(id);
   return NextResponse.json({ success: true });
-});
+}, { keyTemplate: "portfolios:{userId}", ...MUTATION_RATE_LIMIT });

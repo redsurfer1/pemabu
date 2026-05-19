@@ -12,6 +12,7 @@ import { HoldingsBuilder } from "@/components/workbook/HoldingsBuilder";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
 import { WORKSPACE_PORTFOLIO_STORAGE_KEY } from "@/components/navigation/WorkspaceChrome";
 import { OnboardingTour, useDashboardTourSteps } from "@/components/onboarding/OnboardingTour";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 
 interface DashboardClientProps {
   userId: string;
@@ -173,74 +174,12 @@ function EmptyState() {
   const [message, setMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const createDemo = async () => {
-    setLoading(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/workbook/demo-portfolio", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      const j = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(j.error ?? "Failed to create demo portfolio");
-      await queryClient.invalidateQueries({ queryKey: ["consolidated"] });
-      window.location.reload();
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const autoOnboard = async () => {
-    setLoading(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/workbook/auto-onboard", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      const j = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(j.error ?? "Auto-onboard failed");
-      await queryClient.invalidateQueries({ queryKey: ["consolidated"] });
-      window.location.reload();
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="mx-auto max-w-md py-24 text-center">
-      <p className="mb-2 text-gray-300">Welcome to Pemabu</p>
-      <p className="mb-8 text-sm text-gray-500">
-        Start with a guided tour and pre-built sample portfolio, create your own, or import from a broker.
-      </p>
-      <div className="flex flex-col items-center gap-3">
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void autoOnboard()}
-          className="rounded-md bg-emerald-500 px-6 py-2.5 text-sm font-medium text-[#0A1628] disabled:opacity-60"
-        >
-          {loading ? "Setting up…" : "Guided setup with demo portfolio"}
-        </button>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void createDemo()}
-          className="rounded-md border border-white/20 px-6 py-2 text-sm text-gray-300 hover:text-white disabled:opacity-60"
-        >
-          Just create demo portfolio
-        </button>
-      </div>
-      <p className="mt-4">
-        <Link href="/demo" className="text-sm text-emerald-400/90 hover:text-emerald-300">
-          Preview features on the public demo →
-        </Link>
-      </p>
-      {message ? <p className="mt-3 text-xs text-red-400/90">{message}</p> : null}
-    </div>
+    <OnboardingWizard
+      onComplete={() => {
+        void queryClient.invalidateQueries({ queryKey: ["consolidated"] });
+        window.location.reload();
+      }}
+    />
   );
 }

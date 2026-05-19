@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth, type RouteHandlerContext } from "@/lib/api/auth";
+import { READ_RATE_LIMIT, SENSITIVE_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { createClient } from "@/lib/supabase/server";
 import {
   isPortfolioApiProvider,
@@ -48,7 +49,7 @@ export const GET = withAuth(async (_req, user, ctx: RouteHandlerContext) => {
 
   const credentials = await listPortfolioApiCredentialSummaries(supabase, portfolioId);
   return NextResponse.json({ credentials });
-});
+}, { keyTemplate: "api-creds:{userId}", ...READ_RATE_LIMIT });
 
 export const PUT = withAuth(async (req, user, ctx: RouteHandlerContext) => {
   const { portfolioId: raw } = await ctx.params;
@@ -81,17 +82,17 @@ export const PUT = withAuth(async (req, user, ctx: RouteHandlerContext) => {
       apiKey,
       apiSecret,
     });
-  } catch (e) {
-    if (e instanceof SovereignCredentialError) {
-      return NextResponse.json({ error: e.message, code: "VAULT_REQUIRED" }, { status: 403 });
+    } catch (e) {
+      if (e instanceof SovereignCredentialError) {
+        return NextResponse.json({ error: e.message, code: "VAULT_REQUIRED" }, { status: 403 });
+      }
+      const msg = e instanceof Error ? e.message : "Failed to save credentials";
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
-    const msg = e instanceof Error ? e.message : "Failed to save credentials";
-    return NextResponse.json({ error: msg }, { status: 400 });
-  }
 
-  const credentials = await listPortfolioApiCredentialSummaries(supabase, portfolioId);
-  return NextResponse.json({ ok: true, credentials });
-});
+    const credentials = await listPortfolioApiCredentialSummaries(supabase, portfolioId);
+    return NextResponse.json({ ok: true, credentials });
+  }, { keyTemplate: "api-creds:{userId}", ...SENSITIVE_RATE_LIMIT });
 
 export const DELETE = withAuth(async (req, user, ctx: RouteHandlerContext) => {
   const { portfolioId: raw } = await ctx.params;
@@ -112,12 +113,12 @@ export const DELETE = withAuth(async (req, user, ctx: RouteHandlerContext) => {
 
   try {
     await deletePortfolioApiCredential(supabase, portfolioId, provider, user.id);
-  } catch (e) {
-    if (e instanceof SovereignCredentialError) {
-      return NextResponse.json({ error: e.message, code: "VAULT_REQUIRED" }, { status: 403 });
+    } catch (e) {
+      if (e instanceof SovereignCredentialError) {
+        return NextResponse.json({ error: e.message, code: "VAULT_REQUIRED" }, { status: 403 });
+      }
+      throw e;
     }
-    throw e;
-  }
-  const credentials = await listPortfolioApiCredentialSummaries(supabase, portfolioId);
-  return NextResponse.json({ ok: true, credentials });
-});
+    const credentials = await listPortfolioApiCredentialSummaries(supabase, portfolioId);
+    return NextResponse.json({ ok: true, credentials });
+  }, { keyTemplate: "api-creds:{userId}", ...SENSITIVE_RATE_LIMIT });

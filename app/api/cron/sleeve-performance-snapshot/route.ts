@@ -2,23 +2,18 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { computeSleeveSnapshotForStrategy } from "@/lib/sleeve-performance/compute-snapshot";
 import { getISOWeekStart } from "@/lib/sleeve-performance/utils";
+import { withCronSentry } from "@/lib/monitoring/cron-sentry";
 import { PERFORMANCE_HISTORY_NOTICE } from "@/lib/constants/performance-history";
 import type { SleeveBlueprintV1 } from "@/lib/portfolio/export-sleeve-strategy";
+
+const PAGE_SIZE = 200;
 
 function verifyCronSecret(req: Request): boolean {
   const auth = req.headers.get("authorization");
   return auth === `Bearer ${process.env.CRON_SECRET}`;
 }
 
-export async function GET(req: Request) {
-  return runSnapshot(req);
-}
-
-export async function POST(req: Request) {
-  return runSnapshot(req);
-}
-
-async function runSnapshot(req: Request): Promise<NextResponse> {
+const handler = async (req: Request) => {
   if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -30,16 +25,31 @@ async function runSnapshot(req: Request): Promise<NextResponse> {
     errors: [] as string[],
   };
 
-  const { data: strategies, error: strategiesError } = await supabaseAdmin
-    .from("marketplace_strategies")
-    .select("id, publisher_user_id, strategy_grade, blueprint_json, metadata");
+  const allStrategies: Array<{
+    id: unknown;
+    publisher_user_id: unknown;
+    strategy_grade: unknown;
+    blueprint_json: unknown;
+    metadata: unknown;
+  }> = [];
+  let from = 0;
+  let page: typeof allStrategies;
+  do {
+    const { data: strategies, error: strategiesError } = await supabaseAdmin
+      .from("marketplace_strategies")
+      .select("id, publisher_user_id, strategy_grade, blueprint_json, metadata")
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (strategiesError) {
-    console.error("[sleeve-snapshot] Failed to load strategies:", strategiesError.message);
-    return NextResponse.json({ error: "Failed to load strategies" }, { status: 500 });
-  }
+    if (strategiesError) {
+      console.error("[sleeve-snapshot] Failed to load strategies:", strategiesError.message);
+      return NextResponse.json({ error: "Failed to load strategies" }, { status: 500 });
+    }
+    page = (strategies ?? []) as typeof allStrategies;
+    allStrategies.push(...page);
+    from += PAGE_SIZE;
+  } while (page.length === PAGE_SIZE);
 
-  for (const row of strategies ?? []) {
+  for (const row of allStrategies) {
     const strategyId = String(row.id);
     try {
       const snapshot = await computeSleeveSnapshotForStrategy({
@@ -86,4 +96,7 @@ async function runSnapshot(req: Request): Promise<NextResponse> {
     ...results,
     note: PERFORMANCE_HISTORY_NOTICE,
   });
-}
+};
+
+export const GET = withCronSentry("sleeve-performance-snapshot", handler);
+export const POST = withCronSentry("sleeve-performance-snapshot", handler);

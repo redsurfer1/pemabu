@@ -7,6 +7,8 @@ import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { ImportEntitlementError } from "@/lib/marketplace/import-gate";
 import * as Sentry from "@sentry/nextjs";
+import { checkRateLimit } from "@/lib/security/rate-limiter";
+import type { RateLimitOptions } from "@/lib/security/rate-limiter";
 
 // ── Structured error class ────────────────────────────────────────────────────
 
@@ -53,16 +55,46 @@ export type RouteHandlerContext = {
 
 /**
  * Wraps a route handler with authentication.
+ * Optionally enforces rate limiting before the handler runs.
  * Catches thrown Responses (auth gate), AppError, ImportEntitlementError,
  * and any unexpected errors. In development, unexpected errors include a
  * `detail` field with the root cause message.
+ *
+ * @example
+ * ```ts
+ * // No rate limiting
+ * export const GET = withAuth(handler);
+ *
+ * // With rate limiting
+ * export const GET = withAuth(handler, { keyTemplate: "holdings:{userId}", maxCount: 60, windowSeconds: 60 });
+ * ```
  */
 export function withAuth(
   handler: (req: Request, user: User, context: RouteHandlerContext) => Promise<Response>,
+  rateLimit?: Omit<RateLimitOptions, "key"> & { keyTemplate: string },
 ) {
   return async (req: Request, context: RouteHandlerContext): Promise<Response> => {
     try {
       const user = await getAuthenticatedUser();
+
+      if (rateLimit) {
+        const rl = await checkRateLimit({
+          key: rateLimit.keyTemplate.replace("{userId}", user.id),
+          maxCount: rateLimit.maxCount,
+          windowSeconds: rateLimit.windowSeconds,
+        });
+        if (!rl.allowed) {
+          return NextResponse.json(
+            {
+              error: "Too many requests. Please slow down.",
+              code: "RATE_LIMITED",
+              retryAfterSeconds: rl.retryAfterSeconds,
+            },
+            { status: 429 },
+          );
+        }
+      }
+
       return await handler(req, user, context);
     } catch (e) {
       // Auth gate throws a Response directly

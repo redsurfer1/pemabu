@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { alertOperator } from "@/lib/services/email";
+import { withCronSentry } from "@/lib/monitoring/cron-sentry";
+
+const PAGE_SIZE = 500;
 
 function verifyCronSecret(req: Request): boolean {
   const auth = req.headers.get("authorization");
   return auth === `Bearer ${process.env.CRON_SECRET}`;
 }
 
-export async function GET(req: Request) {
+const handler = async (req: Request) => {
   if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -16,15 +19,23 @@ export async function GET(req: Request) {
     const cutoff = new Date();
     cutoff.setHours(cutoff.getHours() - 48);
 
-    const { data: rows, error } = await supabaseAdmin
-      .from("portfolio_holdings")
-      .select("ticker, portfolio_id, last_price_refreshed_at");
+    const allRows: Array<{ ticker: string; portfolio_id: string; last_price_refreshed_at: string | null }> = [];
+    let from = 0;
+    let page: typeof allRows;
+    do {
+      const { data: rows, error } = await supabaseAdmin
+        .from("portfolio_holdings")
+        .select("ticker, portfolio_id, last_price_refreshed_at")
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      page = (rows ?? []) as typeof allRows;
+      allRows.push(...page);
+      from += PAGE_SIZE;
+    } while (page.length === PAGE_SIZE);
 
-    if (error) throw error;
-
-    const staleHoldings = (rows ?? []).filter((h) => {
+    const staleHoldings = allRows.filter((h) => {
       if (h.last_price_refreshed_at == null) return true;
-      return new Date(h.last_price_refreshed_at as string) < cutoff;
+      return new Date(h.last_price_refreshed_at) < cutoff;
     });
 
     if (staleHoldings.length === 0) {
@@ -36,8 +47,8 @@ export async function GET(req: Request) {
 
     const byPortfolio = new Map<string, string[]>();
     for (const h of staleHoldings) {
-      const pid = h.portfolio_id as string;
-      const ticker = h.ticker as string;
+      const pid = h.portfolio_id;
+      const ticker = h.ticker;
       const existing = byPortfolio.get(pid) ?? [];
       byPortfolio.set(pid, [...existing, ticker]);
     }
@@ -54,6 +65,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       stale_count: staleHoldings.length,
+      total_holdings: allRows.length,
       notified: true,
     });
   } catch (err) {
@@ -61,4 +73,6 @@ export async function GET(req: Request) {
     await alertOperator("Assumption drift check FAILED", `Error: ${msg}`).catch(() => {});
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+};
+
+export const GET = withCronSentry("assumption-drift", handler);

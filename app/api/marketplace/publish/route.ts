@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { createClient } from "@/lib/supabase/server";
 import { isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
 import { computeStrategyGrades } from "@/lib/marketplace/strategy-grade";
@@ -82,4 +83,4 @@ export const POST = withAuth(async (req, user, _ctx) => {
   }
 
   return NextResponse.json({ ok: true, sleeve_token_hash: sleeve_token_hash });
-});
+}, { keyTemplate: "publish:{userId}", ...MUTATION_RATE_LIMIT });

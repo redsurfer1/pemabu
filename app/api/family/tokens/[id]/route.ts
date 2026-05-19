@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 
@@ -26,4 +27,4 @@ export const DELETE = withAuth(async (_req, user, context) => {
 
   if (error) throw error;
   return NextResponse.json({ success: true });
-});
+}, { keyTemplate: "family:{userId}", ...MUTATION_RATE_LIMIT });

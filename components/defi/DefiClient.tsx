@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { STALE } from "@/lib/constants/query-config";
+import { DEMO_WALLETS, DEMO_POSITIONS } from "@/lib/demo/demo-data";
 
 interface WalletAddress {
   id: string;
@@ -91,7 +93,7 @@ function calcImpermanentLoss(initialRatio: number, currentRatio: number): number
   return (2 * sqr) / (1 + r) - 1;
 }
 
-export function DefiClient() {
+export function DefiClient({ demo = false }: { demo?: boolean }) {
   const qc = useQueryClient();
   const [showAddWallet, setShowAddWallet] = useState(false);
   const [walletForm, setWalletForm] = useState({
@@ -107,20 +109,23 @@ export function DefiClient() {
     currentPriceB: "",
   });
 
-  const { data: wallets = [], isPending: walletsLoading } = useQuery({
+  const { data: walletsRaw = [], isPending: walletsLoading } = useQuery({
     queryKey: ["defi", "wallets"],
     queryFn: fetchWallets,
     staleTime: STALE.DEFI,
+    enabled: !demo,
   });
+  const wallets = demo ? DEMO_WALLETS : walletsRaw;
 
   const walletIdsKey = wallets.map((w) => w.id).join(",");
 
-  const { data: positions = [], isPending: positionsLoading } = useQuery({
+  const { data: positionsRaw = [], isPending: positionsLoading } = useQuery({
     queryKey: ["defi", "positions", walletIdsKey],
     queryFn: () => fetchPositions(wallets.map((w) => w.id)),
-    enabled: wallets.length > 0,
+    enabled: wallets.length > 0 && !demo,
     staleTime: STALE.DEFI,
   });
+  const positions = demo ? DEMO_POSITIONS : positionsRaw;
 
   const { mutate: addWalletMutation, isPending: isAdding } = useMutation({
     mutationFn: addWallet,
@@ -275,17 +280,11 @@ export function DefiClient() {
           {walletsLoading ? (
             <div className="py-12 text-center text-sm text-gray-500">Loading wallets…</div>
           ) : wallets.length === 0 ? (
-            <div className="rounded-xl border border-white/10 py-16 text-center">
-              <p className="text-sm text-gray-500">No wallets connected.</p>
-              <p className="mt-1 text-xs text-gray-600">Add a wallet address to see on-chain positions.</p>
-            </div>
+            <EmptyState title="No wallets connected" description="Connect a wallet to track DeFi positions" />
           ) : positionsLoading ? (
             <div className="py-12 text-center text-sm text-gray-500">Fetching cached positions…</div>
           ) : positions.length === 0 ? (
-            <div className="rounded-xl border border-white/10 py-16 text-center">
-              <p className="text-sm text-gray-500">No cached positions for connected wallets.</p>
-              <p className="mt-1 text-xs text-gray-600">A future watcher job can populate balances here.</p>
-            </div>
+            <EmptyState title="No positions found" description="No cached positions for connected wallets yet." />
           ) : (
             <div className="overflow-hidden rounded-xl border border-white/10">
               <table className="w-full text-sm">

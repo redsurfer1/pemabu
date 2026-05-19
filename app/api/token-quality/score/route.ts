@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { scoreTicker } from "@/lib/token-quality/ttf-scorer";
@@ -60,4 +61,4 @@ export const GET = withAuth(async (req, user) => {
       { status: 502 },
     );
   }
-});
+}, { keyTemplate: "token-quality:{userId}", ...READ_RATE_LIMIT });

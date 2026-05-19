@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ADDON = "addon_options_overlay";
 
@@ -53,7 +54,7 @@ export const GET = withAuth(async (req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ positions: data ?? [] });
-});
+}, { keyTemplate: "options:{userId}", ...READ_RATE_LIMIT });
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
@@ -76,4 +77,4 @@ export const POST = withAuth(async (req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ position: data }, { status: 201 });
-});
+}, { keyTemplate: "options:{userId}", ...MUTATION_RATE_LIMIT });

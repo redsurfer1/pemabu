@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 
@@ -17,4 +18,4 @@ export const GET = withAuth(async (_req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ history: data ?? [] });
-});
+}, { keyTemplate: "macro:{userId}", ...READ_RATE_LIMIT });

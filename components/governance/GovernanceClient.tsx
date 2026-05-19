@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { STALE } from "@/lib/constants/query-config";
 import { KNOWN_SNAPSHOT_SPACES } from "@/lib/governance/snapshot-client";
+import { DEMO_GOVERNANCE_PROPOSALS } from "@/lib/demo/demo-data";
 
 interface WatchEntry {
   id: string;
@@ -94,18 +96,37 @@ async function dismissAlert(alertId: string): Promise<void> {
   if (!r.ok) throw new Error("Failed to dismiss");
 }
 
-export function GovernanceClient({ portfolioTickers = [] }: { portfolioTickers?: string[] }) {
+export function GovernanceClient({ portfolioTickers = [], demo = false }: { portfolioTickers?: string[]; demo?: boolean }) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"alerts" | "watch_list">("alerts");
   const [addTicker, setAddTicker] = useState("");
 
-  const { data: watchList = [], isPending: watchLoading } = useQuery({
+  const { data: watchListRaw = [], isPending: watchLoading } = useQuery({
     queryKey: ["governance", "watch-list"],
     queryFn: fetchWatchList,
     staleTime: STALE.GOVERNANCE,
+    enabled: !demo,
   });
+  const watchList = demo
+    ? DEMO_GOVERNANCE_PROPOSALS.map((p) => ({
+        id: p.id,
+        token_ticker: p.token_ticker,
+        token_name: p.token_ticker,
+        space_id: KNOWN_SNAPSHOT_SPACES[p.token_ticker as keyof typeof KNOWN_SNAPSHOT_SPACES] ?? null,
+        added_at: new Date().toISOString(),
+      }))
+    : watchListRaw;
 
   const hasResolvableWatch = watchList.some((w) => Boolean(w.space_id));
+
+  const demoAlerts = DEMO_GOVERNANCE_PROPOSALS.map((p) => ({
+    id: `alert-${p.id}`,
+    is_read: false,
+    is_dismissed: false,
+    alerted_at: new Date().toISOString(),
+    token_ticker: p.token_ticker,
+    governance_proposals: p as unknown as GovernanceProposal,
+  }));
 
   const {
     data: alerts = [],
@@ -117,8 +138,14 @@ export function GovernanceClient({ portfolioTickers = [] }: { portfolioTickers?:
     queryKey: ["governance", "alerts"],
     queryFn: fetchAlerts,
     staleTime: STALE.GOVERNANCE,
-    enabled: activeTab === "alerts" && hasResolvableWatch,
+    enabled: activeTab === "alerts" && hasResolvableWatch && !demo,
   });
+  const resolvedAlerts = demo ? demoAlerts : (() => {
+    const raw = alerts.filter((a): a is AlertRow & { governance_proposals: GovernanceProposal } =>
+      Boolean(a.governance_proposals),
+    );
+    return raw;
+  })();
 
   const { mutate: addToken, isPending: isAdding } = useMutation({
     mutationFn: addToWatchList,
@@ -137,10 +164,6 @@ export function GovernanceClient({ portfolioTickers = [] }: { portfolioTickers?:
     mutationFn: dismissAlert,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["governance", "alerts"] }),
   });
-
-  const resolvedAlerts = alerts.filter((a): a is AlertRow & { governance_proposals: GovernanceProposal } =>
-    Boolean(a.governance_proposals),
-  );
 
   const activeAlerts = resolvedAlerts.filter((a) => a.governance_proposals.state === "active");
   const closedAlerts = resolvedAlerts.filter((a) => a.governance_proposals.state !== "active");
@@ -192,10 +215,7 @@ export function GovernanceClient({ portfolioTickers = [] }: { portfolioTickers?:
       {activeTab === "alerts" && (
         <div className="space-y-4">
           {watchList.length === 0 ? (
-            <div className="rounded-xl border border-white/10 py-16 text-center">
-              <p className="text-sm text-gray-500">No tokens on your watch list.</p>
-              <p className="mt-1 text-xs text-gray-600">Go to Watch List to add tokens — proposals load automatically.</p>
-            </div>
+            <EmptyState title="Watch list is empty" description="Add tickers to your governance watch list to track proposals" />
           ) : !hasResolvableWatch ? (
             <div className="rounded-xl border border-white/10 py-16 text-center">
               <p className="text-sm text-gray-500">Watch list tokens need a Snapshot space.</p>
@@ -206,10 +226,7 @@ export function GovernanceClient({ portfolioTickers = [] }: { portfolioTickers?:
               Fetching governance proposals from Snapshot...
             </div>
           ) : resolvedAlerts.length === 0 ? (
-            <div className="rounded-xl border border-white/10 py-16 text-center">
-              <p className="text-sm text-gray-500">No proposals found.</p>
-              <p className="mt-1 text-xs text-gray-600">Try another token or check again later.</p>
-            </div>
+            <EmptyState title="No proposals found" description="Try another token or check again later." />
           ) : (
             <>
               {activeAlerts.length > 0 && (

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { classifyMacroRegime } from "@/lib/intelligence/macro-regime";
 import { refreshMacroCorrelationCache } from "@/lib/intelligence/macro-correlation-cache";
@@ -53,4 +54,4 @@ export const POST = withAuth(async (req, user) => {
   void refreshMacroCorrelationCache(supabaseAdmin).catch((e) => console.error("macro correlation refresh:", e));
 
   return NextResponse.json({ classification });
-});
+}, { keyTemplate: "macro:{userId}", ...READ_RATE_LIMIT });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT, READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { requireAutonomousTier } from "@/lib/portfolio/intelligence-access";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { VAULT_REQUIRED_CODE, VAULT_REQUIRED_MESSAGE } from "@/lib/execution/sovereign-messages";
@@ -24,7 +25,7 @@ export const GET = withAuth(async (req, user, _ctx) => {
 
   const proposals = await listTradeProposalsForUserVault(user.id, limit);
   return NextResponse.json({ proposals });
-});
+}, { keyTemplate: "execution:{userId}", ...READ_RATE_LIMIT });
 
 /** Reserved for future queue mutations — Autonomous tier only; vault-only. */
 export const POST = withAuth(async (_req, user, _ctx) => {
@@ -33,4 +34,4 @@ export const POST = withAuth(async (_req, user, _ctx) => {
   if (denied) return denied;
   if (!isLocalVaultExecutionPlane()) return CLOUD_EXECUTION_FORBIDDEN;
   return NextResponse.json({ ok: true, queued: 0 });
-});
+}, { keyTemplate: "execution:{userId}", ...MUTATION_RATE_LIMIT });

@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ADDON = "addon_defi_onchain";
 const SUPPORTED_CHAINS = ["ethereum", "bitcoin", "solana", "base", "arbitrum", "polygon"] as const;
@@ -24,7 +25,7 @@ export const GET = withAuth(async (_req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ wallets: data ?? [] });
-});
+}, { keyTemplate: "defi:{userId}", ...READ_RATE_LIMIT });
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
@@ -43,4 +44,4 @@ export const POST = withAuth(async (req, user) => {
 
   if (error) throw error;
   return NextResponse.json({ wallet: data }, { status: 201 });
-});
+}, { keyTemplate: "defi:{userId}", ...MUTATION_RATE_LIMIT });

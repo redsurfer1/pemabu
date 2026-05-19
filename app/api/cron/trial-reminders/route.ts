@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { sendTrialExpiryReminders } from "@/lib/services/trial-reminder";
+import { withCronSentry } from "@/lib/monitoring/cron-sentry";
 
-/**
- * CRON endpoint called daily to:
- * 1. Expire elapsed trials
- * 2. Send 7-day and 1-day trial expiry email reminders
- *
- * Protected by CRON_SECRET header check.
- */
-export const runtime = "nodejs";
-
-export async function GET(req: Request): Promise<Response> {
+const handler = async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim();
   const expected = process.env.CRON_SECRET?.trim();
 
@@ -33,4 +25,6 @@ export async function GET(req: Request): Promise<Response> {
       { status: 500 },
     );
   }
-}
+};
+
+export const GET = withCronSentry("trial-reminders", handler);

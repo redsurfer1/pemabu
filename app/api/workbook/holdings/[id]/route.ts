@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { withAuth } from "@/lib/api/auth";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { createClient } from "@/lib/supabase/server";
 import { ASSET_CLASS_ENUM } from "@/lib/constants/asset-classes";
 
@@ -96,7 +97,7 @@ export const PATCH = withAuth(async (req, user, ctx) => {
   }
 
   return NextResponse.json({ holding: updated });
-});
+}, { keyTemplate: "holdings:{userId}", ...MUTATION_RATE_LIMIT });
 
 export const DELETE = withAuth(async (_req, user, ctx) => {
   const { id: idParam } = await ctx.params;
@@ -117,4 +118,4 @@ export const DELETE = withAuth(async (_req, user, ctx) => {
   }
 
   return NextResponse.json({ success: true });
-});
+}, { keyTemplate: "holdings:{userId}", ...MUTATION_RATE_LIMIT });

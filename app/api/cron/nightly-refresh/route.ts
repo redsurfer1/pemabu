@@ -9,8 +9,11 @@ import {
   DEFAULT_TARGETS,
   type Quote as EngineQuote,
 } from "@/lib/allocation/engine";
+import { withCronSentry } from "@/lib/monitoring/cron-sentry";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Holding } from "@/lib/types/database";
+
+const PAGE_SIZE = 500;
 
 function verifyCronSecret(req: Request): boolean {
   const auth = req.headers.get("authorization");
@@ -31,7 +34,24 @@ function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {
   return m;
 }
 
-export async function GET(req: Request) {
+async function loadAllHoldings(): Promise<Holding[]> {
+  const all: Holding[] = [];
+  let from = 0;
+  let page: Holding[];
+  do {
+    const { data: holdings, error } = await supabaseAdmin
+      .from("portfolio_holdings")
+      .select("*")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    page = (holdings ?? []) as Holding[];
+    all.push(...page);
+    from += PAGE_SIZE;
+  } while (page.length === PAGE_SIZE);
+  return all;
+}
+
+const handler = async (req: Request) => {
   if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -40,17 +60,13 @@ export async function GET(req: Request) {
   const errors: string[] = [];
 
   try {
-    const { data: holdings, error: hErr } = await supabaseAdmin.from("portfolio_holdings").select("*");
-
-    if (hErr) throw hErr;
-
-    const allHoldings = (holdings ?? []) as Holding[];
+    const allHoldings = await loadAllHoldings();
 
     const nonCashHoldings = allHoldings.filter((h) => h.asset_class !== "cash");
     const cashHoldings = allHoldings.filter((h) => h.asset_class === "cash");
 
     const tickers = [...new Set(nonCashHoldings.map((h) => h.ticker))];
-    log.push(`Refreshing ${tickers.length} unique tickers (${cashHoldings.length} cash skipped)`);
+    log.push(`Refreshing ${tickers.length} unique tickers (${cashHoldings.length} cash skipped, ${allHoldings.length} total holdings)`);
 
     for (const cashHolding of cashHoldings) {
       await supabaseAdmin
@@ -182,9 +198,6 @@ export async function GET(req: Request) {
 
     log.push(`Processed ${portfolioIds.length} portfolios`);
 
-    // Portfolio signal refresh is handled by Supabase Edge Function
-    // supabase/functions/refresh-portfolio-signals/index.ts
-    // Scheduled via pg_cron at 01:00 UTC
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
     const edgeUrl = `${baseUrl}/functions/v1/refresh-portfolio-signals`;
     let engine_refresh: unknown = { error: "Edge Function unreachable" };
@@ -212,6 +225,7 @@ export async function GET(req: Request) {
       log,
       errors,
       processed: portfolioIds.length,
+      total_holdings: allHoldings.length,
       engine_refresh,
     });
   } catch (err) {
@@ -219,4 +233,6 @@ export async function GET(req: Request) {
     await alertOperator("Nightly refresh FAILED", `Error: ${msg}`).catch(() => {});
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+};
+
+export const GET = withCronSentry("nightly-refresh", handler);

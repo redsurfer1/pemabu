@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { resolveEffectiveTier, tierMeetsMinimum } from "@/lib/security/tier-guard";
@@ -62,4 +63,4 @@ export const GET = withAuth(async (req, user, ctx) => {
     notice: PERFORMANCE_HISTORY_NOTICE,
     dataAsOf: weeks[0]?.recorded_week ?? null,
   });
-});
+}, { keyTemplate: "performance:{userId}", ...READ_RATE_LIMIT });

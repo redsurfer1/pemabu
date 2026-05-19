@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getUserPortfolios, createPortfolio } from "@/lib/services/portfolio";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { resolveEffectiveTier, tierForbiddenResponse } from "@/lib/security/tier-guard";
@@ -15,7 +16,7 @@ const CreatePortfolioSchema = z.object({
 export const GET = withAuth(async (req, user, _ctx) => {
   const portfolios = await getUserPortfolios(user.id);
   return NextResponse.json({ portfolios });
-});
+}, { keyTemplate: "portfolios:{userId}", ...READ_RATE_LIMIT });
 
 export const POST = withAuth(async (req, user, _ctx) => {
   const body = await req.json();
@@ -37,4 +38,4 @@ export const POST = withAuth(async (req, user, _ctx) => {
     currency: parsed.data.currency,
   });
   return NextResponse.json({ portfolio }, { status: 201 });
-});
+}, { keyTemplate: "portfolios:{userId}", ...MUTATION_RATE_LIMIT });

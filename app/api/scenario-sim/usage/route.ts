@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { resolveEffectiveTier } from "@/lib/security/tier-guard";
 import { getMonthlyUsage } from "@/lib/scenario-sim/usage";
@@ -27,4 +28,4 @@ export const GET = withAuth(async (_req, user) => {
     remaining: Math.max(0, cap - current),
     month_key: monthKey,
   });
-});
+}, { keyTemplate: "scenario-usage:{userId}", ...READ_RATE_LIMIT });

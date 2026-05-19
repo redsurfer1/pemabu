@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { STALE } from "@/lib/constants/query-config";
+import { DEMO_OPTIONS_POSITIONS } from "@/lib/demo/demo-data";
 
 type OptionSide = "call" | "put";
 type OptionStrategy = "covered_call" | "protective_put" | "cash_secured_put" | "long_call" | "long_put";
@@ -27,6 +29,7 @@ export interface OptionsPosition {
 
 interface OptionsOverlayClientProps {
   portfolioId: string;
+  demo?: boolean;
 }
 
 type CreatePositionInput = {
@@ -106,7 +109,7 @@ async function deletePosition(id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete options position");
 }
 
-export function OptionsOverlayClient({ portfolioId }: OptionsOverlayClientProps) {
+export function OptionsOverlayClient({ portfolioId, demo = false }: OptionsOverlayClientProps) {
   const qc = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({
@@ -120,12 +123,13 @@ export function OptionsOverlayClient({ portfolioId }: OptionsOverlayClientProps)
     notes: "",
   });
 
-  const { data: positions = [], isPending } = useQuery({
+  const { data: positionsRaw = [], isPending } = useQuery({
     queryKey: ["options", "positions", portfolioId],
     queryFn: () => fetchPositions(portfolioId),
-    enabled: Boolean(portfolioId),
+    enabled: Boolean(portfolioId) && !demo,
     staleTime: STALE.OPTIONS,
   });
+  const positions = demo ? DEMO_OPTIONS_POSITIONS : positionsRaw;
 
   const { mutate: addPosition, isPending: isAdding } = useMutation({
     mutationFn: createPosition,
@@ -300,10 +304,7 @@ export function OptionsOverlayClient({ portfolioId }: OptionsOverlayClientProps)
       )}
 
       {positions.length === 0 ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] py-16 text-center">
-          <p className="text-sm text-gray-500">No options positions tracked yet.</p>
-          <p className="mt-1 text-xs text-gray-600">Add your first position to see P&L and delta exposure.</p>
-        </div>
+        <EmptyState title="No options positions" description="Add options positions to track P&L and exposure" />
       ) : (
         <div className="overflow-hidden rounded-xl border border-white/10">
           <table className="w-full text-sm">

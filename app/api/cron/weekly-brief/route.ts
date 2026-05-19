@@ -9,8 +9,11 @@ import {
   DEFAULT_TARGETS,
   type Quote as EngineQuote,
 } from "@/lib/allocation/engine";
+import { withCronSentry } from "@/lib/monitoring/cron-sentry";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Holding, Portfolio, Signal } from "@/lib/types/database";
+
+const PAGE_SIZE = 500;
 
 function verifyCronSecret(req: Request): boolean {
   const auth = req.headers.get("authorization");
@@ -31,7 +34,7 @@ function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {
   return m;
 }
 
-export async function GET(req: Request) {
+const handler = async (req: Request) => {
   if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -40,16 +43,27 @@ export async function GET(req: Request) {
   const errors: string[] = [];
 
   try {
-    const { data: portfolios, error: pErr } = await supabaseAdmin.from("portfolios").select("*");
+    const allPortfolios: Portfolio[] = [];
+    let pfFrom = 0;
+    let pfPage: Portfolio[];
+    do {
+      const { data: portfolios, error: pErr } = await supabaseAdmin
+        .from("portfolios")
+        .select("*")
+        .range(pfFrom, pfFrom + PAGE_SIZE - 1);
+      if (pErr) throw pErr;
+      pfPage = (portfolios ?? []) as Portfolio[];
+      allPortfolios.push(...pfPage);
+      pfFrom += PAGE_SIZE;
+    } while (pfPage.length === PAGE_SIZE);
 
-    if (pErr) throw pErr;
-    if (!portfolios || portfolios.length === 0) {
+    if (allPortfolios.length === 0) {
       return NextResponse.json({ success: true, log: ["No portfolios to brief"] });
     }
 
     const provider = getActiveProvider();
 
-    for (const portfolio of portfolios as Portfolio[]) {
+    for (const portfolio of allPortfolios) {
       try {
         const { data: holdings, error: hErr } = await supabaseAdmin
           .from("portfolio_holdings")
@@ -145,10 +159,12 @@ export async function GET(req: Request) {
       ).catch(() => {});
     }
 
-    return NextResponse.json({ success: true, log, errors });
+    return NextResponse.json({ success: true, log, errors, total: allPortfolios.length });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await alertOperator("Weekly brief FAILED", `Error: ${msg}`).catch(() => {});
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+};
+
+export const GET = withCronSentry("weekly-brief", handler);

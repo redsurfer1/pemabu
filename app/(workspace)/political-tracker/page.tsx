@@ -1,18 +1,18 @@
 import { requireServiceAccess } from "@/lib/security/tier-guard";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isDemoRequest } from "@/lib/demo/demo-guard";
 import { PoliticalTrackerClient } from "@/components/political-tracker/PoliticalTrackerClient";
 import type { Portfolio } from "@/lib/types/database";
 
-// Political Trade Tracker — addon_political_tracker or Intelligence/Autonomous tier.
-// TIER_INCLUSIONS includes addon_political_tracker in intelligence_annual and autonomous_annual,
-// so requireServiceAccess("addon_political_tracker") gates correctly for all three.
 export default async function PoliticalTrackerPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  await requireServiceAccess("addon_political_tracker");
+  const sp = await searchParams;
+  const demo = isDemoRequest(sp);
+  if (!demo) await requireServiceAccess("addon_political_tracker");
 
   const supabase = await createClient();
   const {
@@ -27,8 +27,7 @@ export default async function PoliticalTrackerPage({
 
   const portfolioList = (portfolios ?? []) as Pick<Portfolio, "id" | "name">[];
 
-  const sp = await searchParams;
-  const portfolioId = sp.portfolio_id ?? portfolioList[0]?.id ?? null;
+  const portfolioId = (sp as Record<string, string | undefined>).portfolio_id ?? portfolioList[0]?.id ?? null;
 
   return (
     <div className="min-h-screen bg-[#0A1628] px-4 py-8 sm:px-8">
@@ -62,7 +61,7 @@ export default async function PoliticalTrackerPage({
         )}
 
         {portfolioId ? (
-          <PoliticalTrackerClient portfolioId={portfolioId} />
+          <PoliticalTrackerClient portfolioId={portfolioId} demo={demo} />
         ) : (
           <p className="text-gray-500 text-sm">
             Create a portfolio first to see congressional trade signals.

@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchSnapshotProposals } from "@/lib/governance/snapshot-client";
 import { summariseProposal } from "@/lib/governance/governance-summariser";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ADDON = "addon_governance_alerts";
 
@@ -133,4 +134,4 @@ export const GET = withAuth(async (_req, user) => {
   }));
 
   return NextResponse.json({ alerts });
-});
+}, { keyTemplate: "governance:{userId}", ...READ_RATE_LIMIT });

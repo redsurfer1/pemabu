@@ -1,8 +1,15 @@
 import { requireServiceAccess } from "@/lib/security/tier-guard";
+import { isDemoRequest } from "@/lib/demo/demo-guard";
 import { VaultExportClient } from "@/components/vault-export/VaultExportClient";
 
-export default async function VaultExportPage() {
-  await requireServiceAccess("addon_data_vault_export");
+export default async function VaultExportPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const sp = await searchParams;
+  const demo = isDemoRequest(sp);
+  if (!demo) await requireServiceAccess("addon_data_vault_export");
 
   return (
     <div className="min-h-screen bg-[#0A1628] px-4 py-8 sm:px-8">
@@ -13,7 +20,7 @@ export default async function VaultExportPage() {
             Automated weekly encrypted backup of your Pemabu data to your own cloud storage.
           </p>
         </div>
-        <VaultExportClient />
+        <VaultExportClient demo={demo} />
       </div>
     </div>
   );

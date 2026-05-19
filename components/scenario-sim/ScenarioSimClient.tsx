@@ -76,9 +76,6 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
       } else if (data.code === "SOFT_CAP_EXCEEDED") {
         setOverageUrl(data.overage_checkout_url ?? null);
         setComingSoon(false);
-      } else if (data.code === "FEATURE_COMING_SOON") {
-        setComingSoon(true);
-        setOverageUrl(null);
       }
     },
   });
@@ -100,7 +97,6 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
   if (!portfolioId) {
     return (
       <EmptyState
-        icon="📊"
         title="No portfolio selected"
         description="Select a portfolio to run scenario simulations."
       />

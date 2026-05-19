@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { fetchMarketDataWithFallback } from "@/lib/market-data/fetch-market-data";
 import { normalizeTicker } from "@/lib/market-data/normalize-ticker";
 
@@ -32,4 +33,5 @@ export const GET = withAuth(
       },
     });
   },
+  { keyTemplate: "market-data:{userId}", ...READ_RATE_LIMIT },
 );

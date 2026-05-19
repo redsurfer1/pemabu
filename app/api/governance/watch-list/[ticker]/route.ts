@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ADDON = "addon_governance_alerts";
 
@@ -23,4 +24,4 @@ export const DELETE = withAuth(async (_req, user, context) => {
 
   if (error) throw error;
   return NextResponse.json({ success: true });
-});
+}, { keyTemplate: "governance:{userId}", ...MUTATION_RATE_LIMIT });

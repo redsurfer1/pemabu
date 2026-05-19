@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 // Self-serve trial start. One trial per user, ever.
 // Delegates to the start_trial_self_serve() PL/pgSQL RPC which is idempotent.
@@ -36,4 +37,4 @@ export const POST = withAuth(async (_req, user) => {
     ends_at: result.ends_at,
     services_granted: result.services_granted,
   });
-});
+}, { keyTemplate: "trial:{userId}", ...MUTATION_RATE_LIMIT });
