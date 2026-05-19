@@ -1,28 +1,64 @@
-// lib/services/ai.ts
-// Single Anthropic gateway — all AI calls go here.
-// Never call Anthropic SDK directly from API routes.
-// SERVER-ONLY: never import from client components.
-
 import Anthropic from "@anthropic-ai/sdk";
 import * as Sentry from "@sentry/nextjs";
 import type { AllocationWeight, Signal } from "@/lib/types/database";
 import { AI_MODELS, AI_DISCLAIMER } from "@/lib/constants/ai-models";
+import { logAiInteraction, type AiFeature } from "@/lib/services/ai-logger";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-/**
- * Lightweight calls (narrative snippets, brief explanations):
- *   AI_MODELS.FAST — low latency, low cost.
- *
- * Strategy Council memo (long-form structured JSON, 8192 tokens):
- *   STRATEGY_COUNCIL_MODEL — defaults to AI_MODELS.PRIMARY; can be
- *   overridden by STRATEGY_COUNCIL_ANTHROPIC_MODEL env var.
- */
 const FAST_MODEL = AI_MODELS.FAST;
 const STRATEGY_COUNCIL_MODEL = process.env.STRATEGY_COUNCIL_ANTHROPIC_MODEL ?? AI_MODELS.PRIMARY;
 const MAX_TOKENS = 1024;
+
+async function callAnthropic<T>(
+  feature: AiFeature,
+  opts: {
+    model: string;
+    maxTokens: number;
+    prompt: string;
+    userId?: string;
+    disclaimerShown?: boolean;
+  },
+  doCall: () => Promise<T>,
+): Promise<T> {
+  const start = performance.now();
+  try {
+    const result = await doCall();
+    const latencyMs = Math.round(performance.now() - start);
+    if (opts.userId) {
+      logAiInteraction({
+        userId: opts.userId,
+        feature,
+        model: opts.model,
+        prompt: opts.prompt,
+        promptTokens: 0,
+        outputTokens: 0,
+        latencyMs,
+        responsePreview: typeof result === "string" ? result : JSON.stringify(result),
+        disclaimerShown: opts.disclaimerShown ?? true,
+      });
+    }
+    return result;
+  } catch (err) {
+    const latencyMs = Math.round(performance.now() - start);
+    if (opts.userId) {
+      logAiInteraction({
+        userId: opts.userId,
+        feature,
+        model: opts.model,
+        prompt: opts.prompt,
+        promptTokens: 0,
+        outputTokens: 0,
+        latencyMs,
+        responsePreview: `[error] ${err instanceof Error ? err.message : String(err)}`,
+        disclaimerShown: opts.disclaimerShown ?? true,
+      });
+    }
+    throw err;
+  }
+}
 
 // ── Signal narrative ─────────────────────────────────
 
@@ -33,6 +69,7 @@ export async function generateSignalNarrative(input: {
   actualPct: number;
   driftPct: number;
   direction: "over" | "under";
+  userId?: string;
 }): Promise<string> {
   const prompt =
     `Portfolio: ${input.portfolioName}\n` +
@@ -46,14 +83,15 @@ export async function generateSignalNarrative(input: {
     `State what happened and why it may matter. ` +
     `No jargon. No recommendations. Facts only.`;
 
-  const message = await anthropic.messages.create({
-    model: FAST_MODEL,
-    max_tokens: MAX_TOKENS,
-    messages: [{ role: "user", content: prompt }],
+  return callAnthropic("signal_narrative", { model: FAST_MODEL, maxTokens: MAX_TOKENS, prompt, userId: input.userId }, async () => {
+    const message = await anthropic.messages.create({
+      model: FAST_MODEL,
+      max_tokens: MAX_TOKENS,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const content = message.content[0];
+    return content.type === "text" ? content.text : "";
   });
-
-  const content = message.content[0];
-  return content.type === "text" ? content.text : "";
 }
 
 // ── Weekly portfolio brief ───────────────────────────
@@ -64,6 +102,7 @@ export async function generatePortfolioBrief(input: {
   currency: string;
   weights: AllocationWeight[];
   recentSignals: Signal[];
+  userId?: string;
 }): Promise<string> {
   const allocationSummary = input.weights
     .map(
@@ -94,14 +133,15 @@ export async function generatePortfolioBrief(input: {
     `Address the portfolio owner directly (use "your portfolio"). ` +
     `End with exactly this disclaimer on its own line: "${AI_DISCLAIMER}"`;
 
-  const message = await anthropic.messages.create({
-    model: FAST_MODEL,
-    max_tokens: MAX_TOKENS,
-    messages: [{ role: "user", content: prompt }],
+  return callAnthropic("portfolio_brief", { model: FAST_MODEL, maxTokens: MAX_TOKENS, prompt, userId: input.userId }, async () => {
+    const message = await anthropic.messages.create({
+      model: FAST_MODEL,
+      max_tokens: MAX_TOKENS,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const content = message.content[0];
+    return content.type === "text" ? content.text : "";
   });
-
-  const content = message.content[0];
-  return content.type === "text" ? content.text : "";
 }
 
 // ── Holding explanation ──────────────────────────────
@@ -114,6 +154,7 @@ export async function explainHolding(input: {
   quantity: number;
   currentValue: number;
   pctOfPortfolio: number;
+  userId?: string;
 }): Promise<string> {
   const prompt =
     `Ticker: ${input.ticker}` +
@@ -127,25 +168,28 @@ export async function explainHolding(input: {
     `and what role it typically plays in a portfolio. ` +
     `Plain English. No buy/sell recommendations.`;
 
-  const message = await anthropic.messages.create({
-    model: FAST_MODEL,
-    max_tokens: MAX_TOKENS,
-    messages: [{ role: "user", content: prompt }],
+  return callAnthropic("explain_holding", { model: FAST_MODEL, maxTokens: MAX_TOKENS, prompt, userId: input.userId }, async () => {
+    const message = await anthropic.messages.create({
+      model: FAST_MODEL,
+      max_tokens: MAX_TOKENS,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const content = message.content[0];
+    return content.type === "text" ? content.text : "";
   });
-
-  const content = message.content[0];
-  return content.type === "text" ? content.text : "";
 }
 
 /** DeFi governance proposal summary — call only from server actions / API routes after user opt-in. */
-export async function generateGovernanceProposalSummary(prompt: string): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: FAST_MODEL,
-    max_tokens: MAX_TOKENS,
-    messages: [{ role: "user", content: prompt }],
+export async function generateGovernanceProposalSummary(prompt: string, userId?: string): Promise<string> {
+  return callAnthropic("governance_summary", { model: FAST_MODEL, maxTokens: MAX_TOKENS, prompt, userId }, async () => {
+    const message = await anthropic.messages.create({
+      model: FAST_MODEL,
+      max_tokens: MAX_TOKENS,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const content = message.content[0];
+    return content.type === "text" ? content.text.trim() : "";
   });
-  const content = message.content[0];
-  return content.type === "text" ? content.text.trim() : "";
 }
 
 // ── Strategy Council (Autonomous; explicit user trigger only) ──
@@ -164,11 +208,10 @@ export type StrategyCouncilMemoPayload = {
   };
 };
 
-/**
- * Sovereign Strategy Council monthly memo — call only after explicit user action.
- * `contextPacketJson` must be the sanitized Institutional Memory JSON (no automated batching).
- */
-export async function generateStrategyCouncilMonthlyMemo(contextPacketJson: string): Promise<StrategyCouncilMemoPayload> {
+export async function generateStrategyCouncilMonthlyMemo(
+  contextPacketJson: string,
+  userId?: string,
+): Promise<StrategyCouncilMemoPayload> {
   const prompt =
     `You are acting as a sovereign portfolio protocol analyst. You will receive a single JSON object ` +
     `"Institutional Memory" for one portfolio window (aggregates only; no free-form PII). ` +
@@ -195,6 +238,19 @@ export async function generateStrategyCouncilMonthlyMemo(contextPacketJson: stri
     });
   } catch (err) {
     Sentry.captureException(err, { tags: { ai_call: "strategy_council_memo" } });
+    if (userId) {
+      logAiInteraction({
+        userId,
+        feature: "strategy_council_memo",
+        model: STRATEGY_COUNCIL_MODEL,
+        prompt,
+        promptTokens: 0,
+        outputTokens: 0,
+        latencyMs: 0,
+        responsePreview: `[error] ${err instanceof Error ? err.message : String(err)}`,
+        disclaimerShown: true,
+      });
+    }
     throw err;
   }
 
@@ -237,9 +293,25 @@ export async function generateStrategyCouncilMonthlyMemo(contextPacketJson: stri
           ],
   };
 
-  return {
+  const memoPayload = {
     markdown:
       parsed.fullMarkdown ?? pdfLayout.sections.map((s) => `## ${s.heading}\n\n${s.bodyMarkdown}`).join("\n\n"),
     pdfLayout,
   };
+
+  if (userId) {
+    logAiInteraction({
+      userId,
+      feature: "strategy_council_memo",
+      model: STRATEGY_COUNCIL_MODEL,
+      prompt,
+      promptTokens: 0,
+      outputTokens: 0,
+      latencyMs: 0,
+      responsePreview: memoPayload.markdown,
+      disclaimerShown: true,
+    });
+  }
+
+  return memoPayload;
 }

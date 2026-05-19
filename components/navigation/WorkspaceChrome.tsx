@@ -10,6 +10,7 @@ import { useConsolidatedDashboard } from "@/hooks/usePortfolios";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { WORKSPACE_PORTFOLIO_STORAGE_KEY } from "@/lib/workspace/portfolio-selection";
 import { InvestmentDisclaimerBanner } from "@/components/legal/InvestmentDisclaimerBanner";
+import { ComplianceExportButton } from "@/components/compliance/ComplianceExportButton";
 
 export const SERVICES_SIDEBAR_STORAGE_KEY = "pemabu.dashboard.servicesOpen";
 export { WORKSPACE_PORTFOLIO_STORAGE_KEY };
@@ -164,6 +165,7 @@ export function WorkspaceChrome({
             </span>
           </span>
           {userEmail ? <span className="hidden text-xs text-gray-500 sm:inline">{userEmail}</span> : null}
+          <ComplianceExportButton />
           <button
             type="button"
             onClick={() => void handleSignOut()}

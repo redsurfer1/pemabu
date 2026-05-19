@@ -237,3 +237,18 @@ export interface PortfolioBrief {
   generated_at: string;
   created_at: string;
 }
+
+/** SOC 2 audit record for every AI model invocation (ai_interaction_log). */
+export interface AiInteractionLog {
+  id: string;
+  user_id: string;
+  feature: string;
+  model: string;
+  prompt_hash: string;
+  prompt_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  response_preview: string;
+  disclaimer_shown: boolean;
+  created_at: string;
+}

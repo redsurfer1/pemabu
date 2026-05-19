@@ -55,10 +55,11 @@ export default function MarketplacePage() {
   });
 
   const rows = leaderboardQuery.data?.strategies ?? [];
-  const viewer = leaderboardQuery.data?.viewer ?? {
+  const viewer: Viewer = leaderboardQuery.data?.viewer ?? {
     isIntelligence: false,
     authenticated: false,
     userId: null,
+    creatorPublicId: null,
   };
   const err = leaderboardQuery.isError ? "Leaderboard unavailable." : null;
   const [sleeveToken, setSleeveToken] = useState("");

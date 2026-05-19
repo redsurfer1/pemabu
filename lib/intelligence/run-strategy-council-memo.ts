@@ -47,7 +47,7 @@ export async function runStrategyCouncilMemoGeneration(
   }
 
   try {
-    const memo = await generateMonthlyMemo(packet);
+    const memo = await generateMonthlyMemo(packet, userId);
     return {
       success: true,
       markdown: memo.markdown,

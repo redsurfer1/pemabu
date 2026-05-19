@@ -11,6 +11,7 @@ import { SignalFeed } from "@/components/dashboard/SignalFeed";
 import { HoldingsBuilder } from "@/components/workbook/HoldingsBuilder";
 import { SystemSafetyBanner } from "@/components/execution/SystemSafetyBanner";
 import { WORKSPACE_PORTFOLIO_STORAGE_KEY } from "@/components/navigation/WorkspaceChrome";
+import { OnboardingTour, useDashboardTourSteps } from "@/components/onboarding/OnboardingTour";
 
 interface DashboardClientProps {
   userId: string;
@@ -62,6 +63,8 @@ export function DashboardClient({ userId }: DashboardClientProps) {
     window.dispatchEvent(new CustomEvent("pemabu-portfolio-change", { detail: portfolioId }));
   };
 
+  const tourSteps = useDashboardTourSteps();
+
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-white">
@@ -93,9 +96,11 @@ export function DashboardClient({ userId }: DashboardClientProps) {
 
   const portfolios = data?.portfolios ?? [];
   const selectedSummary = portfolios.find((p) => p.portfolio.id === selectedPortfolioId);
+  const hasPortfolios = portfolios.length > 0;
 
   return (
     <>
+      <OnboardingTour steps={tourSteps} autoStart={!hasPortfolios} />
       <SystemSafetyBanner portfolioId={selectedPortfolioId} />
 
       <div className="w-full px-4 py-8 lg:px-6 xl:px-8">
@@ -187,20 +192,49 @@ function EmptyState() {
     }
   };
 
+  const autoOnboard = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/workbook/auto-onboard", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(j.error ?? "Auto-onboard failed");
+      await queryClient.invalidateQueries({ queryKey: ["consolidated"] });
+      window.location.reload();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-md py-24 text-center">
       <p className="mb-2 text-gray-300">Welcome to Pemabu</p>
       <p className="mb-8 text-sm text-gray-500">
-        Start with a pre-built sample portfolio or create your own from the nav.
+        Start with a guided tour and pre-built sample portfolio, create your own, or import from a broker.
       </p>
-      <button
-        type="button"
-        disabled={loading}
-        onClick={() => void createDemo()}
-        className="rounded-md bg-emerald-500 px-6 py-2.5 text-sm font-medium text-[#0A1628] disabled:opacity-60"
-      >
-        {loading ? "Creating demo…" : "Create demo portfolio"}
-      </button>
+      <div className="flex flex-col items-center gap-3">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => void autoOnboard()}
+          className="rounded-md bg-emerald-500 px-6 py-2.5 text-sm font-medium text-[#0A1628] disabled:opacity-60"
+        >
+          {loading ? "Setting up…" : "Guided setup with demo portfolio"}
+        </button>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => void createDemo()}
+          className="rounded-md border border-white/20 px-6 py-2 text-sm text-gray-300 hover:text-white disabled:opacity-60"
+        >
+          Just create demo portfolio
+        </button>
+      </div>
       <p className="mt-4">
         <Link href="/demo" className="text-sm text-emerald-400/90 hover:text-emerald-300">
           Preview features on the public demo →

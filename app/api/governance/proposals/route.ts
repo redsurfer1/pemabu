@@ -49,7 +49,7 @@ export const GET = withAuth(async (_req, user) => {
 
       const summary =
         existing?.plain_english_summary?.trim() ||
-        (await summariseProposal(proposal.title, proposal.body ?? "", ticker));
+        (await summariseProposal(proposal.title, proposal.body ?? "", ticker, user.id));
 
       const scores = proposal.scores ?? [];
       const votesFor = numScore(scores[0]);

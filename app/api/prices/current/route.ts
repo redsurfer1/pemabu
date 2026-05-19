@@ -3,8 +3,14 @@ import { withAuth } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fetchMarketDataWithFallback } from "@/lib/market-data/fetch-market-data";
 import { normalizeTicker } from "@/lib/market-data/normalize-ticker";
+import { checkRateLimit, PRICES_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
-export const GET = withAuth(async (request, _user, _ctx) => {
+export const GET = withAuth(async (request, user, _ctx) => {
+  const rateLimit = await checkRateLimit({ key: `prices:${user.id}`, ...PRICES_RATE_LIMIT });
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: "Rate limit exceeded. Try again shortly." }, { status: 429 });
+  }
+
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get("tickers");
 

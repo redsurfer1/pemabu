@@ -110,6 +110,7 @@ export const POST = withAuth(async (req, user, _ctx) => {
     currency: portfolio.currency,
     weights,
     recentSignals,
+    userId: user.id,
   });
 
   // ── Persist to portfolio_briefs ─────────────────────────────────────────────

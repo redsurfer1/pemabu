@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 interface UsageData {
   tier: string;
@@ -94,6 +95,16 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
 
   function setAdjustment(ac: string, val: number) {
     setAdjustments((prev) => ({ ...prev, [ac]: val }));
+  }
+
+  if (!portfolioId) {
+    return (
+      <EmptyState
+        icon="📊"
+        title="No portfolio selected"
+        description="Select a portfolio to run scenario simulations."
+      />
+    );
   }
 
   return (
@@ -234,6 +245,11 @@ export function ScenarioSimClient({ portfolioId }: { portfolioId: string }) {
           )}
         </div>
       )}
+
+      <p className="text-center text-[11px] text-gray-600">
+        Scenario simulations are rule-based algorithmic projections for informational purposes only.
+        Not a registered investment advisor. Past performance and projected scenarios do not guarantee future results.
+      </p>
     </div>
   );
 }

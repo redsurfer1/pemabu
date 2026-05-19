@@ -95,3 +95,21 @@ export const REFRESH_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
   maxCount: 10,
   windowSeconds: 3600,
 };
+
+/** 20 AI holding explanations per user per hour. */
+export const EXPLAIN_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
+  maxCount: 20,
+  windowSeconds: 3600,
+};
+
+/** 5 strategy council memo generations per user per 24 hours. */
+export const STRATEGY_COUNCIL_MEMO_LIMIT: Omit<RateLimitOptions, "key"> = {
+  maxCount: 5,
+  windowSeconds: 86400,
+};
+
+/** 200 price lookups per user per minute (most are cache hits). */
+export const PRICES_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
+  maxCount: 200,
+  windowSeconds: 60,
+};

@@ -1,9 +1,11 @@
 import { generateGovernanceProposalSummary } from "@/lib/services/ai";
+import { AI_DISCLAIMER } from "@/lib/constants/ai-models";
 
 export async function summariseProposal(
   title: string,
   bodyPreview: string,
   tokenTicker: string,
+  userId?: string,
 ): Promise<string> {
   const prompt =
     `
@@ -26,7 +28,7 @@ This is for informational purposes only — not financial advice.
   `.trim();
 
   try {
-    return (await generateGovernanceProposalSummary(prompt)).trim();
+    return `${(await generateGovernanceProposalSummary(prompt, userId)).trim()}\n\n${AI_DISCLAIMER}`;
   } catch {
     return `Governance proposal: ${title}. Please review the full proposal at the source link for details.`;
   }

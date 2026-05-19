@@ -4,6 +4,7 @@ import { getPortfolio } from "@/lib/services/portfolio";
 import { explainHolding } from "@/lib/services/ai";
 import { z } from "zod";
 import { ASSET_CLASS_ENUM } from "@/lib/constants/asset-classes";
+import { checkRateLimit, EXPLAIN_RATE_LIMIT } from "@/lib/security/rate-limiter";
 
 const ExplainSchema = z.object({
   portfolioId: z.string().uuid(),
@@ -17,6 +18,11 @@ const ExplainSchema = z.object({
 });
 
 export const POST = withAuth(async (req, user, _ctx) => {
+  const rateLimit = await checkRateLimit({ key: `explain:${user.id}`, ...EXPLAIN_RATE_LIMIT });
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
   const body = await req.json();
   const parsed = ExplainSchema.safeParse(body);
   if (!parsed.success) {
@@ -34,6 +40,7 @@ export const POST = withAuth(async (req, user, _ctx) => {
     quantity: parsed.data.quantity,
     currentValue: parsed.data.currentValue,
     pctOfPortfolio: parsed.data.pctOfPortfolio,
+    userId: user.id,
   });
   return NextResponse.json({ explanation });
 });
