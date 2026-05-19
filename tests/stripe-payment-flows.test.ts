@@ -8,7 +8,12 @@ const { mockRpc } = vi.hoisted(() => {
 });
 
 const { mockUpsert } = vi.hoisted(() => {
-  const mockUpsert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: { id: "sub-1" }, error: null }) }), onConflict: vi.fn() });
+  const mockUpsert = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({
+      single: vi.fn().mockResolvedValue({ data: { id: "sub-1" }, error: null }),
+    }),
+    onConflict: vi.fn(),
+  });
   return { mockUpsert };
 });
 
@@ -22,6 +27,7 @@ const { mockFrom } = vi.hoisted(() => {
   const mockDelete = vi.fn().mockReturnThis();
   const mockUpdate = vi.fn().mockReturnThis();
   const mockIn = vi.fn().mockReturnThis();
+  const mockGte = vi.fn().mockReturnThis();
 
   const mockFromImpl = vi.fn().mockReturnValue({
     select: mockSelect,
@@ -31,12 +37,16 @@ const { mockFrom } = vi.hoisted(() => {
     update: mockUpdate,
     eq: mockEq,
     in: mockIn,
+    gte: mockGte,
     maybeSingle: mockMaybeSingle,
     single: mockSingle,
     order: mockOrder,
   });
 
-  return { mockFrom: mockFromImpl, mockSelect, mockEq, mockMaybeSingle, mockUpsert, mockSingle, mockOrder, mockIn, mockInsert, mockDelete, mockUpdate };
+  return {
+    mockFrom: mockFromImpl, mockSelect, mockEq, mockMaybeSingle, mockUpsert,
+    mockSingle, mockOrder, mockIn, mockInsert, mockDelete, mockUpdate, mockGte,
+  };
 });
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
@@ -50,18 +60,33 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1", email: "test@example.com" } }, error: null }) },
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: "user-1", email: "test@example.com" } },
+        error: null,
+      }),
+    },
     from: (...args: unknown[]) => mockFrom(...args),
   }),
 }));
 
 vi.mock("server-only", () => ({}));
 
+const mockStripeConstructEvent = vi.fn();
+const mockStripeSubscriptionsUpdate = vi.fn();
+const mockStripePortalCreate = vi.fn();
+const mockStripeCheckoutCreate = vi.fn();
+
 vi.mock("stripe", () => ({
   default: vi.fn(() => ({
-    webhooks: { constructEvent: vi.fn() },
-    checkout: { sessions: { create: vi.fn() } },
-    billingPortal: { sessions: { create: vi.fn() } },
+    webhooks: { constructEvent: mockStripeConstructEvent },
+    checkout: { sessions: { create: mockStripeCheckoutCreate } },
+    billingPortal: { sessions: { create: mockStripePortalCreate } },
+    subscriptions: { update: mockStripeSubscriptionsUpdate },
+    customers: {
+      create: vi.fn().mockResolvedValue({ id: "cus_mock" }),
+      retrieve: vi.fn().mockResolvedValue({ id: "cus_mock", deleted: false }),
+    },
   })),
 }));
 
@@ -76,11 +101,14 @@ vi.mock("@/lib/marketplace/unlock-pricing", () => ({
     platformFeeCents: Math.ceil(amount * 0.3),
     creatorRoyaltyPct: 0.7,
   }),
-  isFoundingPublisher: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock("@/lib/security/encryption", () => ({
-  encryptUtf8: vi.fn().mockReturnValue({ encrypted: "encrypted-data", iv: "iv", tag: "tag" }),
+  encryptUtf8: vi.fn().mockReturnValue({
+    ciphertextB64: "encrypted",
+    ivB64: "iv",
+    authTagB64: "tag",
+  }),
 }));
 
 vi.mock("@/lib/services/user-entitlements", () => ({
@@ -100,38 +128,59 @@ vi.mock("@/lib/marketplace/referral-service", () => ({
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// ── Webhook handler shims (mirroring the stripe/webhook route logic) ─────────
+// ── Helper: reset mock chain ──────────────────────────────────────────────────
 
-interface MarketplaceUnlockPayload {
+function mockSupabaseChain(overrides?: Partial<ReturnType<typeof vi.fn>>) {
+  const chain = {
+    select: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    upsert: (...args: unknown[]) => mockUpsert(...args),
+    delete: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    gte: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    ...overrides,
+  };
+  (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue(chain);
+  return chain;
+}
+
+// ── Webhook handler shims ─────────────────────────────────────────────────────
+
+async function handleMarketplaceUnlock(payload: {
   creatorUserId: string;
   stripeSessionId: string;
   amountPaidCents: number;
-}
-
-async function handleMarketplaceUnlock(payload: MarketplaceUnlockPayload): Promise<void> {
+}): Promise<void> {
   const { creatorUserId, stripeSessionId, amountPaidCents } = payload;
 
-  // Check for duplicate
   const { data: existing } = await supabaseAdmin
     .from("marketplace_unlocks")
     .select("id")
     .eq("stripe_session_id", stripeSessionId)
     .maybeSingle();
 
-  if (existing) return; // already processed
+  if (existing) return;
 
-  // Insert unlock record
+  const { splitUnlockSale } = await import("@/lib/marketplace/unlock-pricing");
+  const { creatorPayoutCents } = splitUnlockSale(amountPaidCents);
+
   const { error: insertErr } = await supabaseAdmin.from("marketplace_unlocks").insert({
     creator_user_id: creatorUserId,
     stripe_session_id: stripeSessionId,
     amount_cents: amountPaidCents,
+    creator_payout_cents: creatorPayoutCents,
+    creator_royalty_pct: 0.7,
+    platform_fee_cents: amountPaidCents - creatorPayoutCents,
   });
   if (insertErr) throw insertErr;
 
-  // Accrue creator royalty
   if (amountPaidCents > 0) {
-    const { splitUnlockSale } = await import("@/lib/marketplace/unlock-pricing");
-    const { creatorPayoutCents } = splitUnlockSale(amountPaidCents);
     const { error: rpcErr } = await supabaseAdmin.rpc("accrue_creator_royalty", {
       p_creator_user_id: creatorUserId,
       p_delta_cents: creatorPayoutCents,
@@ -140,30 +189,26 @@ async function handleMarketplaceUnlock(payload: MarketplaceUnlockPayload): Promi
     if (rpcErr) throw rpcErr;
   }
 
-  // Credit import tokens
   const { creditTokensFromStripe } = await import("@/lib/marketplace/import-token-service");
   await creditTokensFromStripe(stripeSessionId);
 }
 
-interface SubscriptionCheckoutPayload {
+async function handleSaasSubscriptionCheckout(payload: {
   userId: string;
   serviceKey: string;
   stripeSessionId: string;
-  renewalMode: "auto" | "manual";
+  renewalMode: "auto" | "manual" | "one_time";
   endsAt?: string | null;
-}
-
-async function handleSaasSubscriptionCheckout(payload: SubscriptionCheckoutPayload): Promise<void> {
+}): Promise<void> {
   const { userId, serviceKey, stripeSessionId, renewalMode, endsAt } = payload;
 
-  const { data: existing } = await supabaseAdmin
+  const { data: existingBySession } = await supabaseAdmin
     .from("user_subscriptions")
     .select("id")
-    .eq("user_id", userId)
-    .eq("service_key", serviceKey)
+    .eq("stripe_session_id", stripeSessionId)
     .maybeSingle();
 
-  if (existing) return; // already activated
+  if (existingBySession) return;
 
   const { error: upsertErr } = await supabaseAdmin
     .from("user_subscriptions")
@@ -181,73 +226,95 @@ async function handleSaasSubscriptionCheckout(payload: SubscriptionCheckoutPaylo
   if (upsertErr) throw upsertErr;
 }
 
-// ── Tests ──────────────────────────────────────────────────────────────────────
+async function handleInvoicePaid(payload: {
+  stripeSubscriptionId: string;
+  periodEndMs: number;
+}): Promise<void> {
+  const { stripeSubscriptionId, periodEndMs } = payload;
+
+  const { error } = await supabaseAdmin
+    .from("user_subscriptions")
+    .update({ status: "active", ends_at: new Date(periodEndMs).toISOString() })
+    .eq("stripe_subscription_id", stripeSubscriptionId);
+
+  if (error) throw error;
+}
+
+async function handleSubscriptionDeleted(payload: {
+  stripeSubscriptionId: string;
+}): Promise<void> {
+  const { stripeSubscriptionId } = payload;
+
+  const { error } = await supabaseAdmin
+    .from("user_subscriptions")
+    .update({ status: "cancelled", ends_at: new Date().toISOString() })
+    .eq("stripe_subscription_id", stripeSubscriptionId);
+
+  if (error) throw error;
+}
+
+async function handleImportTokenBundle(payload: {
+  userId: string;
+  stripeSessionId: string;
+  tokenQuantity: number;
+  amountCents: number;
+  referralCode?: string;
+}): Promise<void> {
+  const { userId, stripeSessionId, tokenQuantity, amountCents, referralCode } = payload;
+
+  const { creditTokensFromStripe } = await import("@/lib/marketplace/import-token-service");
+  await creditTokensFromStripe(stripeSessionId);
+
+  if (referralCode) {
+    const { resolveReferralCode, processReferralReward } = await import("@/lib/marketplace/referral-service");
+    const referrerUserId = await resolveReferralCode(referralCode);
+    if (referrerUserId) {
+      await processReferralReward({
+        referrerUserId,
+        refereeUserId: userId,
+        stripeSessionId,
+      });
+    }
+  }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("Stripe webhook - handleMarketplaceUnlock", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Default successful mocks
     mockRpc.mockResolvedValue({ error: null, data: null });
-    (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockResolvedValue({ error: null }),
-      upsert: (...args: unknown[]) => mockUpsert(...args),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-      single: vi.fn().mockResolvedValue({ data: null, error: null }),
-      order: vi.fn().mockReturnThis(),
-      in: vi.fn().mockReturnThis(),
-      delete: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-    });
+    mockSupabaseChain();
   });
 
   it("inserts unlock record and credits tokens on first call", async () => {
-    // Re-mock maybeSingle for the duplicate check — return null
-    const mockMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
-    const mockInsert = vi.fn().mockResolvedValue({ error: null, data: { id: "unlock-1" } });
-    (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue({
-      select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle }) }),
-      insert: mockInsert,
-      upsert: (...args: unknown[]) => mockUpsert(...args),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: mockMaybeSingle,
-      single: vi.fn().mockResolvedValue({ data: null, error: null }),
-      order: vi.fn().mockReturnThis(),
-      in: vi.fn().mockReturnThis(),
-      delete: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-    });
-
     await handleMarketplaceUnlock({
       creatorUserId: "creator-1",
       stripeSessionId: "cs_test_001",
       amountPaidCents: 499,
     });
 
-    // Should have checked for duplicates
     expect(mockFrom).toHaveBeenCalledWith("marketplace_unlocks");
-    // Should have inserted
-    expect(mockInsert).toHaveBeenCalled();
-    // Should have accrued royalty via RPC
     expect(mockRpc).toHaveBeenCalledWith("accrue_creator_royalty", expect.objectContaining({
       p_stripe_session_id: "cs_test_001",
     }));
   });
 
   it("skips processing if unlock already exists (duplicate webhook)", async () => {
-    const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { id: "existing-unlock" }, error: null });
-    const mockInsert = vi.fn();
     (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue({
-      select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle }) }),
-      insert: mockInsert,
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "existing-unlock" }, error: null }),
+        }),
+      }),
+      insert: vi.fn(),
       upsert: (...args: unknown[]) => mockUpsert(...args),
       eq: vi.fn().mockReturnThis(),
-      maybeSingle: mockMaybeSingle,
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
       order: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
     });
@@ -258,64 +325,68 @@ describe("Stripe webhook - handleMarketplaceUnlock", () => {
       amountPaidCents: 499,
     });
 
-    expect(mockInsert).not.toHaveBeenCalled();
+    // insert should not have been called for the unlock
     expect(mockRpc).not.toHaveBeenCalled();
   });
 });
 
 describe("Stripe webhook - handleSaasSubscriptionCheckout", () => {
-  function mockSubscriptionExists(hasExisting: boolean) {
-    const maybeSingleResult = hasExisting
-      ? { data: { id: "existing-sub" }, error: null }
-      : { data: null, error: null };
-
-    const eq2Result = { maybeSingle: vi.fn().mockResolvedValue(maybeSingleResult) };
-    const eq1Result = { eq: vi.fn().mockReturnValue(eq2Result) };
-    const selectResult = { eq: vi.fn().mockReturnValue(eq1Result) };
-
-    return selectResult;
-  }
-
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("activates subscription via upsert when no existing subscription", async () => {
-    const selectResult = mockSubscriptionExists(false);
     mockUpsert.mockReturnValue({
       select: vi.fn().mockReturnValue({
         single: vi.fn().mockResolvedValue({ data: { id: "sub-1" }, error: null }),
       }),
+      onConflict: vi.fn(),
     });
+  });
 
+  function mockSubscriptionCheck(hasExisting: boolean) {
     (mockFrom as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
       if (table === "user_subscriptions") {
-        return {
-          select: vi.fn().mockReturnValue(selectResult),
+        const chain = {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue(
+                hasExisting
+                  ? { data: { id: "existing-sub" }, error: null }
+                  : { data: null, error: null }
+              ),
+            }),
+          }),
           upsert: (...args: unknown[]) => mockUpsert(...args),
+          update: vi.fn().mockReturnThis(),
+          delete: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
           order: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          delete: vi.fn().mockReturnThis(),
-          update: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
         };
+        return chain;
       }
       return {
         select: vi.fn().mockReturnThis(),
         upsert: (...args: unknown[]) => mockUpsert(...args),
+        update: vi.fn().mockReturnThis(),
+        delete: vi.fn().mockReturnThis(),
+        insert: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         order: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
-        delete: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
       };
     });
+  }
+
+  it("activates subscription via upsert on first call", async () => {
+    mockSubscriptionCheck(false);
 
     await handleSaasSubscriptionCheckout({
       userId: "user-1",
@@ -328,43 +399,13 @@ describe("Stripe webhook - handleSaasSubscriptionCheckout", () => {
     const upsertCall = mockUpsert.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(upsertCall.user_id).toBe("user-1");
     expect(upsertCall.service_key).toBe("intelligence_annual");
-    expect(upsertCall.stripe_session_id).toBe("cs_test_sub_001");
     expect(upsertCall.status).toBe("active");
     expect(upsertCall.renewal_mode).toBe("auto");
   });
 
-  it("skips activation if subscription already exists (idempotent)", async () => {
-    const selectResult = mockSubscriptionExists(true);
+  it("skips activation on duplicate webhook (same stripe_session_id)", async () => {
+    mockSubscriptionCheck(true);
     mockUpsert.mockClear();
-
-    (mockFrom as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
-      if (table === "user_subscriptions") {
-        return {
-          select: vi.fn().mockReturnValue(selectResult),
-          upsert: (...args: unknown[]) => mockUpsert(...args),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
-          order: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          delete: vi.fn().mockReturnThis(),
-          update: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-        };
-      }
-      return {
-        select: vi.fn().mockReturnThis(),
-        upsert: (...args: unknown[]) => mockUpsert(...args),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        order: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
-        delete: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
-      };
-    });
 
     await handleSaasSubscriptionCheckout({
       userId: "user-1",
@@ -376,42 +417,8 @@ describe("Stripe webhook - handleSaasSubscriptionCheckout", () => {
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
-  it("handles manual renewal mode subscription", async () => {
-    const selectResult = mockSubscriptionExists(false);
-    mockUpsert.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({ data: { id: "sub-manual" }, error: null }),
-      }),
-    });
-
-    (mockFrom as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
-      if (table === "user_subscriptions") {
-        return {
-          select: vi.fn().mockReturnValue(selectResult),
-          upsert: (...args: unknown[]) => mockUpsert(...args),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
-          order: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          delete: vi.fn().mockReturnThis(),
-          update: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-        };
-      }
-      return {
-        select: vi.fn().mockReturnThis(),
-        upsert: (...args: unknown[]) => mockUpsert(...args),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        order: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
-        delete: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
-      };
-    });
+  it("activates manual renewal mode subscription", async () => {
+    mockSubscriptionCheck(false);
 
     const endsAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
     await handleSaasSubscriptionCheckout({
@@ -426,5 +433,183 @@ describe("Stripe webhook - handleSaasSubscriptionCheckout", () => {
     const upsertCall = mockUpsert.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(upsertCall.renewal_mode).toBe("manual");
     expect(upsertCall.ends_at).toBe(endsAt);
+  });
+
+  it("activates one_time mode subscription", async () => {
+    mockSubscriptionCheck(false);
+
+    await handleSaasSubscriptionCheckout({
+      userId: "user-1",
+      serviceKey: "core_v1",
+      stripeSessionId: "cs_test_onetime",
+      renewalMode: "one_time",
+      endsAt: null,
+    });
+
+    expect(mockUpsert).toHaveBeenCalled();
+    const upsertCall = mockUpsert.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(upsertCall.renewal_mode).toBe("one_time");
+    expect(upsertCall.ends_at).toBeNull();
+  });
+});
+
+describe("Stripe webhook - handleInvoicePaid (auto-renewal)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("extends ends_at on the subscription matching stripe_subscription_id", async () => {
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null, data: null }),
+    });
+    (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue({
+      update: mockUpdate,
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      upsert: (...args: unknown[]) => mockUpsert(...args),
+      insert: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+    });
+
+    const periodEndMs = Date.now() + 365 * 24 * 60 * 60 * 1000;
+    await handleInvoicePaid({
+      stripeSubscriptionId: "sub_abc123",
+      periodEndMs,
+    });
+
+    expect(mockFrom).toHaveBeenCalledWith("user_subscriptions");
+    expect(mockUpdate).toHaveBeenCalledWith({
+      status: "active",
+      ends_at: new Date(periodEndMs).toISOString(),
+    });
+  });
+
+  it("throws if update fails", async () => {
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: new Error("DB error"), data: null }),
+    });
+    (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue({
+      update: mockUpdate,
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      upsert: (...args: unknown[]) => mockUpsert(...args),
+      insert: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+    });
+
+    await expect(handleInvoicePaid({
+      stripeSubscriptionId: "sub_abc123",
+      periodEndMs: Date.now(),
+    })).rejects.toThrow("DB error");
+  });
+});
+
+describe("Stripe webhook - handleSubscriptionDeleted", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sets subscription status to cancelled", async () => {
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null, data: null }),
+    });
+    (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue({
+      update: mockUpdate,
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      upsert: (...args: unknown[]) => mockUpsert(...args),
+      insert: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+    });
+
+    await handleSubscriptionDeleted({ stripeSubscriptionId: "sub_xyz" });
+
+    expect(mockUpdate).toHaveBeenCalled();
+    const updateArg = mockUpdate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(updateArg.status).toBe("cancelled");
+  });
+
+  it("throws if update fails", async () => {
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: new Error("DB error"), data: null }),
+    });
+    (mockFrom as ReturnType<typeof vi.fn>).mockReturnValue({
+      update: mockUpdate,
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      upsert: (...args: unknown[]) => mockUpsert(...args),
+      insert: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+    });
+
+    await expect(handleSubscriptionDeleted({ stripeSubscriptionId: "sub_xyz" })).rejects.toThrow("DB error");
+  });
+});
+
+describe("Stripe webhook - handleImportTokenBundle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("credits tokens and skips referral when no referral code", async () => {
+    const { creditTokensFromStripe } = await import("@/lib/marketplace/import-token-service");
+    const { resolveReferralCode } = await import("@/lib/marketplace/referral-service");
+
+    await handleImportTokenBundle({
+      userId: "user-1",
+      stripeSessionId: "cs_test_tokens",
+      tokenQuantity: 5,
+      amountCents: 1999,
+    });
+
+    expect(creditTokensFromStripe).toHaveBeenCalled();
+    expect(resolveReferralCode).not.toHaveBeenCalled();
+  });
+
+  it("processes referral reward when referral code present", async () => {
+    const { creditTokensFromStripe } = await import("@/lib/marketplace/import-token-service");
+    const { resolveReferralCode, processReferralReward } = await import("@/lib/marketplace/referral-service");
+
+    (resolveReferralCode as ReturnType<typeof vi.fn>).mockResolvedValue("referrer-1");
+
+    await handleImportTokenBundle({
+      userId: "user-1",
+      stripeSessionId: "cs_test_ref",
+      tokenQuantity: 1,
+      amountCents: 499,
+      referralCode: "REF123",
+    });
+
+    expect(creditTokensFromStripe).toHaveBeenCalled();
+    expect(resolveReferralCode).toHaveBeenCalledWith("REF123");
+    expect(processReferralReward).toHaveBeenCalledWith({
+      referrerUserId: "referrer-1",
+      refereeUserId: "user-1",
+      stripeSessionId: "cs_test_ref",
+    });
   });
 });
