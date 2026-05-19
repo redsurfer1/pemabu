@@ -2,14 +2,14 @@
 # Outbound HTTPS: public chain RPC (Ethereum/Base/Arbitrum/Polygon/Solana), blockchain.info, Yahoo, Snapshot, Supabase.
 
 # ── deps stage ────────────────────────────────────────────
-FROM node:20-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci
 
 # ── runner stage ──────────────────────────────────────────
-FROM node:20-bookworm-slim AS runner
+FROM node:26-bookworm-slim AS runner
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client && rm -rf /var/lib/apt/lists/*
 
