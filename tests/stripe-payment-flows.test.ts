@@ -190,7 +190,12 @@ async function handleMarketplaceUnlock(payload: {
   }
 
   const { creditTokensFromStripe } = await import("@/lib/marketplace/import-token-service");
-  await creditTokensFromStripe(stripeSessionId);
+  await creditTokensFromStripe({
+    userId: creatorUserId,
+    stripeSessionId,
+    quantity: 1,
+    amountUsdCents: amountPaidCents,
+  });
 }
 
 async function handleSaasSubscriptionCheckout(payload: {
@@ -263,7 +268,12 @@ async function handleImportTokenBundle(payload: {
   const { userId, stripeSessionId, tokenQuantity, amountCents, referralCode } = payload;
 
   const { creditTokensFromStripe } = await import("@/lib/marketplace/import-token-service");
-  await creditTokensFromStripe(stripeSessionId);
+  await creditTokensFromStripe({
+    userId,
+    stripeSessionId,
+    quantity: tokenQuantity,
+    amountUsdCents: amountCents,
+  });
 
   if (referralCode) {
     const { resolveReferralCode, processReferralReward } = await import("@/lib/marketplace/referral-service");

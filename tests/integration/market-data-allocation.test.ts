@@ -22,24 +22,18 @@ const makeHolding = (
   ticker: overrides.ticker,
   name: overrides.name ?? overrides.ticker,
   asset_class: overrides.asset_class ?? "equity",
-  quantity: overrides.quantity ?? "10",
-  current_price: overrides.current_price ?? "100",
+  quantity: overrides.quantity ?? 10,
+  current_price: overrides.current_price ?? 100,
   currency: overrides.currency ?? "USD",
   source: overrides.source ?? "manual",
   created_at: overrides.created_at ?? "2025-01-01T00:00:00Z",
   updated_at: overrides.updated_at ?? "2025-01-01T00:00:00Z",
   cost_basis: overrides.cost_basis ?? null,
   expense_ratio: overrides.expense_ratio ?? null,
-  dividend_dollars: overrides.dividend_dollars ?? null,
   target_weight_pct: overrides.target_weight_pct ?? null,
-  row_status: overrides.row_status ?? null,
-  score_thirteen_f: overrides.score_thirteen_f ?? null,
-  score_macro_intelligence: overrides.score_macro_intelligence ?? null,
-  score_governance_layer: overrides.score_governance_layer ?? null,
-  score_political_tracker: overrides.score_political_tracker ?? null,
-  score_token_quality: overrides.score_token_quality ?? null,
+  row_status: overrides.row_status ?? undefined,
+  last_change_pct: overrides.last_change_pct ?? null,
   last_price_refreshed_at: overrides.last_price_refreshed_at ?? null,
-  last_market_refresh: overrides.last_market_refresh ?? null,
 });
 
 const makeQuote = (overrides: Partial<Quote> & { ticker: string }): Quote => ({
@@ -57,7 +51,7 @@ describe("Market data → allocation pipeline", () => {
 
   describe("calculateHoldingValue", () => {
     it("uses quote price when provided", () => {
-      const h = makeHolding({ id: "h1", ticker: "AAPL", quantity: "10" });
+      const h = makeHolding({ id: "h1", ticker: "AAPL", quantity: 10 });
       const q = makeQuote({ ticker: "AAPL", price: 150 });
       expect(calculateHoldingValue(h, q)).toBe(1500);
     });
@@ -66,8 +60,8 @@ describe("Market data → allocation pipeline", () => {
       const h = makeHolding({
         id: "h1",
         ticker: "AAPL",
-        quantity: "10",
-        current_price: "100",
+        quantity: 10,
+        current_price: 100,
       });
       expect(calculateHoldingValue(h)).toBe(1000);
     });
@@ -76,8 +70,8 @@ describe("Market data → allocation pipeline", () => {
       const h = makeHolding({
         id: "h1",
         ticker: "AAPL",
-        quantity: "0",
-        current_price: "100",
+        quantity: 0,
+        current_price: 100,
       });
       const q = makeQuote({ ticker: "AAPL", price: 150 });
       expect(calculateHoldingValue(h, q)).toBe(0);
@@ -87,8 +81,8 @@ describe("Market data → allocation pipeline", () => {
   describe("calculatePortfolioValue", () => {
     it("sums all holdings with their quotes", () => {
       const holdings = [
-        makeHolding({ id: "h1", ticker: "AAPL", quantity: "10" }),
-        makeHolding({ id: "h2", ticker: "GOOGL", quantity: "5" }),
+        makeHolding({ id: "h1", ticker: "AAPL", quantity: 10 }),
+        makeHolding({ id: "h2", ticker: "GOOGL", quantity: 5 }),
       ];
       const quotes = new Map<string, Quote>([
         ["AAPL", makeQuote({ ticker: "AAPL", price: 150 })],
@@ -103,7 +97,7 @@ describe("Market data → allocation pipeline", () => {
           id: "h1",
           ticker: "CASH",
           asset_class: "cash",
-          quantity: "5000",
+          quantity: 5000,
         }),
       ];
       const quotes = new Map<string, Quote>();
@@ -117,7 +111,7 @@ describe("Market data → allocation pipeline", () => {
           id: "h1",
           ticker: "CASH",
           asset_class: "cash",
-          quantity: "3000",
+          quantity: 3000,
         }),
       ];
       const quotes = new Map<string, Quote>([
@@ -129,12 +123,12 @@ describe("Market data → allocation pipeline", () => {
 
     it("handles mixed equity and cash portfolio", () => {
       const holdings = [
-        makeHolding({ id: "h1", ticker: "VTI", quantity: "10" }),
+        makeHolding({ id: "h1", ticker: "VTI", quantity: 10 }),
         makeHolding({
           id: "h2",
           ticker: "CASH",
           asset_class: "cash",
-          quantity: "2000",
+          quantity: 2000,
         }),
       ];
       const quotes = new Map<string, Quote>([
@@ -151,19 +145,19 @@ describe("Market data → allocation pipeline", () => {
           id: "h1",
           ticker: "VTI",
           asset_class: "equity",
-          quantity: "100",
+          quantity: 100,
         }),
         makeHolding({
           id: "h2",
           ticker: "BND",
           asset_class: "fixed_income",
-          quantity: "50",
+          quantity: 50,
         }),
         makeHolding({
           id: "h3",
           ticker: "CASH",
           asset_class: "cash",
-          quantity: "1000",
+          quantity: 1000,
         }),
       ];
       const quotes = new Map<string, Quote>([
@@ -260,8 +254,8 @@ describe("Market data → allocation pipeline", () => {
   describe("calculateHoldingWeights", () => {
     it("computes per-holding weight percentages", () => {
       const holdings = [
-        makeHolding({ id: "h1", ticker: "VTI", quantity: "10" }),
-        makeHolding({ id: "h2", ticker: "BND", quantity: "20" }),
+        makeHolding({ id: "h1", ticker: "VTI", quantity: 10 }),
+        makeHolding({ id: "h2", ticker: "BND", quantity: 20 }),
       ];
       const quotes = new Map<string, Quote>([
         ["VTI", makeQuote({ ticker: "VTI", price: 240 })],
