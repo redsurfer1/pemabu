@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withAuth } from "@/lib/api/auth";
+import { withAdminAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adminErrorResponse, adminResponse } from "@/lib/api/response";
 import { bustServiceCatalogCache, getCachedServices } from "@/lib/cache/service-catalog";
@@ -15,14 +15,12 @@ const PatchServiceSchema = z
   })
   .strict();
 
-export const GET = withAuth(async (_req, user) => {
-  void user;
+export const GET = withAdminAuth(async (_req, _user) => {
   const data = await getCachedServices();
   return adminResponse(data);
 });
 
-export const PATCH = withAuth(async (req, user) => {
-  void user;
+export const PATCH = withAdminAuth(async (req, _user) => {
   const body: unknown = await req.json();
   const parsed = PatchServiceSchema.safeParse(body);
   if (!parsed.success) {

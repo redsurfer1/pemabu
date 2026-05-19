@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withAuth } from "@/lib/api/auth";
+import { withAdminAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adminErrorResponse, adminResponse } from "@/lib/api/response";
 import { bustServiceCatalogCache } from "@/lib/cache/service-catalog";
@@ -11,9 +11,7 @@ const AssignGroupSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
-export const GET = withAuth(async (_req, user) => {
-  void user;
-
+export const GET = withAdminAuth(async (_req, _user) => {
   const { data, error } = await supabaseAdmin
     .from("user_group_assignments")
     .select("*")
@@ -23,7 +21,7 @@ export const GET = withAuth(async (_req, user) => {
   return adminResponse(data ?? []);
 });
 
-export const POST = withAuth(async (req, user) => {
+export const POST = withAdminAuth(async (req, user) => {
   const body: unknown = await req.json();
   const parsed = AssignGroupSchema.safeParse(body);
   if (!parsed.success) {

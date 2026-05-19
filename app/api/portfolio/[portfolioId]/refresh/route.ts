@@ -158,9 +158,9 @@ export async function POST(req: Request, ctx: RouteHandlerContext) {
     return NextResponse.json({ error: "portfolioId required" }, { status: 400 });
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  const internalKey = process.env.PEMABU_INTERNAL_API_KEY;
   const auth = req.headers.get("authorization");
-  if (serviceKey && auth === `Bearer ${serviceKey}`) {
+  if (internalKey && auth === `Bearer ${internalKey}`) {
     const { supabaseAdmin } = await import("@/lib/supabase/admin");
     return executeRefresh(req, portfolioId, supabaseAdmin, { skipOwnership: true });
   }

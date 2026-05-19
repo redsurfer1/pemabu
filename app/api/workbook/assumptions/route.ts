@@ -60,16 +60,22 @@ export const PUT = withAuth(async (req, user) => {
   const applied = await upsertPortfolioAssumptions(portfolioId, merged);
 
   // Fire-and-forget: trigger a signals refresh so composite ranks update
-  // immediately after the user changes weights. Uses service-role auth to
-  // bypass ownership gate. scope=signals_only skips the >15-holdings 202 gate.
-  // Failures are non-fatal and must not delay the response.
+  // immediately after the user changes weights. Uses a dedicated internal API
+  // key to bypass the ownership gate. scope=signals_only skips the
+  // >15-holdings 202 gate. Failures are non-fatal and must not delay the
+  // response. Skipped entirely when PEMABU_INTERNAL_API_KEY is not configured.
   void (async () => {
+    const internalKey = process.env.PEMABU_INTERNAL_API_KEY;
+    if (!internalKey) {
+      console.warn("[assumptions PUT] PEMABU_INTERNAL_API_KEY not set — skipping fire-and-forget refresh");
+      return;
+    }
     try {
       const baseUrl = getBaseUrl();
       await fetch(`${baseUrl}/api/portfolio/${portfolioId}/refresh?scope=signals_only`, {
         method: "POST",
         headers: {
-          authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""}`,
+          authorization: `Bearer ${internalKey}`,
         },
       });
     } catch (e) {

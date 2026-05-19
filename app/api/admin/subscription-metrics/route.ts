@@ -1,19 +1,8 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/api/auth";
+import { withAdminAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export const GET = withAuth(async (_req, user) => {
-  // Verify admin role (layout already checks, but double-check for safety)
-  const { data: profile } = await supabaseAdmin
-    .from("user_profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if ((profile as { role?: string } | null)?.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+export const GET = withAdminAuth(async (_req, _user) => {
   const now = new Date().toISOString();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();

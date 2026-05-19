@@ -1,11 +1,9 @@
-import { withAuth } from "@/lib/api/auth";
+import { withAdminAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adminResponse } from "@/lib/api/response";
 import { getActiveProvider } from "@/lib/market-data";
 
-export const GET = withAuth(async (_req, user, _ctx) => {
-  void user;
-
+export const GET = withAdminAuth(async (_req, _user, _ctx) => {
   const [usersRes, portfoliosRes, signalsRes, health] = await Promise.all([
     supabaseAdmin.from("user_profiles").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("portfolios").select("*", { count: "exact", head: true }),

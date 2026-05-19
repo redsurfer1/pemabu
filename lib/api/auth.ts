@@ -9,6 +9,7 @@ import { ImportEntitlementError } from "@/lib/marketplace/import-gate";
 import * as Sentry from "@sentry/nextjs";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
 import type { RateLimitOptions } from "@/lib/security/rate-limiter";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // ── Structured error class ────────────────────────────────────────────────────
 
@@ -129,4 +130,37 @@ export function withAuth(
       );
     }
   };
+}
+
+// ── withAdminAuth wrapper ─────────────────────────────────────────────────────
+
+/**
+ * Wraps a route handler with authentication AND an admin-role guard.
+ * After verifying the session, fetches the user's `role` from `user_profiles`
+ * via the service-role client and returns 403 Forbidden if the role is not
+ * `"admin"`. Accepts the same rate-limit options as `withAuth`.
+ *
+ * @example
+ * ```ts
+ * export const GET = withAdminAuth(handler);
+ * export const POST = withAdminAuth(handler, { keyTemplate: "admin-post:{userId}", maxCount: 20, windowSeconds: 60 });
+ * ```
+ */
+export function withAdminAuth(
+  handler: (req: Request, user: User, context: RouteHandlerContext) => Promise<Response>,
+  rateLimit?: Omit<RateLimitOptions, "key"> & { keyTemplate: string },
+) {
+  return withAuth(async (req, user, ctx) => {
+    const { data: profile } = await supabaseAdmin
+      .from("user_profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if ((profile as { role?: string } | null)?.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return handler(req, user, ctx);
+  }, rateLimit);
 }

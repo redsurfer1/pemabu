@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/api/auth";
+import { withAdminAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   FOUNDING_CREATOR_ROYALTY_NUMERATOR,
@@ -7,7 +7,7 @@ import {
   STANDARD_CREATOR_ROYALTY_NUMERATOR,
 } from "@/lib/marketplace/unlock-pricing";
 
-export const GET = withAuth(async (_req, _user, _ctx) => {
+export const GET = withAdminAuth(async (_req, _user, _ctx) => {
   const { data: stats, error: statsError } = await supabaseAdmin
     .from("founding_publisher_stats")
     .select("*")
@@ -34,7 +34,7 @@ export const GET = withAuth(async (_req, _user, _ctx) => {
   });
 });
 
-export const POST = withAuth(async (req, _user, _ctx) => {
+export const POST = withAdminAuth(async (req, _user, _ctx) => {
   let body: { strategyId?: string; grant?: boolean };
   try {
     body = (await req.json()) as typeof body;

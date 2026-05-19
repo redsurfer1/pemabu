@@ -1,11 +1,9 @@
-import { withAuth } from "@/lib/api/auth";
+import { withAdminAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adminResponse } from "@/lib/api/response";
 import type { Portfolio } from "@/lib/types/database";
 
-export const GET = withAuth(async (_req, user, _ctx) => {
-  void user;
-
+export const GET = withAdminAuth(async (_req, _user, _ctx) => {
   const { data: portfolios, error: pErr } = await supabaseAdmin
     .from("portfolios")
     .select("*")

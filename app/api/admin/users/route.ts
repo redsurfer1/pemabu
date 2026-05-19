@@ -1,9 +1,8 @@
-import { withAuth } from "@/lib/api/auth";
+import { withAdminAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adminResponse } from "@/lib/api/response";
 
-export const GET = withAuth(async (_req, user, _ctx) => {
-  void user;
+export const GET = withAdminAuth(async (_req, _user, _ctx) => {
   const { data: listData, error } = await supabaseAdmin.auth.admin.listUsers();
   if (error) throw error;
 
