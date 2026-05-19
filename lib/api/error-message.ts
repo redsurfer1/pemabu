@@ -1,3 +1,5 @@
+import { toRecord } from "@/lib/supabase/typed";
+
 /** Zod safeParse flatten() shape when returned as `error` in JSON. */
 interface ZodFlattened {
   formErrors?: string[];
@@ -32,7 +34,7 @@ export function getErrorMessage(value: unknown, fallback = "Something went wrong
   if (typeof value === "object") {
     if (isZodFlattened(value)) return formatZodFlattened(value);
 
-    const rec = value as Record<string, unknown>;
+    const rec = toRecord(value);
     if (typeof rec.message === "string" && rec.message.trim()) return rec.message.trim();
     if (typeof rec.error === "string" && rec.error.trim()) return rec.error.trim();
     if (rec.error != null) return getErrorMessage(rec.error, fallback);

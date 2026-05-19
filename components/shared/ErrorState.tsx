@@ -1,5 +1,3 @@
-"use client";
-
 interface ErrorStateProps {
   message: string;
   onRetry?: () => void;

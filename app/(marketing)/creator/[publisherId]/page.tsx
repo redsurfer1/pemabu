@@ -4,6 +4,7 @@ import MarketingNav from "@/components/home/MarketingNav";
 import { SiteLegalFooter } from "@/components/legal/SiteLegalFooter";
 import { PerformanceSparkline } from "@/components/marketplace/PerformanceSparkline";
 import { FoundingPublisherBadge } from "@/components/marketplace/FoundingPublisherBadge";
+import { getBaseUrl } from "@/lib/app-url";
 import { AI_DISCLAIMER } from "@/lib/constants/ai-models";
 import type { SleevePerformanceWeek } from "@/lib/types/sleeve-performance";
 
@@ -29,7 +30,7 @@ interface CreatorProfile {
 }
 
 async function getCreatorProfile(publisherId: string): Promise<CreatorProfile | null> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   const res = await fetch(`${baseUrl}/api/public/creator/${publisherId}`, {
     next: { revalidate: 300 },
   });

@@ -5,6 +5,7 @@ import {
   computeMainSleeve,
   computeIncomeSleeve,
 } from "@/lib/allocation/v3-engine";
+import { resolvePrices } from "@/lib/prices/price-service";
 import type { IncomeHoldingInput } from "@/lib/allocation/v3-engine";
 import type { EngineAssumptions, HoldingInput } from "@/types/allocation";
 import { DEFAULT_ENGINE_ASSUMPTIONS } from "@/types/allocation";
@@ -26,30 +27,6 @@ interface HoldingRow {
   expense_ratio: number;
   div_dollar: number;
   target_wt_pct: number;
-}
-
-async function fetchCurrentPrices(tickers: string[]): Promise<Record<string, number>> {
-  if (tickers.length === 0) return {};
-  const params = new URLSearchParams({ tickers: tickers.join(",") });
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL ? "" : ""}${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/prices/current?${params}`,
-    { cache: "no-store" },
-  );
-  if (!res.ok) return {};
-  return res.json();
-}
-
-async function fetchHistoricalPrices(
-  tickers: string[],
-): Promise<Record<string, Record<string, number>>> {
-  if (tickers.length === 0) return {};
-  const params = new URLSearchParams({ tickers: tickers.join(",") });
-  const res = await fetch(
-    `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/prices/historical?${params}`,
-    { cache: "no-store" },
-  );
-  if (!res.ok) return {};
-  return res.json();
 }
 
 export async function refreshPrices(portfolioId: string) {
@@ -86,11 +63,8 @@ export async function refreshPrices(portfolioId: string) {
   );
   const uniqueTickers = [...new Set(priceable.map((h) => h.ticker))];
 
-  // Fetch prices in parallel
-  const [currentPrices, historicalPrices] = await Promise.all([
-    fetchCurrentPrices(uniqueTickers),
-    fetchHistoricalPrices(uniqueTickers),
-  ]);
+  // Fetch prices via shared service (no more self-API calls)
+  const { current: currentPrices, historical: historicalPrices } = await resolvePrices(uniqueTickers);
 
   // Process Main (Appreciation) sleeve
   const mainSleeves = sleeves.filter((s: SleeveRow) => s.purpose === "Appreciation");

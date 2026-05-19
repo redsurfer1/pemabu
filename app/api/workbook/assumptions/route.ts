@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
 import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
+import { getBaseUrl } from "@/lib/app-url";
 import { assertPortfolioOwnedByUser, getPortfolioAssumptions, upsertPortfolioAssumptions } from "@/lib/portfolio/portfolio-assumptions-store";
 import type { Assumptions } from "@/lib/portfolio/formula-engine";
 const AssumptionsBodySchema = z.object({
@@ -64,7 +65,7 @@ export const PUT = withAuth(async (req, user) => {
   // Failures are non-fatal and must not delay the response.
   void (async () => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const baseUrl = getBaseUrl();
       await fetch(`${baseUrl}/api/portfolio/${portfolioId}/refresh?scope=signals_only`, {
         method: "POST",
         headers: {

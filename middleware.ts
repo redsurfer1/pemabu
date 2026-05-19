@@ -14,6 +14,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/pricing",
   "/founding-publishers",
   "/creator/",
+  "/family-view",
   "/crypto",
   "/request-access",
   "/demo",
@@ -23,6 +24,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/auth/",
   "/api/stripe/",  // Stripe webhooks and public Stripe-facing endpoints
   "/api/public/",  // explicitly public API surface
+  "/api/family/view", // token-only family portfolio view (no session)
   "/api/cron/",    // Vercel cron + CRON_SECRET bearer routes (auth inside handlers)
 ];
 

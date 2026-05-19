@@ -35,7 +35,16 @@ export const POST = withAuth(async (req, user, ctx) => {
     .maybeSingle();
 
   if (existing) {
-    return NextResponse.json({ error: "Already rated" }, { status: 409 });
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("strategy_ratings")
+      .update({ rating: parsed.data.rating, updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .select("id, strategy_id, rating, created_at")
+      .single();
+    if (updateError) {
+      return NextResponse.json({ error: "Failed to update rating" }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, rating: updated, updated: true });
   }
 
   const { data, error } = await supabaseAdmin

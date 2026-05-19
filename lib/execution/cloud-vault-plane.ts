@@ -11,7 +11,7 @@ import type { ExecutionControlRow, GuardrailContext } from "@/lib/execution/guar
 import type { ExchangeName } from "@/lib/execution/types";
 
 async function callRpc<T>(rpcName: string, params: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabaseAdmin.rpc(rpcName, params as Record<string, unknown>);
+  const { data, error } = await supabaseAdmin.rpc(rpcName, params);
   if (error) throw new Error(`${rpcName} failed: ${error.message}`);
   return data as T;
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { withAuth } from "@/lib/api/auth";
+import { getBaseUrl } from "@/lib/app-url";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function stripeClient(): Stripe {
@@ -37,7 +38,7 @@ export const POST = withAuth(async (_req, user) => {
   }
 
   const returnUrl =
-    (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "") + "/upgrade";
+    getBaseUrl() + "/upgrade";
 
   try {
     const session = await stripeClient().billingPortal.sessions.create({

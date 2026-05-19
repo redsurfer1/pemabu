@@ -26,10 +26,7 @@ type ServerEnv = z.infer<typeof serverSchema>;
 let _env: ServerEnv | null = null;
 
 export function getEnv(): ServerEnv {
-  if (!_env) {
-    _env = serverSchema.parse(process.env);
-  }
-  return _env;
+  return _env ??= serverSchema.parse(process.env);
 }
 
 export const env: ServerEnv = new Proxy({} as ServerEnv, {

@@ -2,19 +2,17 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { computeSleeveSnapshotForStrategy } from "@/lib/sleeve-performance/compute-snapshot";
 import { getISOWeekStart } from "@/lib/sleeve-performance/utils";
+import { toRecordOrNull } from "@/lib/supabase/typed";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
+import { verifyCronRequest } from "@/lib/cron/verify";
 import { PERFORMANCE_HISTORY_NOTICE } from "@/lib/constants/performance-history";
+import { updateStrategyPerformanceSummary } from "@/lib/sleeve-performance/update-summary";
 import type { SleeveBlueprintV1 } from "@/lib/portfolio/export-sleeve-strategy";
 
 const PAGE_SIZE = 200;
 
-function verifyCronSecret(req: Request): boolean {
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
-}
-
 const handler = async (req: Request) => {
-  if (!verifyCronSecret(req)) {
+  if (!verifyCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -57,7 +55,7 @@ const handler = async (req: Request) => {
         publisher_user_id: row.publisher_user_id as string | null,
         strategy_grade: row.strategy_grade as number | string,
         blueprint_json: row.blueprint_json as SleeveBlueprintV1 | null,
-        metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+        metadata: toRecordOrNull(row.metadata),
       });
 
       if (!snapshot) {
@@ -82,6 +80,7 @@ const handler = async (req: Request) => {
         }
       } else {
         results.processed += 1;
+        await updateStrategyPerformanceSummary(strategyId);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown";

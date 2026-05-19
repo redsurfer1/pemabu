@@ -3,6 +3,7 @@ export const WORKSPACE_NAV_ITEMS = [
   { label: "Engine", href: "/portfolio/engine", pathPrefix: "/portfolio/engine" },
   { label: "Strategy Council", href: "/strategy-council", pathPrefix: "/strategy-council" },
   { label: "Marketplace", href: "/marketplace", pathPrefix: "/marketplace" },
+  { label: "Creator", href: "/creator/dashboard", pathPrefix: "/creator" },
 ] as const;
 
 export function engineHref(portfolioId?: string | null): string {

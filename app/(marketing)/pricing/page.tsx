@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { PemabuService, PricingModel, ServiceCategory } from "@/lib/types/database";
 import { INTELLIGENCE_FEATURES } from "@/lib/constants/intelligence-features";
 import { PEMABU_SERVICES } from "@/lib/constants/services";
+import { getBaseUrl } from "@/lib/app-url";
 import { getCachedServices } from "@/lib/cache/service-catalog";
 import { intelligenceFeatureHref, serviceHref } from "@/lib/dashboard/service-links";
 
@@ -29,9 +30,9 @@ const ADDON_BUNDLES = [
 ] as const;
 
 async function getPricingData(): Promise<PemabuService[]> {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const base = getBaseUrl();
   try {
-    const res = await fetch(`${base.replace(/\/$/, "")}/api/public/pricing`, { next: { revalidate: 600 } });
+    const res = await fetch(`${base}/api/public/pricing`, { next: { revalidate: 600 } });
     if (res.ok) {
       const body = (await res.json()) as { data: PemabuService[] };
       return body.data ?? [];

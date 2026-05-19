@@ -22,43 +22,53 @@ export const GET = withAuth(async (request, user, _ctx) => {
   const supabase = await createClient();
   const now = new Date();
 
-  const results: Record<string, number> = {};
+  const cacheKeys = tickers.map((t) => `current:${t}` as const);
+
+  const { data: cachedRows } = await supabase
+    .from("price_cache")
+    .select("cache_key, price, fetched_at, ttl_seconds")
+    .in("cache_key", cacheKeys);
+
+  const cacheMap = new Map((cachedRows ?? []).map((r) => [String(r.cache_key), r]));
+  const freshCacheKeys = new Set<string>();
+  const freshTickerResults: Record<string, number> = {};
 
   for (const ticker of tickers) {
     if (ticker === "CASH") {
-      results[ticker] = 1;
+      freshTickerResults[ticker] = 1;
       continue;
     }
-
-    const cacheKey = `current:${ticker}`;
-
-    const { data: cached } = await supabase
-      .from("price_cache")
-      .select("price, fetched_at, ttl_seconds")
-      .eq("cache_key", cacheKey)
-      .maybeSingle();
-
+    const cached = cacheMap.get(`current:${ticker}`);
     if (cached) {
       const fetchedAt = new Date(cached.fetched_at);
       const expiresAt = new Date(fetchedAt.getTime() + cached.ttl_seconds * 1000);
       if (expiresAt > now) {
-        results[ticker] = Number(cached.price);
-        continue;
+        freshTickerResults[ticker] = Number(cached.price);
+        freshCacheKeys.add(`current:${ticker}`);
       }
     }
+  }
 
-    try {
+  const needsFetch = tickers.filter(
+    (t) => t !== "CASH" && !freshCacheKeys.has(`current:${t}`),
+  );
+
+  const fetchResults = await Promise.allSettled(
+    needsFetch.map(async (ticker) => {
       const md = await fetchMarketDataWithFallback(normalizeTicker(ticker));
-      if (md.error || md.price1 <= 0) continue;
-
-      results[ticker] = md.price1;
-
+      if (md.error || md.price1 <= 0) return null;
       await supabase.from("price_cache").upsert(
-        { cache_key: cacheKey, price: md.price1, fetched_at: now.toISOString(), ttl_seconds: 900 },
+        { cache_key: `current:${ticker}`, price: md.price1, fetched_at: now.toISOString(), ttl_seconds: 900 },
         { onConflict: "cache_key" },
       );
-    } catch {
-      /* skip on error */
+      return { ticker, price: md.price1 };
+    }),
+  );
+
+  const results: Record<string, number> = { ...freshTickerResults };
+  for (const result of fetchResults) {
+    if (result.status === "fulfilled" && result.value) {
+      results[result.value.ticker] = result.value.price;
     }
   }
 

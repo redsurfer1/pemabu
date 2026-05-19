@@ -2,16 +2,12 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { alertOperator } from "@/lib/services/email";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
+import { verifyCronRequest } from "@/lib/cron/verify";
 
 const PAGE_SIZE = 500;
 
-function verifyCronSecret(req: Request): boolean {
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
-}
-
 const handler = async (req: Request) => {
-  if (!verifyCronSecret(req)) {
+  if (!verifyCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

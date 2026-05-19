@@ -4,6 +4,7 @@ import { requireServiceAccess } from "@/lib/security/tier-guard";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/demo-guard";
 import { GovernanceClient } from "@/components/governance/GovernanceClient";
+import { DataFetchBoundary } from "@/components/shared/DataFetchBoundary";
 
 export default async function GovernancePage({
   searchParams,
@@ -24,7 +25,9 @@ export default async function GovernancePage({
 
   return (
     <div className="min-h-screen bg-[#0A1628] px-4 py-8 sm:px-8">
-      <GovernanceClient portfolioTickers={portfolioTickers} demo={demo} />
+      <DataFetchBoundary title="Governance alerts unavailable">
+        <GovernanceClient portfolioTickers={portfolioTickers} demo={demo} />
+      </DataFetchBoundary>
     </div>
   );
 }

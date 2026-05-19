@@ -11,6 +11,15 @@ import {
 } from "@/lib/allocation/engine";
 import type { Holding } from "@/lib/types/database";
 
+const ASSET_CLASS_LABELS: Record<string, string> = {
+  equity: "Equities",
+  fixed_income: "Fixed Income",
+  alternatives: "Alternatives",
+  cash: "Cash",
+  crypto: "Crypto",
+  other: "Other",
+};
+
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token");
   if (!token || !token.startsWith("pemabu_share_")) {
@@ -140,7 +149,10 @@ async function fetchFamilyPortfolioData(
     pct: Math.round(w.actual_pct * 100) / 100,
   }));
 
-  const sectorWeights: { sector: string; pct: number }[] = [];
+  const sectorWeights = weights.map((w) => ({
+    sector: ASSET_CLASS_LABELS[w.asset_class] ?? w.asset_class,
+    pct: Math.round(w.actual_pct * 100) / 100,
+  }));
 
   return {
     totalValue: Math.round(totalValue * 100) / 100,

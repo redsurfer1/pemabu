@@ -2,14 +2,10 @@ import { NextResponse } from "next/server";
 import { getActiveProvider } from "@/lib/market-data";
 import { alertOperator } from "@/lib/services/email";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
-
-function verifyCronSecret(req: Request): boolean {
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
-}
+import { verifyCronRequest } from "@/lib/cron/verify";
 
 const handler = async (req: Request) => {
-  if (!verifyCronSecret(req)) {
+  if (!verifyCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {

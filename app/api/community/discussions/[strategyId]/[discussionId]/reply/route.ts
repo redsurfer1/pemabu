@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/api/auth";
 import { MUTATION_RATE_LIMIT, READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { bodySizeGuard } from "@/lib/api/body-limit";
 import { z } from "zod";
 
 const ReplySchema = z.object({
@@ -66,6 +67,9 @@ export const POST = withAuth(async (req, user, ctx) => {
   if (!discussion) {
     return NextResponse.json({ error: "Discussion not found" }, { status: 404 });
   }
+
+  const sizeGuard = bodySizeGuard(req);
+  if (sizeGuard) return sizeGuard;
 
   let body: unknown;
   try {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
+import { getBaseUrl } from "@/lib/app-url";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { MARKETPLACE_UNLOCK_PRICE_CENTS } from "@/lib/marketplace/unlock-pricing";
 import { hashSleeveToken } from "@/lib/portfolio/export-sleeve-strategy";
@@ -67,7 +68,7 @@ export const POST = withAuth(async (req, user, _ctx) => {
     return NextResponse.json({ error: "You cannot purchase a checkout session for your own blueprint" }, { status: 400 });
   }
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = getBaseUrl();
 
   try {
     const stripe = stripeClient();

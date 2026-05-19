@@ -101,7 +101,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
 
   return (
     <>
-      <OnboardingTour steps={tourSteps} autoStart={!hasPortfolios} />
+      <OnboardingTour steps={tourSteps} autoStart={hasPortfolios} />
       <SystemSafetyBanner portfolioId={selectedPortfolioId} />
 
       <div className="w-full px-4 py-8 lg:px-6 xl:px-8">
@@ -121,7 +121,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
               </div>
             ) : null}
 
-            <div className="space-y-4">
+            <div id="dashboard-portfolios" className="space-y-4">
               <h2 className="text-xs font-medium uppercase tracking-wider text-gray-500">Your portfolios</h2>
               {portfolios.map((summary) => (
                 <PortfolioCard
@@ -133,7 +133,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
               ))}
             </div>
 
-            <div className="min-w-0">
+            <div id="dashboard-holdings" className="min-w-0">
               <h2 className="mb-4 text-xs font-medium uppercase tracking-wider text-gray-500">
                 {selectedSummary?.portfolio.name ?? "Holdings"}
               </h2>
@@ -152,7 +152,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
               ) : null}
             </div>
 
-            <div className="w-full max-w-[200px] justify-self-end lg:sticky lg:top-6 lg:self-start">
+            <div id="dashboard-signals" className="w-full max-w-[200px] justify-self-end lg:sticky lg:top-6 lg:self-start">
               <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">Signals</h2>
               {selectedPortfolioId ? <SignalFeed portfolioId={selectedPortfolioId} compact /> : null}
             </div>

@@ -53,6 +53,9 @@ export async function GET(req: Request) {
           is_founding_publisher: r.is_founding_publisher ?? false,
           creator_public_id: r.publisher_user_id ? publicCreatorId(r.publisher_user_id) : null,
           is_own_publisher: !!viewerUserId && r.publisher_user_id === viewerUserId,
+          performance_consistency: r.performance_consistency ?? "new",
+          performance_avg_drift_pct: r.performance_avg_drift_pct ?? null,
+          performance_weeks_tracked: r.performance_weeks_tracked ?? 0,
           publisher_pseudonym: strategyPeerPseudonym(r.id),
         }));
         return NextResponse.json({
@@ -90,6 +93,9 @@ export async function GET(req: Request) {
         is_founding_publisher: r.is_founding_publisher ?? false,
         creator_public_id: r.publisher_user_id ? publicCreatorId(r.publisher_user_id) : null,
         is_own_publisher: !!viewerUserId && r.publisher_user_id === viewerUserId,
+        performance_consistency: r.performance_consistency ?? "new",
+        performance_avg_drift_pct: r.performance_avg_drift_pct ?? null,
+        performance_weeks_tracked: r.performance_weeks_tracked ?? 0,
         publisher_pseudonym: strategyPeerPseudonym(r.id),
       }));
       return NextResponse.json({

@@ -10,6 +10,9 @@ export type LeaderboardRow = {
   vw_rsi_performance_score: string;
   published_at: string;
   is_founding_publisher?: boolean;
+  performance_consistency?: string;
+  performance_avg_drift_pct?: number | null;
+  performance_weeks_tracked?: number;
   /** Server-side only — hash before exposing to clients */
   publisher_user_id?: string | null;
 };
@@ -44,12 +47,35 @@ async function enrichLeaderboardFlags(
       },
     ]),
   );
+
+  const { data: summaries } = await supabase
+    .from("strategy_performance_summary")
+    .select("strategy_id, consistency, avg_drift_pct, total_weeks_tracked")
+    .in("strategy_id", ids);
+  const summaryMap = new Map(
+    (summaries ?? []).map((s) => [
+      String((s as { strategy_id: string }).strategy_id),
+      {
+        consistency: String((s as { consistency?: string }).consistency ?? "new"),
+        avg_drift_pct:
+          (s as { avg_drift_pct?: number | null }).avg_drift_pct != null
+            ? Number((s as { avg_drift_pct: number }).avg_drift_pct)
+            : null,
+        total_weeks_tracked: Number((s as { total_weeks_tracked?: number }).total_weeks_tracked ?? 0),
+      },
+    ]),
+  );
+
   return rows.map((r) => {
     const extra = map.get(r.id);
+    const perf = summaryMap.get(r.id);
     return {
       ...r,
       is_founding_publisher: extra?.is_founding_publisher ?? false,
       publisher_user_id: extra?.publisher_user_id ?? null,
+      performance_consistency: perf?.consistency ?? "new",
+      performance_avg_drift_pct: perf?.avg_drift_pct ?? null,
+      performance_weeks_tracked: perf?.total_weeks_tracked ?? 0,
     };
   });
 }

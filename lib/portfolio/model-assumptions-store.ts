@@ -11,6 +11,8 @@ import { assertPortfolioOwnedByUser } from "@/lib/portfolio/portfolio-assumption
 import type { EngineAssumptions } from "@/types/allocation";
 import { DEFAULT_ENGINE_ASSUMPTIONS } from "@/types/allocation";
 import type { SleeveType } from "@/lib/types/database";
+import { extractFactorValues } from "@/lib/portfolio/vault-assumptions";
+import { toRecordArray } from "@/lib/supabase/typed";
 
 export type ModelAssumptionsBySleeve = {
   main: EngineAssumptions;
@@ -46,7 +48,7 @@ export async function getModelAssumptionsForPortfolio(
     .eq("portfolio_id", portfolioId)
     .in("sleeve_type", SLEEVE_TYPES);
   if (error) throw error;
-  return mapRows((data ?? []) as Record<string, unknown>[]);
+  return mapRows(toRecordArray(data));
 }
 
 export async function upsertModelAssumptions(
@@ -56,6 +58,7 @@ export async function upsertModelAssumptions(
   client?: SupabaseClient,
 ): Promise<void> {
   const payload = modelAssumptionsToDbRow(portfolioId, sleeveType, assumptions);
+  const factorVals = extractFactorValues(payload);
 
   if (isVaultDatabaseConfigured()) {
     await getVaultPool().query(
@@ -116,17 +119,7 @@ export async function upsertModelAssumptions(
         payload.income_budget_pct,
         payload.vol_cap_multiplier,
         payload.theme_cap_pct,
-        payload.factor_expense,
-        payload.factor_target_allocation,
-        payload.factor_weighted_return,
-        payload.factor_pct_weight,
-        payload.factor_div_apy,
-        payload.factor_volatility,
-        payload.factor_thirteen_f,
-        payload.factor_macro_intelligence,
-        payload.factor_governance_layer,
-        payload.factor_political_tracker,
-        payload.factor_token_quality,
+        ...factorVals,
         payload.updated_at,
       ],
     );

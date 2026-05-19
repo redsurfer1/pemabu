@@ -47,3 +47,10 @@ docker-compose.override.yml
 *.dump
 *.sql.local
 .claude/
+
+# playwright
+/playwright-report/
+/test-results/
+
+# k6 load test output
+/k6-*.json

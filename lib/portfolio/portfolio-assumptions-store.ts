@@ -14,6 +14,8 @@ import {
   factorWeightsToLegacyDbPayload,
   normaliseFactorWeights,
 } from "@/lib/portfolio/portfolio-factors";
+import { extractFactorValues, isMissingColumnError, FACTOR_COLUMNS } from "@/lib/portfolio/vault-assumptions";
+import { toRecordOrNull } from "@/lib/supabase/typed";
 
 function rowToAssumptions(row: Record<string, unknown> | null): Assumptions {
   if (!row) return { ...DEFAULT_ASSUMPTIONS };
@@ -44,27 +46,13 @@ function assumptionsToDbPayload(portfolioId: string, assumptions: Assumptions): 
   };
 }
 
-function isMissingColumnError(err: unknown): boolean {
-  const msg = String(
-    err && typeof err === "object" && "message" in err
-      ? (err as { message: string }).message
-      : err,
-  ).toLowerCase();
-  return (
-    msg.includes("column") &&
-    (msg.includes("does not exist") ||
-      msg.includes("could not find") ||
-      msg.includes("unknown"))
-  );
-}
-
 async function readAssumptionsFromVault(portfolioId: string): Promise<Assumptions | null> {
   try {
     const { rows } = await getVaultPool().query<Record<string, unknown>>(
       `SELECT * FROM portfolio_assumptions WHERE portfolio_id = $1::uuid`,
       [portfolioId],
     );
-    return rowToAssumptions(rows[0] ?? null);
+    return rowToAssumptions(toRecordOrNull(rows[0]));
   } catch (err) {
     console.warn("[portfolio_assumptions] vault read failed:", err);
     return null;
@@ -79,9 +67,7 @@ async function writeAssumptionsToVault(
     await getVaultPool().query(
       `INSERT INTO portfolio_assumptions (
          portfolio_id, weight_3mo, weight_6mo, weight_1yr, weight_3yr, weight_5yr,
-         factor_expense, factor_target_allocation, factor_weighted_return, factor_pct_weight,
-         factor_div_apy, factor_volatility, factor_thirteen_f, factor_macro_intelligence,
-         factor_governance_layer, factor_political_tracker, factor_token_quality, updated_at
+         ${FACTOR_COLUMNS.join(", ")}, updated_at
        ) VALUES (
          $1::uuid, $2, $3, $4, $5, $6,
          $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::timestamptz
@@ -92,17 +78,7 @@ async function writeAssumptionsToVault(
          weight_1yr = EXCLUDED.weight_1yr,
          weight_3yr = EXCLUDED.weight_3yr,
          weight_5yr = EXCLUDED.weight_5yr,
-         factor_expense = EXCLUDED.factor_expense,
-         factor_target_allocation = EXCLUDED.factor_target_allocation,
-         factor_weighted_return = EXCLUDED.factor_weighted_return,
-         factor_pct_weight = EXCLUDED.factor_pct_weight,
-         factor_div_apy = EXCLUDED.factor_div_apy,
-         factor_volatility = EXCLUDED.factor_volatility,
-         factor_thirteen_f = EXCLUDED.factor_thirteen_f,
-         factor_macro_intelligence = EXCLUDED.factor_macro_intelligence,
-         factor_governance_layer = EXCLUDED.factor_governance_layer,
-         factor_political_tracker = EXCLUDED.factor_political_tracker,
-         factor_token_quality = EXCLUDED.factor_token_quality,
+         ${FACTOR_COLUMNS.map((c) => `${c} = EXCLUDED.${c}`).join(",\n         ")},
          updated_at = EXCLUDED.updated_at`,
       [
         portfolioId,
@@ -111,17 +87,7 @@ async function writeAssumptionsToVault(
         payload.weight_1yr,
         payload.weight_3yr,
         payload.weight_5yr,
-        payload.factor_expense,
-        payload.factor_target_allocation,
-        payload.factor_weighted_return,
-        payload.factor_pct_weight,
-        payload.factor_div_apy,
-        payload.factor_volatility,
-        payload.factor_thirteen_f,
-        payload.factor_macro_intelligence,
-        payload.factor_governance_layer,
-        payload.factor_political_tracker,
-        payload.factor_token_quality,
+        ...extractFactorValues(payload),
         payload.updated_at,
       ],
     );
@@ -208,7 +174,7 @@ async function readAssumptionsFromSupabase(portfolioId: string): Promise<Assumpt
     }
     throw error;
   }
-  return rowToAssumptions((data as Record<string, unknown> | null) ?? null);
+  return rowToAssumptions(toRecordOrNull(data));
 }
 
 async function writeAssumptionsToSupabase(

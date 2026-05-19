@@ -4,14 +4,10 @@ import { generatePortfolioBrief } from "@/lib/services/ai";
 import { getActiveProvider } from "@/lib/market-data";
 import { calculateAllocationWeights, calculatePortfolioValue, DEFAULT_TARGETS } from "@/lib/allocation/engine";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
+import { verifyCronRequest } from "@/lib/cron/verify";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Quote as EngineQuote } from "@/lib/allocation/engine";
 import type { Holding } from "@/lib/types/database";
-
-function verifyCronSecret(req: Request): boolean {
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
-}
 
 function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {
   const m = new Map<string, EngineQuote>();
@@ -28,7 +24,7 @@ function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {
 }
 
 const handler = async (req: Request) => {
-  if (!verifyCronSecret(req)) {
+  if (!verifyCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

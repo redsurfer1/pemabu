@@ -83,6 +83,19 @@ export async function assertServiceAccess(userId: string, serviceKey: string): P
   }
 }
 
+/** Server components only: redirect if the user's effective tier is below `minimum`. */
+export async function requireMinimumTier(minimum: PemabuTier): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/");
+  const keys = await getActiveServiceKeysForUser(user.id);
+  if (!tierMeetsMinimum(resolveEffectiveTier(keys), minimum)) {
+    redirect(`/upgrade?service=intelligence_annual`);
+  }
+}
+
 /** Server components only: redirect if the user lacks an active grant for `serviceKey`. */
 export async function requireServiceAccess(serviceKey: string): Promise<void> {
   const supabase = await createClient();

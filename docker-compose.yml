@@ -77,6 +77,10 @@ services:
       FLOMISMA_RELAY_URL: ${FLOMISMA_RELAY_URL:-http://host.docker.internal:8787/v1/relay}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      VAULT_BACKUP_DIR: /backups
+      VAULT_BACKUP_RETENTION_DAYS: "30"
+    volumes:
+      - pemabu_vault_backups:/backups
     depends_on:
       db:
         condition: service_healthy
@@ -84,3 +88,5 @@ services:
 volumes:
   pemabu_vault_data:
     name: pemabu_vault_data
+  pemabu_vault_backups:
+    name: pemabu_vault_backups

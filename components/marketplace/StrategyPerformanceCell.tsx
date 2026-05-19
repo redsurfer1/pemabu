@@ -13,12 +13,18 @@ type StrategyPerformanceCellProps = {
   strategyId: string;
   strategyName: string;
   showPrivate: boolean;
+  benchmarkSummary?: {
+    consistency: "consistent" | "variable" | "new" | string;
+    weeksTracked: number;
+    avgDriftPct: number | null;
+  };
 };
 
 export function StrategyPerformanceCell({
   strategyId,
   strategyName,
   showPrivate,
+  benchmarkSummary,
 }: StrategyPerformanceCellProps) {
   const [open, setOpen] = useState(false);
 
@@ -38,9 +44,13 @@ export function StrategyPerformanceCell({
   if (!showPrivate) return null;
 
   const history = perfQuery.data?.history ?? [];
-  const consistency = perfQuery.data?.summary?.consistency ?? getConsistency(history);
-  const weeksTracked = perfQuery.data?.summary?.weeksTracked ?? history.length;
-  const avgDrift = perfQuery.data?.summary?.avgDriftPct;
+  const consistency =
+    perfQuery.data?.summary?.consistency ??
+    (benchmarkSummary?.consistency as "consistent" | "variable" | "new" | undefined) ??
+    getConsistency(history);
+  const weeksTracked =
+    perfQuery.data?.summary?.weeksTracked ?? benchmarkSummary?.weeksTracked ?? history.length;
+  const avgDrift = perfQuery.data?.summary?.avgDriftPct ?? benchmarkSummary?.avgDriftPct ?? null;
   const dominantGrade = perfQuery.data?.summary?.dominantGrade;
 
   function gradeColor(grade: string | null): string {

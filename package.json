@@ -10,6 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:load": "k6 run tests/load/cron-load.js",
     "start": "next start",
     "lint": "eslint",
     "vault:sync": "tsx scripts/sync-local-schema.ts",
@@ -51,6 +54,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.4",
+    "@playwright/test": "^1.52.0"
   }
 }

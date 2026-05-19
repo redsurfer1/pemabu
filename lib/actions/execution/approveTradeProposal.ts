@@ -5,6 +5,7 @@ import { insertHoldingAuditRow, type HoldingAuditInsert } from "@/lib/portfolio/
 import { isAutonomous } from "@/lib/portfolio/intelligence-access";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { createClient } from "@/lib/supabase/server";
+import { toRecordOrNull } from "@/lib/supabase/typed";
 import { decryptUtf8 } from "@/lib/security/encryption";
 import {
   appendErrorCode,
@@ -97,7 +98,7 @@ export async function approveTradeProposal(proposalId: string) {
 
   let proposalRaw: Record<string, unknown> | null = null;
   if (vault) {
-    proposalRaw = (await fetchTradeProposalVault(user.id, proposalId)) as Record<string, unknown> | null;
+    proposalRaw = toRecordOrNull(await fetchTradeProposalVault(user.id, proposalId));
   } else {
     const { data: proposal, error: pErr } = await supabase
       .from("trade_proposals")
@@ -106,7 +107,7 @@ export async function approveTradeProposal(proposalId: string) {
       .eq("user_id", user.id)
       .maybeSingle();
     if (pErr) return { success: false, error: pErr.message };
-    proposalRaw = proposal as Record<string, unknown> | null;
+    proposalRaw = toRecordOrNull(proposal);
   }
 
   if (!proposalRaw) return { success: false, error: "Proposal not found" };

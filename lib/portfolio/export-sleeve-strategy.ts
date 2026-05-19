@@ -3,6 +3,7 @@ import { d } from "@/lib/portfolio/precision-money";
 import { createClient } from "@/lib/supabase/server";
 import { getVaultPool } from "@/lib/db";
 import { isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
+import { toRecordOrNull } from "@/lib/supabase/typed";
 import {
   type FactorWeights,
   type SleeveFactorMetadata,
@@ -57,7 +58,7 @@ async function loadPortfolioFactorWeights(
     .select("*")
     .eq("portfolio_id", portfolioId)
     .maybeSingle();
-  return factorWeightsFromDbRow((data as Record<string, unknown>) ?? {});
+  return factorWeightsFromDbRow(toRecordOrNull(data) ?? {});
 }
 
 function targetWeightedRsi(

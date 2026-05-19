@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { STALE } from "@/lib/constants/query-config";
+import { usePortfolios } from "@/hooks/usePortfolios";
 
 interface ShareToken {
   id: string;
@@ -32,6 +33,7 @@ async function fetchTokens(): Promise<ShareToken[]> {
 
 async function createToken(payload: {
   viewer_label: string;
+  portfolio_id?: string;
   show_total_value: boolean;
   show_drift_status: boolean;
   show_allocation_pct: boolean;
@@ -57,10 +59,12 @@ async function revokeToken(id: string): Promise<void> {
 
 export function FamilySharingClient() {
   const qc = useQueryClient();
+  const { data: portfolios = [] } = usePortfolios();
   const [showCreate, setShowCreate] = useState(false);
   const [newToken, setNewToken] = useState<CreateTokenResponse | null>(null);
   const [form, setForm] = useState({
     viewer_label: "Family View",
+    portfolio_id: "",
     show_total_value: true,
     show_drift_status: true,
     show_allocation_pct: true,
@@ -165,6 +169,22 @@ export function FamilySharingClient() {
           </div>
 
           <div>
+            <label className="mb-1 block text-xs text-gray-500">Portfolio (optional)</label>
+            <select
+              value={form.portfolio_id}
+              onChange={(e) => setForm((f) => ({ ...f, portfolio_id: e.target.value }))}
+              className="w-full rounded border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white outline-none"
+            >
+              <option value="">All portfolios (combined)</option>
+              {portfolios.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <p className="mb-2 text-xs text-gray-500">What the viewer can see:</p>
             <div className="space-y-2">
               {SCOPE_OPTIONS.map(({ key, label }) => (
@@ -187,7 +207,12 @@ export function FamilySharingClient() {
 
           <button
             type="button"
-            onClick={() => create(form)}
+            onClick={() =>
+              create({
+                ...form,
+                ...(form.portfolio_id ? { portfolio_id: form.portfolio_id } : {}),
+              })
+            }
             disabled={!form.viewer_label.trim() || isCreating}
             className="rounded-lg bg-emerald-500 px-6 py-2 text-sm text-white hover:bg-emerald-400 disabled:opacity-50"
           >

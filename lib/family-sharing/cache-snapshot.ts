@@ -1,3 +1,4 @@
+import { toRecord } from "@/lib/supabase/typed";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   calculateAllocationWeights,
@@ -152,7 +153,7 @@ export async function cacheFamilyPortfolioSnapshot(
       .from("family_portfolio_snapshots")
       .insert({
         family_share_token_id: tokenId,
-        snapshot_data: tokenSnapshot as unknown as Record<string, unknown>,
+        snapshot_data: toRecord(tokenSnapshot),
         computed_at: now,
       });
 

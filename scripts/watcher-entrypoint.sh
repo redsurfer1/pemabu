@@ -26,5 +26,5 @@ until pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}"
   sleep 1
 done
 
-echo "[watcher-entrypoint] Postgres is ready; starting Watcher."
+echo "[watcher-entrypoint] Postgres is ready; starting Watcher (SIGTERM triggers graceful drain in process)."
 exec npx tsx services/watcher/index.ts

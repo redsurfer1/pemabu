@@ -1,8 +1,8 @@
 // lib/allocation/engine.ts
-// Core allocation calculation functions.
+// LEGACY — portfolio_holdings / asset_class-based allocation.
+// Active development is on lib/allocation/v3-engine.ts (sleeve_holdings model).
+// Keep this file for existing consumers; new code should target v3-engine.
 // Pure functions — no side effects, no DB calls.
-// All inputs and outputs are typed from
-// lib/types/database.ts
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Holding, AllocationWeight, AssetClass } from "@/lib/types/database";

@@ -88,7 +88,7 @@ export function factorWeightsToDbPayload(weights: FactorWeights): Record<string,
     factor_expense: weights.expense,
     factor_target_allocation: weights.pctWeight,
     factor_weighted_return: weights.weightedReturn,
-    factor_pct_weight: weights.weightedReturn,
+    factor_pct_weight: weights.pctWeight,
     factor_div_apy: weights.divApy,
     factor_volatility: weights.volatility,
     factor_thirteen_f: weights.thirteenF,
@@ -103,7 +103,7 @@ export function factorWeightsToDbPayload(weights: FactorWeights): Record<string,
 export function factorWeightsToLegacyDbPayload(weights: FactorWeights): Record<string, number> {
   return {
     factor_expense: weights.expense,
-    factor_pct_weight: weights.weightedReturn,
+    factor_pct_weight: weights.pctWeight,
     factor_div_apy: weights.divApy,
     factor_volatility: weights.volatility,
   };

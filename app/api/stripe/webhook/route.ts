@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { bodySizeGuard, STRIPE_WEBHOOK_MAX_BYTES } from "@/lib/api/body-limit";
 import { MARKETPLACE_UNLOCK_PRICE_CENTS, splitUnlockSale } from "@/lib/marketplace/unlock-pricing";
 import { creditTokensFromStripe } from "@/lib/marketplace/import-token-service";
 import { processReferralReward, resolveReferralCode } from "@/lib/marketplace/referral-service";
@@ -314,6 +315,9 @@ async function handleSubscriptionDeleted(
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export async function POST(req: Request): Promise<Response> {
+  const guard = bodySizeGuard(req, STRIPE_WEBHOOK_MAX_BYTES);
+  if (guard) return guard;
+
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   if (!secret) {
     console.error("STRIPE_WEBHOOK_SECRET not configured");

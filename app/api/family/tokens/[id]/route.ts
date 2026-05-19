@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 
 const ADDON = "addon_family_sharing";
 
 export const DELETE = withAuth(async (_req, user, context) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
   const params = await context.params;
   const raw = params.id;
@@ -16,7 +17,7 @@ export const DELETE = withAuth(async (_req, user, context) => {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await supabase
     .from("family_share_tokens")
     .update({
       is_active: false,

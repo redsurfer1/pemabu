@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
+import { toRecord } from "@/lib/supabase/typed";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchSnapshotProposals } from "@/lib/governance/snapshot-client";
 import { summariseProposal } from "@/lib/governance/governance-summariser";
@@ -125,7 +126,7 @@ export const GET = withAuth(async (_req, user) => {
       )
       .in("id", ids);
     if (pErr) throw pErr;
-    proposalMap = new Map((props ?? []).map((p) => [String(p.id), p as Record<string, unknown>]));
+    proposalMap = new Map((props ?? []).map((p) => [String(p.id), toRecord(p)]));
   }
 
   const alerts = (alertRows ?? []).map((a) => ({

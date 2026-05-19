@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getVaultPool } from "@/lib/db";
 import { d, computeValueWeightedRsiFromHoldings } from "@/lib/portfolio/precision-money";
 import { portfolioNavUsd } from "@/lib/execution/guardrails";
+import { toRecordOrNull } from "@/lib/supabase/typed";
 import { portfolioNavUsdVault, isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
 
 const WINDOW_DAYS = 30;
@@ -99,7 +100,7 @@ function aggregateExecutionRows(
     if (ok) successCount += 1;
     else failureCount += 1;
     let venue = "unknown";
-    const n = r.notes as Record<string, unknown> | null;
+    const n = toRecordOrNull(r.notes);
     if (n && typeof n.exchange === "string") venue = String(n.exchange);
     else if (n && typeof n.exchange_name === "string") venue = String(n.exchange_name);
     if (!byVenue[venue]) byVenue[venue] = { success: 0, failure: 0 };

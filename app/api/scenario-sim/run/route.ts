@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/api/auth";
 import { AI_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { resolveEffectiveTier } from "@/lib/security/tier-guard";
+import { getBaseUrl } from "@/lib/app-url";
 import { checkAndIncrementSimUsage } from "@/lib/scenario-sim/usage";
 import { runSimulation } from "@/lib/scenario-sim/engine";
 
@@ -44,7 +45,7 @@ export const POST = withAuth(async (req, user) => {
     const cap = "cap" in check ? check.cap : 20;
 
     if (process.env.STRIPE_SECRET_KEY?.trim()) {
-      const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+      const baseUrl = getBaseUrl();
       const stripe = stripeClient();
       const session = await stripe.checkout.sessions.create({
         mode: "payment",

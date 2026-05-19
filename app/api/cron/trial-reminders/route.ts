@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { sendTrialExpiryReminders } from "@/lib/services/trial-reminder";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
+import { verifyCronRequest } from "@/lib/cron/verify";
 
 const handler = async (req: Request): Promise<Response> => {
-  const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim();
-  const expected = process.env.CRON_SECRET?.trim();
-
-  if (!expected || authHeader !== expected) {
+  if (!verifyCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -16,6 +16,7 @@ import { ShareCreatorProfileButton } from "@/components/marketplace/ShareCreator
 import { StrategyRatingStars } from "@/components/community/StrategyRatingStars";
 import { StrategyReviewSection } from "@/components/community/StrategyReviewSection";
 import { StrategyDiscussionSection } from "@/components/community/StrategyDiscussionSection";
+import { DataFetchBoundary } from "@/components/shared/DataFetchBoundary";
 
 type TeaserRow = {
   display_name: string;
@@ -31,6 +32,9 @@ type FullRow = TeaserRow & {
   publisher_pseudonym: string;
   creator_public_id: string | null;
   is_own_publisher?: boolean;
+  performance_consistency?: string;
+  performance_avg_drift_pct?: number | null;
+  performance_weeks_tracked?: number;
 };
 
 type Viewer = {
@@ -193,6 +197,7 @@ export default function MarketplacePage() {
   const showPrivate = viewer.isIntelligence;
 
   return (
+    <DataFetchBoundary title="Marketplace unavailable">
     <div className="text-gray-200">
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="font-serif text-2xl text-white">Strategy marketplace</h1>
@@ -251,6 +256,11 @@ export default function MarketplacePage() {
                           strategyId={(r as FullRow).id}
                           strategyName={r.display_name}
                           showPrivate={showPrivate}
+                          benchmarkSummary={{
+                            consistency: (r as FullRow).performance_consistency ?? "new",
+                            weeksTracked: (r as FullRow).performance_weeks_tracked ?? 0,
+                            avgDriftPct: (r as FullRow).performance_avg_drift_pct ?? null,
+                          }}
                         />
                       </td>
                       <td className="px-3 py-2 text-gray-500">{(r as FullRow).published_at.slice(0, 10)}</td>
@@ -452,5 +462,6 @@ export default function MarketplacePage() {
         </div>
       </div>
     </div>
+    </DataFetchBoundary>
   );
 }

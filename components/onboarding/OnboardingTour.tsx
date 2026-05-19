@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useOnboardingTour, type TourStep } from "@/hooks/useOnboardingTour";
 
 interface OnboardingTourProps {
@@ -7,21 +8,24 @@ interface OnboardingTourProps {
   autoStart?: boolean;
 }
 
-export function OnboardingTour({ steps, autoStart = true }: OnboardingTourProps) {
-  const { active, currentStep, current, total, completed, next, prev, skip, isLast, isFirst } =
+export function OnboardingTour({ steps, autoStart = false }: OnboardingTourProps) {
+  const { active, currentStep, current, total, completed, start, next, prev, skip, isLast, isFirst } =
     useOnboardingTour(steps);
 
-  if (!active && autoStart && completed) return null;
-  if (!active) return null;
-  if (!current) return null;
+  useEffect(() => {
+    if (autoStart && !completed) {
+      start();
+    }
+  }, [autoStart, completed, start]);
+
+  if (completed && !active) return null;
+  if (!active || !current) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-[999] bg-black/60" onClick={skip} />
+      <div className="fixed inset-0 z-[999] bg-black/60" onClick={skip} aria-hidden />
 
-      <div
-        className="fixed inset-0 z-[1000] flex items-center justify-center p-6 pointer-events-none"
-      >
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 pointer-events-none">
         <div
           className="pointer-events-auto w-full max-w-md rounded-xl border border-white/10 bg-[#0A1628] p-6 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
@@ -50,7 +54,7 @@ export function OnboardingTour({ steps, autoStart = true }: OnboardingTourProps)
               ))}
             </div>
             <div className="flex gap-2">
-              {!isFirst && (
+              {!isFirst ? (
                 <button
                   type="button"
                   onClick={prev}
@@ -58,7 +62,7 @@ export function OnboardingTour({ steps, autoStart = true }: OnboardingTourProps)
                 >
                   Back
                 </button>
-              )}
+              ) : null}
               {isLast ? (
                 <button
                   type="button"
@@ -87,34 +91,34 @@ export function OnboardingTour({ steps, autoStart = true }: OnboardingTourProps)
 export function useDashboardTourSteps(): TourStep[] {
   return [
     {
-      target: "",
+      target: "#dashboard-portfolios",
       title: "Welcome to Pemabu",
       description:
-        "Your portfolio intelligence platform. This quick tour will walk you through the key features to get you started.",
+        "Your portfolio intelligence platform. Select a portfolio here to work across holdings, signals, and services.",
     },
     {
-      target: "",
+      target: "#dashboard-holdings",
       title: "Add Holdings",
       description:
-        "Use the Holdings Builder to add your portfolio holdings. You can add tickers, quantities, and cost basis manually or import from a broker.",
+        "Use the Holdings Builder to add tickers, quantities, and cost basis — or import from a broker export.",
     },
     {
-      target: "",
+      target: "#dashboard-signals",
       title: "Monitor Signals",
       description:
-        "The Signal Feed shows real-time watcher signals — drift alerts, allocation changes, and market events that affect your portfolio.",
+        "The Signal Feed shows drift alerts, allocation changes, and watcher events for the selected portfolio.",
     },
     {
-      target: "",
+      target: "#dashboard-services-sidebar",
       title: "Explore Services",
       description:
-        "Access advanced features like Strategy Council memos, Macro Intelligence, DeFi tracking, Options overlays, and more from the services sidebar.",
+        "Open Strategy Council, Macro Intelligence, DeFi, Options, and the marketplace from the services sidebar.",
     },
     {
       target: "",
       title: "You're all set!",
       description:
-        "Start by creating or importing a portfolio. You can also click \"Create demo portfolio\" below to explore with sample data.",
+        "Publish strategies on the marketplace or run a scenario simulation when you're ready to go deeper.",
     },
   ];
 }

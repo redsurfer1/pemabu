@@ -41,55 +41,77 @@ export const GET = withAuth(async (request, user, _ctx) => {
   const dateKey = todayKey();
 
   const results: Record<string, Record<string, number>> = {};
+  const initialEntries: Array<[string, string, number]> = [];
 
   for (const ticker of tickers) {
     results[ticker] = {};
-
     if (ticker === "CASH") {
       for (const period of periods) {
-        if (period in PERIOD_BASIS) results[ticker]![period] = 1;
+        if (period in PERIOD_BASIS) {
+          results[ticker]![period] = 1;
+          initialEntries.push([ticker, period, 1]);
+        }
       }
-      continue;
     }
+  }
 
-    let md: Awaited<ReturnType<typeof fetchMarketDataWithFallback>> | null = null;
+  const allCacheKeys = tickers.flatMap((t) =>
+    t === "CASH" ? [] : periods.filter((p) => p in PERIOD_BASIS).map((p) => `hist:${t}:${p}:${dateKey}`),
+  );
 
+  const { data: cachedRows } =
+    allCacheKeys.length > 0
+      ? await supabase.from("price_cache").select("cache_key, price, fetched_at, ttl_seconds").in("cache_key", allCacheKeys)
+      : { data: [] };
+
+  const cacheMap = new Map((cachedRows ?? []).map((r) => [String(r.cache_key), r]));
+  const freshCacheKeys = new Set<string>();
+
+  for (const ticker of tickers) {
+    if (ticker === "CASH") continue;
     for (const period of periods) {
       if (!(period in PERIOD_BASIS)) continue;
-
-      const cacheKey = `hist:${ticker}:${period}:${dateKey}`;
-
-      const { data: cached } = await supabase
-        .from("price_cache")
-        .select("price, fetched_at, ttl_seconds")
-        .eq("cache_key", cacheKey)
-        .maybeSingle();
-
+      const ck = `hist:${ticker}:${period}:${dateKey}`;
+      const cached = cacheMap.get(ck);
       if (cached) {
         const fetchedAt = new Date(cached.fetched_at);
         const expiresAt = new Date(fetchedAt.getTime() + cached.ttl_seconds * 1000);
         if (expiresAt > today) {
           results[ticker]![period] = Number(cached.price);
-          continue;
+          freshCacheKeys.add(ck);
         }
       }
+    }
+  }
 
-      if (!md) {
-        try {
-          md = await fetchMarketDataWithFallback(normalizeTicker(ticker));
-        } catch {
-          md = null;
+  const needsFetch = tickers.filter((t) => t !== "CASH");
+  const fetchResults = await Promise.allSettled(
+    needsFetch.map(async (ticker) => {
+      const md = await fetchMarketDataWithFallback(normalizeTicker(ticker));
+      if (md.error) return { ticker, periods: [] as Array<{ period: PeriodKey; price: number }> };
+
+      const found: Array<{ period: PeriodKey; price: number }> = [];
+      for (const period of periods) {
+        if (!(period in PERIOD_BASIS)) continue;
+        if (freshCacheKeys.has(`hist:${ticker}:${period}:${dateKey}`)) continue;
+        const basisKey = PERIOD_BASIS[period];
+        const price = md[basisKey];
+        if (price > 0) {
+          found.push({ period, price });
+          await supabase.from("price_cache").upsert(
+            { cache_key: `hist:${ticker}:${period}:${dateKey}`, price, fetched_at: new Date().toISOString(), ttl_seconds: 86400 },
+            { onConflict: "cache_key" },
+          );
         }
       }
+      return { ticker, periods: found };
+    }),
+  );
 
-      const basisKey = PERIOD_BASIS[period];
-      const price = md && !md.error ? md[basisKey] : 0;
-      if (price > 0) {
-        results[ticker]![period] = price;
-        await supabase.from("price_cache").upsert(
-          { cache_key: cacheKey, price, fetched_at: new Date().toISOString(), ttl_seconds: 86400 },
-          { onConflict: "cache_key" },
-        );
+  for (const result of fetchResults) {
+    if (result.status === "fulfilled") {
+      for (const p of result.value.periods) {
+        results[result.value.ticker]![p.period] = p.price;
       }
     }
   }

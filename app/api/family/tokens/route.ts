@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { MUTATION_RATE_LIMIT, READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { getBaseUrl } from "@/lib/app-url";
 import { generateShareToken, hashShareToken, buildShareUrl } from "@/lib/family-sharing/token-service";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 
@@ -10,6 +11,7 @@ const ADDON = "addon_family_sharing";
 
 const CreateTokenSchema = z.object({
   viewer_label: z.string().min(1).max(60).optional(),
+  portfolio_id: z.string().uuid().optional(),
   show_total_value: z.boolean().optional(),
   show_drift_status: z.boolean().optional(),
   show_allocation_pct: z.boolean().optional(),
@@ -18,8 +20,9 @@ const CreateTokenSchema = z.object({
 
 export const GET = withAuth(async (_req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("family_share_tokens")
     .select(
       "id, viewer_label, show_total_value, show_drift_status, show_allocation_pct, show_sector_weights, is_active, created_at, last_accessed_at",
@@ -34,6 +37,7 @@ export const GET = withAuth(async (_req, user) => {
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
   let body: unknown;
   try {
@@ -56,12 +60,26 @@ export const POST = withAuth(async (req, user) => {
   const rawToken = generateShareToken();
   const tokenHash = hashShareToken(rawToken);
 
-  const { data, error } = await supabaseAdmin
+  let portfolioId: string | null = d.portfolio_id ?? null;
+  if (portfolioId) {
+    const { data: owned } = await supabase
+      .from("portfolios")
+      .select("id")
+      .eq("id", portfolioId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!owned) {
+      return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
+    }
+  }
+
+  const { data, error } = await supabase
     .from("family_share_tokens")
     .insert({
       owner_user_id: user.id,
       token_hash: tokenHash,
       viewer_label,
+      portfolio_id: portfolioId,
       show_total_value,
       show_drift_status,
       show_allocation_pct,
@@ -72,7 +90,7 @@ export const POST = withAuth(async (req, user) => {
 
   if (error) throw error;
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const base = getBaseUrl();
   const shareUrl = buildShareUrl(rawToken, base);
 
   return NextResponse.json({

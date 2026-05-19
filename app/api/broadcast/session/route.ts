@@ -3,6 +3,7 @@ import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getBaseUrl } from "@/lib/app-url";
 import { generateBroadcastToken, hashBroadcastToken } from "@/lib/broadcast/token-service";
 import { pingFlomismaWatcherUpdate } from "@/lib/execution/flomisma-signal";
 import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
@@ -67,7 +68,7 @@ export const POST = withAuth(async (req, user) => {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = getBaseUrl();
   return NextResponse.json({
     session,
     viewer_url: `${baseUrl}/broadcast/${raw}`,
@@ -124,7 +125,7 @@ export const GET = withAuth(async (_req, user) => {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = getBaseUrl();
   const sessions = (data ?? []).map((s) => ({
     ...s,
     viewer_url: `${baseUrl}/broadcast/${(s as { viewer_token: string }).viewer_token}`,

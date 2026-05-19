@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { z } from "zod";
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getBaseUrl } from "@/lib/app-url";
 import { PEMABU_SERVICES } from "@/lib/constants/services";
 
 // Per-event services are billed through separate flows, not subscription checkout.
@@ -143,7 +144,7 @@ export const POST = withAuth(async (req, user) => {
     );
   }
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = getBaseUrl();
   const unitAmount = Math.round(service.price_usd * 100);
 
   const productData = {

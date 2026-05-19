@@ -1,17 +1,35 @@
 # Watcher worker — isolated entrypoint (no Next.js server)
 # Outbound HTTPS: public chain RPC (Ethereum/Base/Arbitrum/Polygon/Solana), blockchain.info, Yahoo, Snapshot, Supabase.
-FROM node:20-bookworm-slim
+
+# ── deps stage ────────────────────────────────────────────
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci
+
+# ── runner stage ──────────────────────────────────────────
+FROM node:20-bookworm-slim AS runner
+WORKDIR /app
+RUN apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd --system --gid 1001 watcher && \
+    useradd --system --uid 1001 --gid watcher --no-log-init --create-home watcher
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY lib ./lib
 COPY services ./services
 COPY tsconfig.json ./
 COPY scripts/watcher-entrypoint.sh /usr/local/bin/watcher-entrypoint.sh
 COPY scripts/watcher-healthcheck.sh /usr/local/bin/watcher-healthcheck.sh
 RUN chmod +x /usr/local/bin/watcher-entrypoint.sh /usr/local/bin/watcher-healthcheck.sh
+
+USER watcher:watcher
+STOPSIGNAL SIGTERM
 ENV NODE_ENV=production
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD /usr/local/bin/watcher-healthcheck.sh
+
 ENTRYPOINT ["/usr/local/bin/watcher-entrypoint.sh"]

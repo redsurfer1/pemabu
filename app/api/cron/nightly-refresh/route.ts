@@ -10,15 +10,12 @@ import {
   type Quote as EngineQuote,
 } from "@/lib/allocation/engine";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
+import { getBaseUrl } from "@/lib/app-url";
+import { verifyCronRequest } from "@/lib/cron/verify";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Holding } from "@/lib/types/database";
 
 const PAGE_SIZE = 500;
-
-function verifyCronSecret(req: Request): boolean {
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
-}
 
 function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {
   const m = new Map<string, EngineQuote>();
@@ -52,7 +49,7 @@ async function loadAllHoldings(): Promise<Holding[]> {
 }
 
 const handler = async (req: Request) => {
-  if (!verifyCronSecret(req)) {
+  if (!verifyCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -160,7 +157,7 @@ const handler = async (req: Request) => {
             message:
               `${drift.asset_class} is ${drift.direction === "over" ? "above" : "below"} target by ` +
               `${Math.abs(drift.drift_pct).toFixed(1)}%`,
-            metadata: drift as unknown as Record<string, unknown>,
+            metadata: drift as Record<string, unknown>,
           })
           .select()
           .single();
@@ -198,7 +195,7 @@ const handler = async (req: Request) => {
 
     log.push(`Processed ${portfolioIds.length} portfolios`);
 
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+    const baseUrl = getBaseUrl();
     const edgeUrl = `${baseUrl}/functions/v1/refresh-portfolio-signals`;
     let engine_refresh: unknown = { error: "Edge Function unreachable" };
     try {

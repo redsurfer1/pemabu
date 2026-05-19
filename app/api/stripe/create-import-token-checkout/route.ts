@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
+import { getBaseUrl } from "@/lib/app-url";
 import { withAuth } from "@/lib/api/auth";
 
 const BundleSizeSchema = z.enum(["single", "five_pack", "twelve_pack"]);
@@ -50,7 +51,7 @@ export const POST = withAuth(async (req, user, _ctx) => {
     return NextResponse.json({ error: "Bundle pricing not configured. Contact support." }, { status: 503 });
   }
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = getBaseUrl();
   const referralCode = body.referralCode?.trim() ?? "";
 
   try {

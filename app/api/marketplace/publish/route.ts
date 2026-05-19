@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
 import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
+import { bodySizeGuard } from "@/lib/api/body-limit";
 import { createClient } from "@/lib/supabase/server";
 import { isLocalVaultExecutionPlane } from "@/lib/execution/vault-execution-plane";
 import { computeStrategyGrades } from "@/lib/marketplace/strategy-grade";
@@ -16,6 +17,9 @@ export const POST = withAuth(async (req, user, _ctx) => {
   const keys = await getActiveServiceKeysForUser(user.id);
   const tierBlock = requireIntelligenceTier(keys);
   if (tierBlock) return tierBlock;
+
+  const sizeGuard = bodySizeGuard(req);
+  if (sizeGuard) return sizeGuard;
 
   let body: {
     sleeveToken?: string;
