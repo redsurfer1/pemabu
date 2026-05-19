@@ -1,5 +1,5 @@
 # Next.js app — production image (standalone)
-FROM node:20-bookworm-slim AS base
+FROM node:26-bookworm-slim AS base
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
