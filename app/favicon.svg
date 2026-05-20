@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background glow ring -->
+  <circle cx="50" cy="50" r="36" fill="none" stroke="#10b981" stroke-width="18" stroke-opacity="0.06"/>
+  <!-- Emerald segment (38%) -->
+  <path d="M 16 50 A 34 34 0 0 1 72.8561 24.8286" fill="none" stroke="#10b981" stroke-width="9" stroke-linecap="butt"/>
+  <!-- Gold segment (28%) -->
+  <path d="M 74.1421 26.0593 A 34 34 0 0 1 70.613 77.0389" fill="none" stroke="#C9A84C" stroke-width="9" stroke-linecap="butt"/>
+  <!-- Blue segment (22%) -->
+  <path d="M 69.1697 78.0807 A 34 34 0 0 1 27.1439 75.1714" fill="none" stroke="#3B82F6" stroke-width="9" stroke-linecap="butt"/>
+  <!-- Gray segment (12%) -->
+  <path d="M 25.8579 73.9407 A 34 34 0 0 1 16.0466 51.7794" fill="none" stroke="#6B7280" stroke-width="9" stroke-linecap="butt"/>
+  <!-- Inner ring -->
+  <circle cx="50" cy="50" r="27" fill="none" stroke="#0A1628" stroke-width="3" stroke-opacity="0.5"/>
+  <!-- P letterform -->
+  <path d="M 44 62 L 44 38 C 60 36 62 50 44 50" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="butt"/>
+</svg>

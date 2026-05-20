@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "Pemabu",
   description:
     "Allocation intelligence — portfolio monitoring, drift detection, and scenario analysis.",
+  icons: {
+    icon: { url: "/favicon.svg", type: "image/svg+xml" },
+  },
 };
 
 export default function RootLayout({
