@@ -32,6 +32,14 @@ vi.mock("@/lib/portfolio/sovereign-score-pipeline", () => ({
   runSovereignScorePipeline: () => Promise.resolve(),
 }));
 
+// Rate limiter — uses supabaseAdmin which requires SUPABASE_SERVICE_ROLE_KEY.
+// Mock it so tests are not coupled to real Supabase credentials, and so that
+// failClosed: true on REFRESH_RATE_LIMIT doesn't cause a DB-error → 429 in tests.
+vi.mock("@/lib/security/rate-limiter", () => ({
+  checkRateLimit: () => Promise.resolve({ allowed: true }),
+  REFRESH_RATE_LIMIT: { maxCount: 10, windowSeconds: 3600, failClosed: true },
+}));
+
 import { POST } from "./[portfolioId]/refresh/route";
 
 type MockSetup = {
