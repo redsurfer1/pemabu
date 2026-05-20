@@ -18,11 +18,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pemabu",
+  title: {
+    default: "Pemabu — Allocation Intelligence for Modern Investors",
+    template: "%s — Pemabu",
+  },
   description:
-    "Allocation intelligence — portfolio monitoring, drift detection, and scenario analysis.",
+    "Real-time portfolio monitoring, allocation drift detection, and scenario analysis. Pemabu helps investors track holdings, identify drift, and make informed decisions.",
   icons: {
     icon: { url: "/favicon.svg", type: "image/svg+xml" },
+  },
+  alternates: {
+    canonical: "https://pemabu.com",
+  },
+  openGraph: {
+    title: "Pemabu — Allocation Intelligence for Modern Investors",
+    description:
+      "Real-time portfolio monitoring, allocation drift detection, and scenario analysis. Pemabu helps investors track holdings, identify drift, and make informed decisions.",
+    url: "https://pemabu.com",
+    siteName: "Pemabu",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pemabu — Allocation Intelligence for Modern Investors",
+    description:
+      "Real-time portfolio monitoring, allocation drift detection, and scenario analysis.",
   },
 };
 
@@ -37,6 +58,24 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Pemabu",
+              url: "https://pemabu.com",
+              description:
+                "Real-time portfolio monitoring, allocation drift detection, and scenario analysis.",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://pemabu.com/search?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
         <Providers>{children}</Providers>
       </body>
     </html>
