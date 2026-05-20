@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { toRecordOrNull } from "@/lib/supabase/typed";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,11 +47,12 @@ function fmtDate(iso: string): string {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export const GET = withAuth(async (req, user) => {
+  const supabase = await createClient();
   const url = new URL(req.url);
   const year = parseInt(url.searchParams.get("year") ?? String(new Date().getFullYear()));
 
   // Check Autonomous tier access
-  const { data: sub } = await supabaseAdmin
+  const { data: sub } = await supabase
     .from("user_subscriptions")
     .select("status")
     .eq("user_id", user.id)
@@ -77,7 +79,7 @@ export const GET = withAuth(async (req, user) => {
   // realized position reductions with cost basis data.
   // Columns available: ticker, quantity_before, quantity_after,
   //   cost_basis_before, cost_basis_after, created_at, notes (jsonb)
-  const { data: sellEvents, error: sellError } = await supabaseAdmin
+  const { data: sellEvents, error: sellError } = await supabase
     .from("holding_audit_log")
     .select(
       "id, ticker, quantity_before, quantity_after, cost_basis_before, cost_basis_after, created_at, notes",
@@ -96,7 +98,7 @@ export const GET = withAuth(async (req, user) => {
 
   const acquiredDateMap = new Map<string, string>();
   if (tickers.length > 0) {
-    const { data: addEvents } = await supabaseAdmin
+    const { data: addEvents } = await supabase
       .from("holding_audit_log")
       .select("ticker, created_at")
       .eq("user_id", user.id)
@@ -116,14 +118,14 @@ export const GET = withAuth(async (req, user) => {
   // For autonomous trades, daily_execution_logs stores notional_usd (proceeds).
   const proposalIds = (sellEvents ?? [])
     .map((e) => {
-      const n = e.notes as Record<string, unknown> | null;
+      const n = toRecordOrNull(e.notes);
       return n?.proposal_id ? String(n.proposal_id) : null;
     })
     .filter((id): id is string => id !== null);
 
   const proceedsMap = new Map<string, number>();
   if (proposalIds.length > 0) {
-    const { data: execLogs } = await supabaseAdmin
+    const { data: execLogs } = await supabase
       .from("daily_execution_logs")
       .select("proposal_id, notional_usd")
       .in("proposal_id", proposalIds);
@@ -146,7 +148,7 @@ export const GET = withAuth(async (req, user) => {
     const costBasis = parseFloat(Math.max(0, cbBefore - cbAfter).toFixed(2));
 
     // Proceeds from daily_execution_logs if this was an autonomous trade
-    const notes = ev.notes as Record<string, unknown> | null;
+    const notes = toRecordOrNull(ev.notes);
     const proposalId = notes?.proposal_id ? String(notes.proposal_id) : null;
     const proceeds = proposalId ? parseFloat((proceedsMap.get(proposalId) ?? 0).toFixed(2)) : 0;
     const proceedsVerified = proceeds > 0;

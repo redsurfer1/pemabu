@@ -16,7 +16,7 @@ import {
   calculateAllocationWeights,
   DEFAULT_TARGETS,
   type Quote,
-} from "@/lib/allocation/engine";
+} from "@/lib/allocation/asset-class-utils";
 
 // ── Portfolios ──────────────────────────────────────
 

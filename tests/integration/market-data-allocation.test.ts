@@ -11,7 +11,7 @@ import {
   detectDrift,
   DEFAULT_TARGETS,
   type Quote,
-} from "@/lib/allocation/engine";
+} from "@/lib/allocation/asset-class-utils";
 import type { AllocationWeight } from "@/lib/types/database";
 
 const makeHolding = (

@@ -13,7 +13,7 @@ import {
   calculateHoldingDrift,
   calculateHoldingWeights,
   type Quote,
-} from "@/lib/allocation/engine";
+} from "@/lib/allocation/asset-class-utils";
 import { PortfolioApiSettings } from "@/components/workbook/PortfolioApiSettings";
 import { ASSET_CLASSES } from "@/lib/constants/asset-classes";
 

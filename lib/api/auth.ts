@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/nextjs";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
 import type { RateLimitOptions } from "@/lib/security/rate-limiter";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { validateMutationOrigin } from "@/lib/security/origin";
 
 // ── Structured error class ────────────────────────────────────────────────────
 
@@ -78,11 +79,19 @@ export function withAuth(
     try {
       const user = await getAuthenticatedUser();
 
+      // Mutation methods (POST, PUT, PATCH, DELETE) require a valid origin.
+      const method = req.method;
+      if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
+        const originBlocked = validateMutationOrigin(req);
+        if (originBlocked) return originBlocked;
+      }
+
       if (rateLimit) {
         const rl = await checkRateLimit({
           key: rateLimit.keyTemplate.replace("{userId}", user.id),
           maxCount: rateLimit.maxCount,
           windowSeconds: rateLimit.windowSeconds,
+          failClosed: rateLimit.failClosed,
         });
         if (!rl.allowed) {
           return NextResponse.json(

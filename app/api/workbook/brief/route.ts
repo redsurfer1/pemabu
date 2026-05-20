@@ -4,12 +4,12 @@ import { withAuth } from "@/lib/api/auth";
 import { getPortfolio, getPortfolioHoldings, getPortfolioSignals } from "@/lib/services/portfolio";
 import { generatePortfolioBrief } from "@/lib/services/ai";
 import { getActiveProvider } from "@/lib/market-data";
-import { calculateAllocationWeights, calculatePortfolioValue, DEFAULT_TARGETS } from "@/lib/allocation/engine";
+import { calculateAllocationWeights, calculatePortfolioValue, DEFAULT_TARGETS } from "@/lib/allocation/asset-class-utils";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, BRIEF_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { z } from "zod";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
-import type { Quote as EngineQuote } from "@/lib/allocation/engine";
+import type { Quote as EngineQuote } from "@/lib/allocation/asset-class-utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const BRIEF_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours

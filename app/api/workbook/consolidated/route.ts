@@ -4,7 +4,7 @@ import { READ_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { getConsolidatedDashboard, getUserPortfolios, getPortfolioHoldings } from "@/lib/services/portfolio";
 import { getActiveProvider } from "@/lib/market-data";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
-import type { Quote as EngineQuote } from "@/lib/allocation/engine";
+import type { Quote as EngineQuote } from "@/lib/allocation/asset-class-utils";
 import { getActiveServiceKeysForUser } from "@/lib/services/user-entitlements";
 import { canUseExchangePriceSync } from "@/lib/entitlements/tier-capabilities";
 import { tierForbiddenResponse } from "@/lib/security/tier-guard";

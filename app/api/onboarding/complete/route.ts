@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
 const Schema = z.object({
@@ -15,7 +15,9 @@ export const POST = withAuth(async (req, user) => {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin
+  const supabase = await createClient();
+
+  const { error } = await supabase
     .from("user_profiles")
     .update({
       onboarding_completed: parsed.data.completed,

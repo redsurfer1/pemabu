@@ -34,6 +34,8 @@ export interface RateLimitOptions {
   maxCount: number;
   /** Rolling window size in seconds. */
   windowSeconds: number;
+  /** When true, DB errors deny the request instead of allowing it (mutation safety). */
+  failClosed?: boolean;
 }
 
 /**
@@ -42,11 +44,12 @@ export interface RateLimitOptions {
  * Returns `{ allowed: true }` if the request is within the limit.
  * Returns `{ allowed: false, retryAfterSeconds }` if the cap is exceeded.
  *
- * Failures in the rate-limit RPC are treated as *allowed* (fail-open) to
- * prevent a DB hiccup from blocking all requests.  The error is logged.
+ * Read endpoints default to fail-open (DB hiccup shouldn't block reads).
+ * Mutation endpoints MUST pass `failClosed: true` so a DB error denies the
+ * write rather than allowing unbounded requests.
  */
 export async function checkRateLimit(options: RateLimitOptions): Promise<RateLimitResult> {
-  const { key, maxCount, windowSeconds } = options;
+  const { key, maxCount, windowSeconds, failClosed = false } = options;
 
   let allowed: boolean;
 
@@ -58,15 +61,21 @@ export async function checkRateLimit(options: RateLimitOptions): Promise<RateLim
     });
 
     if (error) {
-      console.error("[rate-limiter] RPC error (fail-open):", error.message);
-      return { allowed: true }; // fail-open
+      console.error("[rate-limiter] RPC error:", error.message);
+      if (failClosed) {
+        return { allowed: false, retryAfterSeconds: windowSeconds };
+      }
+      return { allowed: true };
     }
 
     // The RPC returns a boolean scalar.
     allowed = data === true;
   } catch (err) {
-    console.error("[rate-limiter] Unexpected error (fail-open):", err);
-    return { allowed: true }; // fail-open
+    console.error("[rate-limiter] Unexpected error:", err);
+    if (failClosed) {
+      return { allowed: false, retryAfterSeconds: windowSeconds };
+    }
+    return { allowed: true };
   }
 
   if (!allowed) {
@@ -122,10 +131,11 @@ export const READ_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
   windowSeconds: 60,
 };
 
-/** 30 mutations per user per minute. */
+/** 30 mutations per user per minute. Fail-closed: DB errors deny the mutation. */
 export const MUTATION_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
   maxCount: 30,
   windowSeconds: 60,
+  failClosed: true,
 };
 
 /** 10 AI-powered requests per user per minute. */
@@ -134,8 +144,9 @@ export const AI_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
   windowSeconds: 60,
 };
 
-/** 5 sensitive operations per user per minute (credentials, vault config). */
+/** 5 sensitive operations per user per minute (credentials, vault config). Fail-closed. */
 export const SENSITIVE_RATE_LIMIT: Omit<RateLimitOptions, "key"> = {
   maxCount: 5,
   windowSeconds: 60,
+  failClosed: true,
 };

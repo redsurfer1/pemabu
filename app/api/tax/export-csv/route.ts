@@ -1,5 +1,6 @@
 import { withAuth } from "@/lib/api/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getBaseUrl } from "@/lib/app-url";
 import type { TaxLot, TaxSummary } from "@/app/api/tax/form-8949/route";
 
 // Returns a Form 8949 CSV file for download.
@@ -29,7 +30,7 @@ export const GET = withAuth(async (req, user) => {
   }
 
   // Fetch from the JSON endpoint by forwarding the same cookies
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const base = getBaseUrl();
   const dataRes = await fetch(`${base}/api/tax/form-8949?year=${year}`, {
     headers: { cookie: req.headers.get("cookie") ?? "" },
   });

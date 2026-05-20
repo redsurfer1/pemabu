@@ -29,6 +29,7 @@ interface HoldingForm {
 
 interface OnboardingWizardProps {
   onComplete: () => void;
+  initialStep?: number;
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -485,8 +486,8 @@ function StepRunEngine({
 
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
-export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const [step, setStep] = useState(1);
+export function OnboardingWizard({ onComplete, initialStep }: OnboardingWizardProps) {
+  const [step, setStep] = useState(() => Math.max(initialStep ?? 1, 1));
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
   const { markStep, dismissWizard } = useOnboarding();
 

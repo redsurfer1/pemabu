@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 // GET — check if user needs to see the wizard
 export const GET = withAuth(async (_req, user) => {
-  const { data, error } = await supabaseAdmin
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
     .from("user_profiles")
     .select("onboarding_completed, onboarding_step_reached")
     .eq("id", user.id)
@@ -13,7 +15,7 @@ export const GET = withAuth(async (_req, user) => {
   if (error) throw error;
 
   // Also check if user has any portfolios — if yes, skip wizard regardless of flag
-  const { count } = await supabaseAdmin
+  const { count } = await supabase
     .from("portfolios")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);

@@ -8,10 +8,11 @@ import {
   buildSnapshotData,
   DEFAULT_TARGETS,
   type Quote as EngineQuote,
-} from "@/lib/allocation/engine";
+} from "@/lib/allocation/asset-class-utils";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
 import { getBaseUrl } from "@/lib/app-url";
 import { verifyCronRequest } from "@/lib/cron/verify";
+import { toRecord } from "@/lib/supabase/typed";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Holding } from "@/lib/types/database";
 
@@ -157,7 +158,7 @@ const handler = async (req: Request) => {
             message:
               `${drift.asset_class} is ${drift.direction === "over" ? "above" : "below"} target by ` +
               `${Math.abs(drift.drift_pct).toFixed(1)}%`,
-            metadata: drift as Record<string, unknown>,
+            metadata: toRecord(drift),
           })
           .select()
           .single();

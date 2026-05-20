@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
@@ -25,27 +25,25 @@ const PositionSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
-async function assertPortfolioOwner(userId: string, portfolioId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
-    .from("portfolios")
-    .select("id")
-    .eq("id", portfolioId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  return Boolean(data);
-}
-
 export const GET = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
   const portfolioId = new URL(req.url).searchParams.get("portfolio_id");
   if (!portfolioId) return NextResponse.json({ error: "portfolio_id required" }, { status: 400 });
 
-  if (!(await assertPortfolioOwner(user.id, portfolioId))) {
+  const { data: portfolio } = await supabase
+    .from("portfolios")
+    .select("id")
+    .eq("id", portfolioId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!portfolio) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("options_positions")
     .select("*")
     .eq("user_id", user.id)
@@ -58,6 +56,7 @@ export const GET = withAuth(async (req, user) => {
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
   const body: unknown = await req.json();
   const parsed = PositionSchema.safeParse(body);
@@ -65,11 +64,18 @@ export const POST = withAuth(async (req, user) => {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  if (!(await assertPortfolioOwner(user.id, parsed.data.portfolio_id))) {
+  const { data: portfolio } = await supabase
+    .from("portfolios")
+    .select("id")
+    .eq("id", parsed.data.portfolio_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!portfolio) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("options_positions")
     .insert({ ...parsed.data, user_id: user.id })
     .select()

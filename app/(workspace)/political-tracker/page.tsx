@@ -27,7 +27,7 @@ export default async function PoliticalTrackerPage({
 
   const portfolioList = (portfolios ?? []) as Pick<Portfolio, "id" | "name">[];
 
-  const portfolioId = (sp as Record<string, string | undefined>).portfolio_id ?? portfolioList[0]?.id ?? null;
+  const portfolioId = sp.portfolio_id ?? portfolioList[0]?.id ?? null;
 
   return (
     <div className="min-h-screen bg-[#0A1628] px-4 py-8 sm:px-8">

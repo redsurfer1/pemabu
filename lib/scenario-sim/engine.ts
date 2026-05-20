@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveProvider } from "@/lib/market-data";
-import { DEFAULT_TARGETS, type AllocationTarget } from "@/lib/allocation/engine";
+import { DEFAULT_TARGETS, type AllocationTarget } from "@/lib/allocation/asset-class-utils";
 
 export interface SimInput {
   portfolioId: string;

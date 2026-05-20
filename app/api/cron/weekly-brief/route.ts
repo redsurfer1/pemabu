@@ -8,7 +8,7 @@ import {
   calculatePortfolioValue,
   DEFAULT_TARGETS,
   type Quote as EngineQuote,
-} from "@/lib/allocation/engine";
+} from "@/lib/allocation/asset-class-utils";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
 import { verifyCronRequest } from "@/lib/cron/verify";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";

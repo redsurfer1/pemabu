@@ -7,7 +7,7 @@ import {
   DEFAULT_TARGETS,
   DRIFT_THRESHOLD_PCT,
   type Quote,
-} from "@/lib/allocation/engine";
+} from "@/lib/allocation/asset-class-utils";
 import type { Holding } from "@/lib/types/database";
 
 export interface FamilySnapshotData {

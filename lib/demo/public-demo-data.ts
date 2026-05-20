@@ -1,5 +1,5 @@
 import type { AllocationWeight, AssetClass } from "@/lib/types/database";
-import { DEFAULT_TARGETS } from "@/lib/allocation/engine";
+import { DEFAULT_TARGETS } from "@/lib/allocation/asset-class-utils";
 
 /** Static demo allocation — illustrative drift vs default targets for marketing /demo. */
 export const PUBLIC_DEMO_ALLOCATION: AllocationWeight[] = DEFAULT_TARGETS.map((t) => {

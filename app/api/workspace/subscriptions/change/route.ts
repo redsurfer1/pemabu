@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth, AppError } from "@/lib/api/auth";
 import { MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getBaseUrl } from "@/lib/app-url";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -108,8 +109,8 @@ export const POST = withAuth(async (req, user) => {
       service_key: targetServiceKey,
       renewal_mode: "auto",
     },
-    success_url: `${req.url?.startsWith("http") ? new URL(req.url).origin : process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/dashboard?subscription=updated`,
-    cancel_url: `${req.url?.startsWith("http") ? new URL(req.url).origin : process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/upgrade?service=${targetServiceKey}`,
+    success_url: `${getBaseUrl()}/dashboard?subscription=updated`,
+    cancel_url: `${getBaseUrl()}/upgrade?service=${targetServiceKey}`,
   });
 
   return NextResponse.json({ url: session.url, sessionId: session.id });

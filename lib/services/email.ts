@@ -3,6 +3,7 @@
 // SERVER-ONLY: never import from client components.
 
 import { Resend } from "resend";
+import { getBaseUrl } from "@/lib/app-url";
 
 let _resend: Resend | null = null;
 function getResend(): Resend {
@@ -59,7 +60,7 @@ export async function sendWeeklyBrief(input: {
           margin:24px 0"/>
         <p style="color:#9ca3af;font-size:12px;margin:0">
           Pemabu · Private Beta ·
-          <a href="https://pemabu.com"
+          <a href="${getBaseUrl()}"
             style="color:#10b981">pemabu.com</a>
         </p>
       </div>

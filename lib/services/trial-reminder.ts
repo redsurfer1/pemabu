@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getBaseUrl } from "@/lib/app-url";
 import { Resend } from "resend";
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "noreply@pemabu.com";
@@ -97,7 +98,7 @@ export async function sendTrialExpiryReminders(): Promise<{
             portfolios, signals, and settings.
           </p>
         `}
-        <a href="https://pemabu.com/upgrade"
+        <a href="${getBaseUrl()}/upgrade"
            style="display:inline-block;background:#10b981;color:#fff;
                   padding:12px 24px;border-radius:8px;text-decoration:none;
                   font-size:14px;margin:16px 0">

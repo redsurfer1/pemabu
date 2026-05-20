@@ -111,6 +111,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/request-access", request.url));
   }
 
+  // Onboarding redirect — new users must complete the wizard before accessing
+  // the workspace. We skip API calls, auth pages, the onboarding page itself,
+  // and next.js internals to avoid overhead.
+  if (
+    user &&
+    request.method === "GET" &&
+    !pathname.startsWith("/onboarding") &&
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/auth/") &&
+    !pathname.startsWith("/_next/")
+  ) {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile && !profile.onboarding_completed) {
+      const redirectRes = NextResponse.redirect(new URL("/onboarding", request.url));
+      supabaseResponse.cookies.getAll().forEach((c) => {
+        redirectRes.cookies.set(c.name, c.value);
+      });
+      return redirectRes;
+    }
+  }
+
   return supabaseResponse;
 }
 

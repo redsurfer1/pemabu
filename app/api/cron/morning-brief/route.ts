@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generatePortfolioBrief } from "@/lib/services/ai";
 import { getActiveProvider } from "@/lib/market-data";
-import { calculateAllocationWeights, calculatePortfolioValue, DEFAULT_TARGETS } from "@/lib/allocation/engine";
+import { calculateAllocationWeights, calculatePortfolioValue, DEFAULT_TARGETS } from "@/lib/allocation/asset-class-utils";
 import { withCronSentry } from "@/lib/monitoring/cron-sentry";
 import { verifyCronRequest } from "@/lib/cron/verify";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
-import type { Quote as EngineQuote } from "@/lib/allocation/engine";
+import type { Quote as EngineQuote } from "@/lib/allocation/asset-class-utils";
 import type { Holding } from "@/lib/types/database";
 
 function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {

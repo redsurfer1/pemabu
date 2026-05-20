@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { KNOWN_SNAPSHOT_SPACES } from "@/lib/governance/snapshot-client";
@@ -16,8 +16,9 @@ const WatchSchema = z.object({
 
 export const GET = withAuth(async (_req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("governance_watch_list")
     .select("*")
     .eq("user_id", user.id)
@@ -30,6 +31,7 @@ export const GET = withAuth(async (_req, user) => {
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
   let body: unknown;
   try {
@@ -45,7 +47,7 @@ export const POST = withAuth(async (req, user) => {
   const spaceId =
     parsed.data.space_id ?? KNOWN_SNAPSHOT_SPACES[parsed.data.token_ticker] ?? null;
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("governance_watch_list")
     .upsert(
       {

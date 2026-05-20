@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { assertServiceAccess } from "@/lib/security/tier-guard";
 import { READ_RATE_LIMIT, MUTATION_RATE_LIMIT } from "@/lib/security/rate-limiter";
@@ -16,8 +16,9 @@ const WalletSchema = z.object({
 
 export const GET = withAuth(async (_req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("defi_wallets")
     .select("*")
     .eq("user_id", user.id)
@@ -29,6 +30,7 @@ export const GET = withAuth(async (_req, user) => {
 
 export const POST = withAuth(async (req, user) => {
   await assertServiceAccess(user.id, ADDON);
+  const supabase = await createClient();
 
   const body: unknown = await req.json();
   const parsed = WalletSchema.safeParse(body);
@@ -36,7 +38,7 @@ export const POST = withAuth(async (req, user) => {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("defi_wallets")
     .insert({ ...parsed.data, user_id: user.id })
     .select()
