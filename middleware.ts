@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { checkAccess } from "@/lib/access/checkAccess";
 import { LEGAL_ROUTES } from "@/lib/constants/compliance";
+import { ADMIN_FORBIDDEN_RESPONSE, isAdminUser } from "@/lib/auth/require-admin";
 
 /**
  * Public paths that do NOT require authentication.
@@ -82,9 +83,9 @@ export async function middleware(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const { data: profile } = await supabase.from("user_profiles").select("role").eq("id", user.id).single();
-    if (profile?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const isAdmin = await isAdminUser(user.id);
+    if (!isAdmin) {
+      return ADMIN_FORBIDDEN_RESPONSE;
     }
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-pemabu-admin", "true");
@@ -124,6 +125,7 @@ export async function middleware(request: NextRequest) {
  */
 export const config = {
   matcher: [
+    "/api/admin/:path*",
     "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)).*)",
   ],
 };

@@ -9,7 +9,7 @@ import { ImportEntitlementError } from "@/lib/marketplace/import-gate";
 import * as Sentry from "@sentry/nextjs";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
 import type { RateLimitOptions } from "@/lib/security/rate-limiter";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 // ── Structured error class ────────────────────────────────────────────────────
 
@@ -151,14 +151,9 @@ export function withAdminAuth(
   rateLimit?: Omit<RateLimitOptions, "key"> & { keyTemplate: string },
 ) {
   return withAuth(async (req, user, ctx) => {
-    const { data: profile } = await supabaseAdmin
-      .from("user_profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if ((profile as { role?: string } | null)?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const adminAuth = await requireAdmin(user);
+    if (!adminAuth.allowed) {
+      return adminAuth.response;
     }
 
     return handler(req, user, ctx);

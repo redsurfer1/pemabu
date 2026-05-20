@@ -1,8 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { isAdminUser } from "@/lib/auth/require-admin";
 
-/** Fallback admin check (not used by API routes when middleware gates /api/admin). */
+/** Server-side admin check against `user_profiles` via service role. */
 export async function verifyAdmin(userId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("user_profiles").select("role").eq("id", userId).single();
-  return data?.role === "admin";
+  return isAdminUser(userId);
 }
