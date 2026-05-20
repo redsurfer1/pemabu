@@ -48,6 +48,10 @@ export interface ComputedHolding {
   theme: Theme;
   qty: number;
   price: number;
+  /** True when the quote timestamp exceeds the staleness threshold. */
+  isPriceStale?: boolean;
+  /** ISO timestamp of the last price refresh (sleeve_holdings.updated_at). */
+  priceAsOf?: string | null;
   value: number;
   expenseRatio: number;
   divDollar: number;

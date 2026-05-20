@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { withAuth } from "@/lib/api/auth";
 import { getPortfolio, getPortfolioHoldings, getPortfolioSignals } from "@/lib/services/portfolio";
 import { generatePortfolioBrief } from "@/lib/services/ai";
@@ -9,12 +10,29 @@ import { checkRateLimit, BRIEF_RATE_LIMIT } from "@/lib/security/rate-limiter";
 import { z } from "zod";
 import type { Quote as MarketQuote } from "@/lib/market-data/types";
 import type { Quote as EngineQuote } from "@/lib/allocation/engine";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const BRIEF_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const BriefSchema = z.object({
   portfolioId: z.string().uuid(),
 });
+
+async function fetchLatestCachedBrief(
+  supabase: SupabaseClient,
+  portfolioId: string,
+  userId: string,
+): Promise<{ brief_text: string; generated_at: string } | null> {
+  const { data } = await supabase
+    .from("portfolio_briefs")
+    .select("brief_text, generated_at")
+    .eq("portfolio_id", portfolioId)
+    .eq("user_id", userId)
+    .order("generated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
 
 function toEngineQuotesMap(quotes: MarketQuote[]): Map<string, EngineQuote> {
   const m = new Map<string, EngineQuote>();
@@ -96,13 +114,11 @@ export const POST = withAuth(async (req, user, _ctx) => {
   const supabase = await createClient();
 
   // ── 24-hour cooldown check ──────────────────────────────────────────────────
-  const { data: lastBrief } = await supabase
-    .from("portfolio_briefs")
-    .select("generated_at, brief_text")
-    .eq("portfolio_id", parsed.data.portfolioId)
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const lastBrief = await fetchLatestCachedBrief(
+    supabase,
+    parsed.data.portfolioId,
+    user.id,
+  );
 
   if (lastBrief) {
     const ageMs = Date.now() - new Date(lastBrief.generated_at).getTime();
@@ -136,26 +152,57 @@ export const POST = withAuth(async (req, user, _ctx) => {
     limit: 5,
   });
 
-  const brief = await generatePortfolioBrief({
-    portfolioName: portfolio.name,
-    totalValue,
-    currency: portfolio.currency,
-    weights,
-    recentSignals,
-    userId: user.id,
-  });
+  let brief: string;
+  let cached = false;
+  let degraded = false;
 
-  // ── Persist to portfolio_briefs ─────────────────────────────────────────────
-  const { error: insertError } = await supabase.from("portfolio_briefs").insert({
-    portfolio_id: parsed.data.portfolioId,
-    user_id: user.id,
-    brief_text: brief,
-  });
+  try {
+    brief = await generatePortfolioBrief({
+      portfolioName: portfolio.name,
+      totalValue,
+      currency: portfolio.currency,
+      weights,
+      recentSignals,
+      userId: user.id,
+    });
+  } catch (err) {
+    Sentry.captureException(err, { tags: { feature: "portfolio_brief", fallback: "cache" } });
+    console.warn("Portfolio brief generation failed, using cached fallback:", err);
 
-  if (insertError) {
-    console.warn("portfolio_briefs insert failed:", insertError.message);
-    // Non-fatal: return brief even if persist fails
+    const fallback = await fetchLatestCachedBrief(supabase, parsed.data.portfolioId, user.id);
+    if (!fallback) {
+      return NextResponse.json(
+        {
+          error: "Brief generation is temporarily unavailable. Please try again later.",
+          code: "BRIEF_UNAVAILABLE",
+        },
+        { status: 503 },
+      );
+    }
+
+    brief = fallback.brief_text;
+    cached = true;
+    degraded = true;
   }
 
-  return NextResponse.json({ brief, cached: false });
+  if (!degraded) {
+    const { error: insertError } = await supabase.from("portfolio_briefs").insert({
+      portfolio_id: parsed.data.portfolioId,
+      user_id: user.id,
+      brief_text: brief,
+    });
+
+    if (insertError) {
+      console.warn("portfolio_briefs insert failed:", insertError.message);
+    }
+  }
+
+  return NextResponse.json({
+    brief,
+    cached,
+    degraded,
+    ...(degraded
+      ? { message: "AI brief unavailable. Showing your most recent saved brief." }
+      : {}),
+  });
 });

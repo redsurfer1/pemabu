@@ -10,6 +10,7 @@ import type { EngineAssumptions, SleevePurpose, ComputedHolding, HoldingInput } 
 import { DEFAULT_ENGINE_ASSUMPTIONS } from "@/types/allocation";
 import { computeMainSleeve, computeIncomeSleeve } from "@/lib/allocation/v3-engine";
 import type { IncomeHoldingInput } from "@/lib/allocation/v3-engine";
+import { isPriceStale } from "@/lib/market-data";
 
 interface PortfolioDashboardProps {
   portfolioId: string;
@@ -37,6 +38,19 @@ interface HoldingRow {
   expense_ratio: number;
   div_dollar: number;
   target_wt_pct: number;
+  updated_at: string;
+}
+
+function withPriceStaleness(
+  holding: ComputedHolding,
+  row: HoldingRow | undefined,
+): ComputedHolding {
+  const priceAsOf = row?.updated_at ?? null;
+  return {
+    ...holding,
+    priceAsOf,
+    isPriceStale: isPriceStale(priceAsOf),
+  };
 }
 
 export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDashboardProps) {
@@ -119,10 +133,15 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
         const result = computeMainSleeve(inputs, a);
         nav += result.totalValue;
 
+        const holdingsByTicker = new Map(holdings.map((h) => [h.ticker, h]));
+        const holdingsWithStaleness = result.holdings.map((h) =>
+          withPriceStaleness(h, holdingsByTicker.get(h.ticker)),
+        );
+
         const signalSummary = {
-          entry: result.holdings.filter((h) => h.trendSignal === "Consider Entry").length,
-          hold: result.holdings.filter((h) => h.trendSignal === "Hold").length,
-          exit: result.holdings.filter((h) => h.trendSignal === "Consider Exit").length,
+          entry: holdingsWithStaleness.filter((h) => h.trendSignal === "Consider Entry").length,
+          hold: holdingsWithStaleness.filter((h) => h.trendSignal === "Hold").length,
+          exit: holdingsWithStaleness.filter((h) => h.trendSignal === "Consider Exit").length,
         };
 
         computedSleeves.push({
@@ -131,7 +150,7 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
           purpose: sleeve.purpose as SleevePurpose,
           budgetPct: Number(sleeve.budget_pct),
           sortOrder: sleeve.sort_order,
-          holdings: result.holdings,
+          holdings: holdingsWithStaleness,
           subtotalValue: result.totalValue,
           subtotalTargetPct: Number(sleeve.budget_pct),
           signalSummary,
@@ -149,29 +168,35 @@ export function PortfolioDashboard({ portfolioId, portfolioName }: PortfolioDash
         const sleeveValue = incomeResult.reduce((s, h) => s + h.value, 0);
         nav += sleeveValue;
 
-        const incomeHoldings: ComputedHolding[] = incomeResult.map((h) => ({
-          ticker: h.ticker,
-          name: h.name,
-          status: "Active" as const,
-          theme: "Dividend" as const,
-          qty: h.qty,
-          price: h.price,
-          value: h.value,
-          expenseRatio: 0,
-          divDollar: h.qty * h.price * h.divAPY,
-          divAPY: h.divAPY,
-          currentWtPct: h.currentWtPct,
-          targetWtPct: h.targetWtPct,
-          parityGapPct: 0,
-          parityDollarChg: h.parityDollarChg,
-          ret3mo: 0, ret6mo: 0, ret1yr: 0, ret3yr: 0, ret5yr: 0,
-          blendedReturn: 0, vol3mo: 0, sharpeProxy: 0,
-          prExpense: 0, prReturn: 0, prDivAPY: 0, prSharpe: 0,
-          compositeScore: 0, scoreRank: null, rawScoreWt: 0, equalWtBase: 0,
-          volCapFlag: "N/A" as const,
-          themeExposurePct: 0,
-          trendSignal: "Hold" as const,
-        }));
+        const holdingsByTicker = new Map(holdings.map((h) => [h.ticker, h]));
+        const incomeHoldings: ComputedHolding[] = incomeResult.map((h) =>
+          withPriceStaleness(
+            {
+              ticker: h.ticker,
+              name: h.name,
+              status: "Active" as const,
+              theme: "Dividend" as const,
+              qty: h.qty,
+              price: h.price,
+              value: h.value,
+              expenseRatio: 0,
+              divDollar: h.qty * h.price * h.divAPY,
+              divAPY: h.divAPY,
+              currentWtPct: h.currentWtPct,
+              targetWtPct: h.targetWtPct,
+              parityGapPct: 0,
+              parityDollarChg: h.parityDollarChg,
+              ret3mo: 0, ret6mo: 0, ret1yr: 0, ret3yr: 0, ret5yr: 0,
+              blendedReturn: 0, vol3mo: 0, sharpeProxy: 0,
+              prExpense: 0, prReturn: 0, prDivAPY: 0, prSharpe: 0,
+              compositeScore: 0, scoreRank: null, rawScoreWt: 0, equalWtBase: 0,
+              volCapFlag: "N/A" as const,
+              themeExposurePct: 0,
+              trendSignal: "Hold" as const,
+            },
+            holdingsByTicker.get(h.ticker),
+          ),
+        );
 
         computedSleeves.push({
           id: sleeve.id,

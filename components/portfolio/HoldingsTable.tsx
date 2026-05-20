@@ -38,6 +38,43 @@ function volCapBadge(flag: string) {
   return <span className="text-gray-500 text-[10px]">—</span>;
 }
 
+function formatPriceAsOf(asOf: string | null | undefined): string {
+  if (!asOf) return "Delayed";
+  const d = new Date(asOf);
+  if (Number.isNaN(d.getTime())) return "Delayed";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function StalePriceIndicator({ isPriceStale, priceAsOf }: { isPriceStale?: boolean; priceAsOf?: string | null }) {
+  if (!isPriceStale) return null;
+  const label = priceAsOf ? `As of ${formatPriceAsOf(priceAsOf)}` : "Delayed quote";
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] text-amber-400/80"
+      title="Quote may be delayed or stale"
+    >
+      <svg
+        className="h-3 w-3 shrink-0"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        aria-hidden
+      >
+        <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm.75 3.25a.75.75 0 0 0-1.5 0v4.19l-1.72 1.72a.75.75 0 1 0 1.06 1.06l2.25-2.25A.75.75 0 0 0 8.75 8.5V4.75Z" />
+      </svg>
+      {label}
+    </span>
+  );
+}
+
+function PriceCell({ price, isPriceStale, priceAsOf }: { price: number; isPriceStale?: boolean; priceAsOf?: string | null }) {
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span>{formatDollar(price)}</span>
+      <StalePriceIndicator isPriceStale={isPriceStale} priceAsOf={priceAsOf} />
+    </div>
+  );
+}
+
 export function HoldingsTable({ holdings, sleeveType, totalNAV: _totalNAV }: HoldingsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("compositeScore");
   const [sortAsc, setSortAsc] = useState(false);
@@ -122,7 +159,9 @@ export function HoldingsTable({ holdings, sleeveType, totalNAV: _totalNAV }: Hol
                 <td className={`${tdClass} font-mono text-white`}>{h.ticker}</td>
                 <td className={`${tdClass} text-gray-400`}>{h.name}</td>
                 <td className={`${tdClass} text-right text-white`}>{h.qty.toLocaleString()}</td>
-                <td className={`${tdClass} text-right text-white`}>{formatDollar(h.price)}</td>
+                <td className={`${tdClass} text-right text-white`}>
+                  <PriceCell price={h.price} isPriceStale={h.isPriceStale} priceAsOf={h.priceAsOf} />
+                </td>
                 <td className={`${tdClass} text-right text-white`}>{formatDollar(h.value)}</td>
                 <td className={`${tdClass} text-right text-emerald-400`}>{formatPct(h.divAPY)}</td>
                 <td className={`${tdClass} text-right text-gray-300`}>{formatPct(h.currentWtPct)}</td>
@@ -183,7 +222,9 @@ export function HoldingsTable({ holdings, sleeveType, totalNAV: _totalNAV }: Hol
                 <td className={`${tdClass} text-gray-400 max-w-[120px] truncate`}>{h.name}</td>
                 <td className={`${tdClass} text-gray-400`}>{h.theme}</td>
                 <td className={`${tdClass} text-right text-white`}>{h.qty.toLocaleString()}</td>
-                <td className={`${tdClass} text-right text-white`}>{formatDollar(h.price)}</td>
+                <td className={`${tdClass} text-right text-white`}>
+                  <PriceCell price={h.price} isPriceStale={h.isPriceStale} priceAsOf={h.priceAsOf} />
+                </td>
                 <td className={`${tdClass} text-right text-white`}>{formatDollar(h.value)}</td>
                 <td className={`${tdClass} text-right text-gray-300`}>{formatPct(h.expenseRatio)}</td>
                 <td className={`${tdClass} text-right text-emerald-400`}>{formatPct(h.divAPY)}</td>
