@@ -25,7 +25,9 @@ export const metadata: Metadata = {
   description:
     "Real-time portfolio monitoring, allocation drift detection, and scenario analysis. Pemabu helps investors track holdings, identify drift, and make informed decisions.",
   icons: {
-    icon: { url: "/favicon.svg", type: "image/svg+xml" },
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
   },
   alternates: {
     canonical: "https://pemabu.com",
